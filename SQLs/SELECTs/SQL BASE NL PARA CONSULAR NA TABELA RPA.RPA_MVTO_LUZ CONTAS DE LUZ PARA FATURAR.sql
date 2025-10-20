@@ -1,0 +1,62 @@
+
+SELECT COD_GRUPO, COD_UNIDADE, DTA_MOVIMENTO, MES_REF, DTA_VENCIMENTO, VLR_LANCAMENTO, NUM_NOTA, IND_APROVADO, IND_FATURADO, COD_CONFERENCIA, DATA_CONFERENCIA 
+FROM RPA.RPA_MVTO_LUZ
+WHERE MES_REF BETWEEN '03/2022' AND '04/2022'
+AND IND_APROVADO = 0 
+AND IND_FATURADO = 0
+AND COD_CONFERENCIA = 389622
+ORDER BY 1 ASC
+
+
+--=========================================================--
+--=========================================================--
+
+
+SELECT COD_GRUPO, COD_UNIDADE, DTA_MOVIMENTO, MES_REF, DTA_VENCIMENTO, VLR_LANCAMENTO, NUM_NOTA, IND_APROVADO, IND_FATURADO, COD_CONFERENCIA, DATA_CONFERENCIA
+FROM RPA.RPA_MVTO_LUZ
+WHERE MES_REF BETWEEN '03/2022' AND '04/2022'
+AND IND_APROVADO = 1 
+AND IND_FATURADO = 0
+ORDER BY 1 ASC 
+
+
+--========================================================--
+--========================================================--
+
+SELECT * FROM RPA.RPA_MVTO_LUZ
+WHERE MES_REF = '03/2022'
+
+--=========================================================--
+--=========================================================--
+
+
+SELECT COD_GRUPO, COD_UNIDADE, DTA_MOVIMENTO, MES_REF, DTA_VENCIMENTO, VLR_LANCAMENTO, NUM_NOTA, IND_APROVADO, IND_FATURADO, COD_CONFERENCIA, DATA_CONFERENCIA
+FROM RPA.RPA_MVTO_LUZ
+WHERE MES_REF BETWEEN '14/02/2022' AND '14/03/2022'
+AND IND_APROVADO = 1 
+AND IND_FATURADO = 0
+ORDER BY 1 ASC 
+
+
+--========================================================--
+--========================================================--
+
+SELECT SUM(VLR_LANCAMENTO) AS TOTAL 
+FROM RPA.RPA_MVTO_LUZ
+WHERE MES_REF BETWEEN '03/2022' AND '04/2022'
+AND IND_APROVADO = 1 
+AND IND_FATURADO = 1
+
+
+SELECT SUM(VLR_LANCAMENTO) AS TOTAL 
+FROM RPA.RPA_MVTO_LUZ
+WHERE MES_REF = '03/2022'
+AND IND_APROVADO = 1 
+AND IND_FATURADO = 0
+
+--========================================================--
+--========================================================--
+
+
+SELECT * FROM RPA_TESTE
+ORDER BY 1 ASC

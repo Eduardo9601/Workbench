@@ -1,0 +1,40 @@
+/*SCRIPT GERADOR DE SENHAS SEGURAS
+  PODENDO JÁ SER VINCULADO A UMA TABELA DE USUÁRIOS PARA JÁ ATRELAR A SENHA DIRETO A PESSOA QUE IRÁ UTILIZAR*/
+
+--==VERSÃO PARA A TABELA QUE DESEJA
+
+WITH RANDOM_CHARACTERS AS (
+    SELECT
+        DBMS_RANDOM.STRING('U', 1) AS UPPERCASE_CHAR,      -- 1 uppercase letter
+        DBMS_RANDOM.STRING('L', 1) AS LOWERCASE_CHAR,      -- 1 lowercase letter
+        CHR(TRUNC(DBMS_RANDOM.VALUE(48, 58))) AS DIGIT_CHAR, -- 1 digit (ASCII 48 to 57)
+        SUBSTR('!@#$%*&', TRUNC(DBMS_RANDOM.VALUE(1, 8)), 1) AS SPECIAL_CHAR1, -- 1 special character from specified set
+        SUBSTR('!@#$%*&', TRUNC(DBMS_RANDOM.VALUE(1, 8)), 1) AS SPECIAL_CHAR2, -- another special character from specified set
+        DBMS_RANDOM.STRING('A', 6) AS MIXED_CHARS          -- 5 random alphanumeric characters
+    FROM dual
+)
+SELECT
+    ID,
+    NOME,
+    UPPERCASE_CHAR || LOWERCASE_CHAR || DIGIT_CHAR || SPECIAL_CHAR1 || SPECIAL_CHAR2 || MIXED_CHARS AS SENHA_ALEATORIA
+FROM
+    SUA_TABELA,
+    RANDOM_CHARACTERS;
+
+--==VERSÃO DUAL PARA GERAR ALEATÓRIAMENTE
+
+WITH RANDOM_CHARACTERS AS (
+    SELECT
+        DBMS_RANDOM.STRING('U', 1) AS UPPERCASE_CHAR,      -- 1 uppercase letter
+        DBMS_RANDOM.STRING('L', 1) AS LOWERCASE_CHAR,      -- 1 lowercase letter
+        CHR(TRUNC(DBMS_RANDOM.VALUE(48, 58))) AS DIGIT_CHAR, -- 1 digit (ASCII 48 to 57)
+        SUBSTR('!@#$%*&', TRUNC(DBMS_RANDOM.VALUE(1, 8)), 1) AS SPECIAL_CHAR1, -- 1 special character from specified set
+        SUBSTR('!@#$%*&', TRUNC(DBMS_RANDOM.VALUE(1, 8)), 1) AS SPECIAL_CHAR2, -- another special character from specified set
+        DBMS_RANDOM.STRING('A', 6) AS MIXED_CHARS          -- 5 random alphanumeric characters
+    FROM dual
+)
+SELECT
+    UPPERCASE_CHAR || LOWERCASE_CHAR || DIGIT_CHAR || SPECIAL_CHAR1 || SPECIAL_CHAR2 || MIXED_CHARS AS SENHA_ALEATORIA
+FROM
+    DUAL,
+    RANDOM_CHARACTERS;

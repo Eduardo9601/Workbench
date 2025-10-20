@@ -1,0 +1,5 @@
+UPDATE RHES5003BA BA                                                                                                                                                                   
+SET COD_CONTRATO = (SELECT MAX(COD_CONTRATO) FROM RHES5003DE DE WHERE DE.COD_CONTRATO IS NOT NULL AND DE.COD_ROTINA = BA.COD_ROTINA AND DE.CPF_TRAB = BA.CPF_TRAB GROUP BY BA.CPF_TRAB)
+WHERE BA.COD_CONTRATO IS NULL                                                                                                                                                          
+  AND EXISTS (SELECT DISTINCT DE.COD_CONTRATO FROM RHES5003DE DE WHERE DE.COD_CONTRATO IS NOT NULL AND DE.COD_ROTINA = BA.COD_ROTINA AND DE.CPF_TRAB = BA.CPF_TRAB)                    
+                                                                                                                                                                                       

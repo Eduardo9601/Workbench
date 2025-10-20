@@ -1,0 +1,1155 @@
+/* ======================================================================================
+   ==== RELATÓRIO OFICIAL E FINAL DOS KPIs CONSOLIDADOS NO ANO PARA AVALIAÇÃO DA PLR ====
+   ====================================================================================== */
+--versão alternativa
+WITH
+
+/* Entrada do usuário (flexível) */
+INPUTS AS (
+  SELECT
+  /* ANO: 2025 ou '2025' ou NULL */
+   CASE
+     WHEN &ANO IS NULL OR TRIM(&ANO) = '' THEN
+      NULL
+     WHEN REGEXP_LIKE(&ANO, '^\d{4}$') THEN
+      TO_NUMBER(&ANO)
+     ELSE
+      NULL
+   END AS ANO_PARAM,
+   
+   /* ATE_MES: 8 / 08 / '08/2025' / '2025-08-31' / NULL  -> converte para mês (1..12) */
+   CASE
+     WHEN '&ATE_MES' IS NULL OR TRIM('&ATE_MES') = '' THEN
+      NULL
+     WHEN REGEXP_LIKE('&ATE_MES', '^\d{1,2}$') THEN
+      TO_NUMBER('&ATE_MES')
+     WHEN REGEXP_LIKE('&ATE_MES', '^\d{2}/\d{4}$') THEN
+      TO_NUMBER(SUBSTR('&ATE_MES', 1, 2))
+     WHEN REGEXP_LIKE('&ATE_MES', '^\d{4}-\d{2}-\d{2}$') THEN
+      EXTRACT(MONTH FROM TO_DATE('&ATE_MES', 'YYYY-MM-DD'))
+     ELSE
+      NULL
+   END AS MES_PARAM,
+   
+   /* Se ANO não vier, tenta pegar do ATE_MES no formato MM/YYYY ou data */
+   CASE
+     WHEN &ANO IS NOT NULL AND REGEXP_LIKE(&ANO, '^\d{4}$') THEN
+      TO_NUMBER(&ANO)
+     WHEN REGEXP_LIKE('&ATE_MES', '^\d{2}/\d{4}$') THEN
+      TO_NUMBER(SUBSTR('&ATE_MES', 4))
+     WHEN REGEXP_LIKE('&ATE_MES', '^\d{4}-\d{2}-\d{2}$') THEN
+      EXTRACT(YEAR FROM TO_DATE('&ATE_MES', 'YYYY-MM-DD'))
+     ELSE
+      NULL
+   END AS ANO_FROM_ATE
+    FROM dual
+),
+
+/* Ano escolhido dinamicamente */
+ANO_ESCOLHIDO AS (
+  SELECT COALESCE(i.ANO_PARAM,
+                  i.ANO_FROM_ATE,
+                  EXTRACT(YEAR FROM MAX(TRUNC(t.DTA_INI, 'MM')))) AS ANO
+    FROM INPUTS i
+    LEFT JOIN GRZ_KPI_AVALIACAO_PLR_TB t ON 1 = 1
+),
+
+/* Limites teóricos do ano (1/jan .. 31/dez) */
+FIM_ANO AS (
+  SELECT TO_DATE('01/01/' || a.ANO, 'DD/MM/YYYY') AS D_INI_ANO,
+         ADD_MONTHS(TO_DATE('01/01/' || a.ANO, 'DD/MM/YYYY'), 12) - 1 AS D_FIM_ANO,
+         a.ANO
+    FROM ANO_ESCOLHIDO a
+),
+
+/* Último mês realmente carregado no ano escolhido */
+MES_CARREGADO AS (
+  SELECT MAX(TRUNC(t.DTA_INI,'MM')) AS MAX_MES_ANO
+  FROM GRZ_KPI_AVALIACAO_PLR_TB t
+  CROSS JOIN FIM_ANO l
+  WHERE EXTRACT(YEAR FROM t.DTA_INI) = l.ANO
+),
+
+/* Parâmetros finais do período efetivo a considerar */
+PARAMS AS (
+  SELECT l.D_INI_ANO AS D_INI,
+         CASE
+           WHEN i.MES_PARAM BETWEEN 1 AND 12 THEN
+            LAST_DAY(ADD_MONTHS(l.D_INI_ANO, i.MES_PARAM - 1))
+           WHEN mc.MAX_MES_ANO IS NOT NULL THEN
+            LAST_DAY(mc.MAX_MES_ANO)
+           ELSE
+            l.D_FIM_ANO
+         END AS D_FIM
+    FROM FIM_ANO l
+   CROSS JOIN INPUTS i
+    LEFT JOIN MES_CARREGADO mc ON 1 = 1
+),
+
+/*WITH
+PARAMS AS (
+  SELECT DATE '2025-01-01' AS D_INI,  -- INÍCIO DO ANO
+         DATE '2025-12-31' AS D_FIM   -- FIM DO ANO
+    FROM DUAL
+),
+*/
+
+BASE AS (
+  SELECT T.*
+    FROM GRZ_KPI_AVALIACAO_PLR_TB T
+   CROSS JOIN PARAMS P
+   WHERE TRUNC(T.DTA_INI, 'MM') BETWEEN TRUNC(P.D_INI, 'MM') AND
+         TRUNC(P.D_FIM, 'MM')
+),
+
+/* >>> Período REAL encontrado na base (apenas informativo) <<< */
+PERIODO AS (
+  SELECT MIN(TRUNC(DTA_INI, 'MM')) AS MES_APUR_INI,
+         MAX(TRUNC(DTA_INI, 'MM')) AS MES_APUR_FIM
+    FROM BASE
+),
+
+
+/* ===========================================================================
+   ===== INICIO DA MONTAGEM E LÓGICA DOS CÁLCULOS PARA OS DADOS DOS KPIs =====
+   =========================================================================== */
+
+DADOS_KPIS AS (  -- 1 linha por unidade com todos os agregados do ano
+  SELECT COD_UNIDADE,
+         MIN(DES_UNIDADE) AS DES_UNIDADE,
+         MIN(REDE) AS REDE,
+         MIN(REGIAO) AS REGIAO,
+         
+         /* FLUXOS (SOMATÓRIO ANUAL) */
+         SUM(NVL(VLR_ORCADO_VENDAS, 0)) AS VLR_ORCADO_VENDAS_ANO,
+         SUM(NVL(VLR_REALIZADO, 0)) AS VLR_REALIZADO_ANO,
+         SUM(NVL(VLR_VENDA_LIQUIDA, 0)) AS VLR_VENDA_LIQUIDA_ANO,
+         SUM(NVL(VLR_LUCRO, 0)) AS VLR_LUCRO_ANO,
+         SUM(NVL(VLR_MARGEM_ORC, 0)) AS VLR_MARGEM_ORC_ANO,
+         SUM(NVL(VLR_MARGEM_REAL, 0)) AS VLR_MARGEM_REAL_ANO,
+         SUM(NVL(VLR_FALTA_INVENTARIO, 0)) AS VLR_FALTA_INVENTARIO_ANO,
+         SUM(NVL(VLR_CUSTO_FOLHA, 0)) AS VLR_CUSTO_FOLHA_ANO,
+         SUM(NVL(VLR_VENDA_LOJA, 0)) AS VLR_VENDA_LOJA_ANO,
+         SUM(NVL(VLR_VDA_DOMINGO, 0)) AS VLR_VDA_DOMINGO_ANO,
+         SUM(NVL(TOTAL_HRS, 0)) AS TOTAL_HRS_ANO,
+         SUM(NVL(ADMITIDOS, 0)) AS ADMITIDOS_ANO,
+         SUM(NVL(DEMITIDOS, 0)) AS DEMITIDOS_ANO,
+         
+         /* PREVENTIVA – MÉDIA MENSAL APENAS SOBRE MESES COM VALOR */
+         SUM(NVL(VLR_PREVENTIVA, 0)) AS VLR_PREVENTIVA_ANO,
+         COUNT(DISTINCT CASE
+                 WHEN NVL(VLR_PREVENTIVA, 0) > 0 THEN
+                  TRUNC(DTA_INI, 'MM')
+               END) AS MESES_PREV_POSITIVO,
+         
+         /* PERMANÊNCIA – insumos somados no ano (conforme sua regra) */
+         SUM(NVL(VLR_CUSTO_PERM, 0)) AS CUSTO_PERM_ANO,
+         SUM(NVL(VLR_ESTMEDIO_PERM, 0)) AS ESTMED_MEDIO_ANO,
+         
+         /* EFETIVOS – pega o 1º do período, o último do período e média mensal */
+         MAX(EFETIVO_INICIAL) KEEP(DENSE_RANK FIRST ORDER BY DTA_INI) AS EFETIVO_INICIAL_ANO,
+         MAX(EFETIVO_FINAL) KEEP(DENSE_RANK LAST ORDER BY DTA_FIM) AS EFETIVO_FINAL_ANO,
+         --(MAX(EFETIVO_INICIAL) + MAX(EFETIVO_FINAL) / 2) AS EFETIVO_MEDIO_ANO,
+         --( MAX(EFETIVO_INICIAL) + MAX(EFETIVO_FINAL) ) / 2 AS EFETIVO_MEDIO_ANO,
+         --SUM(NVL(EFETIVO_MEDIO, 0)) AS EFETIVO_MEDIO_ANO,
+         
+         /* APOIO */
+         COUNT(DISTINCT TRUNC(DTA_INI, 'MM')) AS MESES_COBERTOS
+    FROM BASE
+   GROUP BY COD_UNIDADE
+)
+
+SELECT DK.COD_UNIDADE,
+       DK.DES_UNIDADE,
+       DK.REDE,
+       DK.REGIAO,
+       /* >>> INFORMATIVO DO PERÍODO REAL DE APURAÇÃO (não afeta a lógica) <<< */
+       /*TRUNC(P.MES_APUR_INI, 'MM') AS DTA_APURACAO_INI,
+              LAST_DAY(P.MES_APUR_FIM) AS DTA_APURACAO_FIM,*/
+       
+       TO_CHAR(TRUNC(P.MES_APUR_INI, 'MM'), 'MM/YYYY') || ' - ' ||
+       TO_CHAR(P.MES_APUR_FIM, 'MM/YYYY') AS APURACAO,
+       DK.MESES_COBERTOS AS QTD_MESES,
+       
+       /* VALORES ANUAIS (FLUXOS) */
+       TO_CHAR(NVL(DK.VLR_ORCADO_VENDAS_ANO, 0), 'FM999G999G990D00') AS VLR_ORCADO_VENDAS,
+       TO_CHAR(NVL(DK.VLR_REALIZADO_ANO, 0), 'FM999G999G990D00') AS VLR_REALIZADO,
+       TO_CHAR(NVL(DK.VLR_VENDA_LIQUIDA_ANO, 0), 'FM999G999G990D00') AS VLR_VENDA_LIQUIDA,
+       TO_CHAR(NVL(DK.VLR_VDA_DOMINGO_ANO, 0), 'FM999G999G990D00') AS VLR_VDA_DOMINGO,
+       TO_CHAR(NVL(DK.VLR_LUCRO_ANO, 0), 'FM999G999G990D00') AS VLR_LUCRO,         
+ 
+       /* % CALCULADOS SOBRE TOTAIS DO ANO (NUNCA MÉDIA DE %) */
+       ROUND(100 * DK.VLR_MARGEM_REAL_ANO /
+             NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+             2) AS MARGEM,
+       ROUND(100 * DK.VLR_FALTA_INVENTARIO_ANO /
+             NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+             2) AS INVENTARIO,
+       ROUND(100 * DK.VLR_LUCRO_ANO / NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+             2) AS LUCRATIVIDADE,
+       ROUND(100 * DK.VLR_CUSTO_FOLHA_ANO /
+             NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+             2) AS FOLHA,
+       
+       /* PREVENTIVA ANUAL: MÉDIA MENSAL DOS MESES COM VALOR */
+       --DK.VLR_PREVENTIVA_ANO,
+       --DK.MESES_PREV_POSITIVO AS QTD_MESES_PREV,
+       CASE
+         WHEN DK.MESES_PREV_POSITIVO > 0 THEN
+          ROUND(DK.VLR_PREVENTIVA_ANO / DK.MESES_PREV_POSITIVO, 2)
+         ELSE
+          0
+       END AS PREVENTIVA,
+       
+       /* PERMANÊNCIA (DIAS) NO ANO — conforme sua fórmula */
+       CASE
+         WHEN DK.CUSTO_PERM_ANO = 0 OR DK.ESTMED_MEDIO_ANO IS NULL THEN
+          NULL
+         ELSE
+          ROUND(360 / (DK.CUSTO_PERM_ANO / (DK.ESTMED_MEDIO_ANO / 365.25)),
+                0)
+       END AS PERMANENCIA,
+       
+       /* PRODUTIVIDADE ANUAL = TOTAL VENDAS / TOTAL HORAS */
+       --DK.VLR_VENDA_LOJA_ANO AS VLR_VENDA_LOJA,       
+       --DK.TOTAL_HRS_ANO AS TOTAL_HRS,
+       TRUNC(DK.VLR_VENDA_LOJA_ANO / NULLIF(DK.TOTAL_HRS_ANO, 0)) AS PRODUTIVIDADE,
+       
+       /* EFETIVOS E TURNOVER */
+       --DK.EFETIVO_INICIAL_ANO,
+       --DK.EFETIVO_FINAL_ANO,
+       --ROUND((DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2, 2) AS EFETIVO_MEDIO,
+       
+       /* Turnover = Demitidos * 100 / Efetivo_Medio (mesma regra do mensal) */
+       ROUND(CASE
+               WHEN (DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2 = 0 THEN
+                0
+               ELSE
+                DK.DEMITIDOS_ANO * 100 /
+                ((DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2)
+             END,
+             2) AS TURNOVER,
+       
+       /* CONTROLES */
+       DK.ADMITIDOS_ANO AS ADMITIDOS,
+       DK.DEMITIDOS_ANO AS DEMITIDOS
+
+  FROM DADOS_KPIS DK
+ CROSS JOIN PERIODO P
+ WHERE DK.REGIAO <> 9999
+ ORDER BY DK.COD_UNIDADE;
+
+
+
+
+
+
+/*VERSÃO OFICIAL PARA USAR NA FOLHA - PDF*/
+
+/* ======================================================================================
+   ==== RELATÓRIO OFICIAL E FINAL DOS KPIs CONSOLIDADOS NO ANO PARA AVALIAÇÃO DA PLR ====
+   ====================================================================================== */
+
+/* ============================================================================
+   ==== SQL PARA GERAR RELATÓRIO  - NOVA VERSÃO - AVALIAÇÃO APR TRIMESTRAL ====
+   ============================================================================ */
+
+WITH
+
+/* ===== Base mensal filtrada (TRUNC por mês — mantém a lógica) ===== */
+BASE AS (
+ -- VERSÃO FOLHA
+  SELECT T.*
+  FROM GRZ_KPI_AVALIACAO_PLR_TB T
+  --CROSS JOIN PERIODO P
+  WHERE TRUNC(T.DTA_INI,'MM') BETWEEN :DATA_INICIO AND :DATA_FIM
+
+/*
+-- VERSÃO PL/SQL
+ SELECT T.*
+  FROM GRZ_KPI_AVALIACAO_PLR_TB T
+  --CROSS JOIN PERIODO P
+  WHERE TRUNC(T.DTA_INI,'MM') BETWEEN '&DTA_INI' AND '&DTA_FIM'
+*/
+),
+
+/* ===== Agregações por unidade (mesma regra do teu relatório) ===== */
+DADOS_KPIS AS (
+  SELECT
+    --COD_UNIDADE,
+    DECODE(COD_UNIDADE,
+              7022, 22,
+              7047, 47,
+              7065, 65,
+              7138, 138,
+              7140, 140,
+              7183, 183,
+              7244, 244,
+              7353, 353,
+              7386, 386,
+              7412, 412,
+              7430, 430,
+              7442, 442,
+              7461, 461,
+              7466, 466,
+              7491, 491,
+              7543, 543,
+              7555, 555,
+              7570, 570,
+              7577, 653,
+              7587, 587,
+              7588, 588,
+              7592, 592,
+              7597, 597,
+              7601, 601,
+              7602, 608,
+              7620, 620,
+              7500, 651,
+              7051, 652,
+              7066, 654,
+              COD_UNIDADE) COD_UNIDADE,
+    MIN(DES_UNIDADE) AS DES_UNIDADE,
+    MIN(REDE)  AS REDE,
+    MIN(REGIAO) AS REGIAO,
+    MIN(DTA_INI) AS REF_INI,
+    MAX(DTA_FIM) AS REF_FIM,
+
+    SUM(NVL(VLR_ORCADO_VENDAS,0))  AS VLR_ORCADO_VENDAS_ANO,
+    SUM(NVL(VLR_REALIZADO,0))      AS VLR_REALIZADO_ANO,
+    SUM(NVL(VLR_VENDA_LIQUIDA,0))  AS VLR_VENDA_LIQUIDA_ANO,
+    SUM(NVL(VLR_LUCRO,0))          AS VLR_LUCRO_ANO,
+    SUM(NVL(VLR_MARGEM_ORC,0))     AS VLR_MARGEM_ORC_ANO,
+    SUM(NVL(VLR_MARGEM_REAL,0))    AS VLR_MARGEM_REAL_ANO,
+    SUM(NVL(VLR_FALTA_INVENTARIO,0)) AS VLR_FALTA_INVENTARIO_ANO,
+    SUM(NVL(VLR_CUSTO_FOLHA,0))    AS VLR_CUSTO_FOLHA_ANO,
+    SUM(NVL(VLR_VENDA_LOJA,0))     AS VLR_VENDA_LOJA_ANO,
+    SUM(NVL(VLR_VDA_DOMINGO,0))    AS VLR_VDA_DOMINGO_ANO,
+    SUM(NVL(TOTAL_HRS,0))          AS TOTAL_HRS_ANO,
+    SUM(NVL(ADMITIDOS,0))          AS ADMITIDOS_ANO,
+    SUM(NVL(DEMITIDOS,0))          AS DEMITIDOS_ANO,
+
+    SUM(NVL(VLR_PREVENTIVA,0))     AS VLR_PREVENTIVA_ANO,
+    COUNT(DISTINCT CASE WHEN NVL(VLR_PREVENTIVA,0)>0 THEN TRUNC(DTA_INI,'MM') END) AS MESES_PREV_POSITIVO,
+
+    SUM(NVL(VLR_CUSTO_PERM,0))     AS CUSTO_PERM_ANO,
+    SUM(NVL(VLR_ESTMEDIO_PERM,0))  AS ESTMED_MEDIO_ANO,
+
+    MAX(EFETIVO_INICIAL) KEEP (DENSE_RANK FIRST ORDER BY DTA_INI) AS EFETIVO_INICIAL_ANO,
+    MAX(EFETIVO_FINAL)   KEEP (DENSE_RANK LAST  ORDER BY DTA_FIM) AS EFETIVO_FINAL_ANO,
+
+    COUNT(DISTINCT TRUNC(DTA_INI,'MM')) AS MESES_COBERTOS
+  FROM BASE
+  GROUP BY DECODE(COD_UNIDADE,
+              7022, 22,
+              7047, 47,
+              7065, 65,
+              7138, 138,
+              7140, 140,
+              7183, 183,
+              7244, 244,
+              7353, 353,
+              7386, 386,
+              7412, 412,
+              7430, 430,
+              7442, 442,
+              7461, 461,
+              7466, 466,
+              7491, 491,
+              7543, 543,
+              7555, 555,
+              7570, 570,
+              7577, 653,
+              7587, 587,
+              7588, 588,
+              7592, 592,
+              7597, 597,
+              7601, 601,
+              7602, 608,
+              7620, 620,
+              7500, 651,
+              7051, 652,
+              7066, 654,
+              COD_UNIDADE)
+),
+
+METAS_APR AS (
+SELECT
+      COD_REDE,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 1 THEN VALOR1 END), 0), 0) AS META_MARGEM,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 1 THEN QTD_PONTOS END), 0), 0) AS PONTOS_MARGEM,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 2 THEN VALOR1 END), 0), 0) AS META_PERMANENCIA_INI,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 2 THEN VALOR2 END), 0), 0) AS META_PERMANENCIA_FIM,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 2 THEN QTD_PONTOS END), 0), 0) AS PONTOS_PERM,
+      TO_CHAR(NVL(MAX(CASE WHEN COD_CALCULO = 4 THEN VALOR1 END), 0), 'FM999G999G990D00', 'NLS_NUMERIC_CHARACTERS='',.''') AS META_INVENTARIO,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 4 THEN QTD_PONTOS END), 0), 0) AS PONTOS_INVE,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 5 THEN VALOR1 END), 0), 0) AS META_PREVENTIVA,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 5 THEN QTD_PONTOS END), 0), 0) AS PONTOS_PREV
+FROM SISLOGWEB.GRZ_CAD_CALCULO_APR@NLGRZ
+WHERE DES_CALCULO LIKE '%2025'
+  AND COD_CALCULO IN (1,2,4,5)
+GROUP BY COD_REDE
+ORDER BY COD_REDE
+
+
+
+),
+
+/*
+COLUNAS BACKUPS
+
+TO_CHAR(NVL(DK.VLR_VENDA_LIQUIDA_ANO, 0), 'FM999G999G990D00') AS VLR_VENDA_LIQUIDA,
+TO_CHAR(NVL(DK.VLR_VDA_DOMINGO_ANO, 0), 'FM999G999G990D00') AS VLR_VDA_DOMINGO,
+TO_CHAR(NVL(DK.VLR_LUCRO_ANO, 0), 'FM999G999G990D00') AS VLR_LUCRO,
+NVL(ROUND(100 * DK.VLR_FALTA_INVENTARIO_ANO /
+         NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+         2),
+   0) AS INVENTARIO,
+NVL(ROUND(100 * DK.VLR_LUCRO_ANO /
+         NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+         2),
+   0) AS LUCRATIVIDADE,
+NVL(ROUND(100 * DK.VLR_CUSTO_FOLHA_ANO /
+         NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+         2),
+   0) AS FOLHA,
+NVL(TRUNC(NVL(DK.VLR_VENDA_LOJA_ANO, 0) /
+          NULLIF(DK.TOTAL_HRS_ANO, 0),
+          0),
+    0) AS PRODUTIVIDADE,
+ROUND(CASE
+ WHEN (DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2 = 0 THEN
+  0
+ ELSE
+  DK.DEMITIDOS_ANO * 100 /
+  ((DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2)
+END, 2) AS TURNOVER,
+DK.ADMITIDOS_ANO AS ADMITIDOS,
+DK.DEMITIDOS_ANO AS DEMITIDOS
+
+*/
+
+
+/* ============================ SQL FINAL ============================ */
+DADOS_FINAIS AS (
+SELECT DK.REGIAO,
+       DK.COD_UNIDADE,
+       DK.DES_UNIDADE,
+       DK.REDE,
+       TO_CHAR(TRUNC(DK.REF_INI, 'MM'), 'MM/YYYY') || ' a ' ||
+       TO_CHAR(DK.REF_FIM, 'MM/YYYY') AS APURACAO,
+       DK.MESES_COBERTOS AS QTD_MESES,
+
+       /*VENDAS*/
+       CASE
+           WHEN DK.VLR_REALIZADO_ANO > DK.VLR_ORCADO_VENDAS_ANO THEN
+            5
+           ELSE
+            0
+       END AS PTOS_VDA,
+       TO_CHAR(NVL(DK.VLR_ORCADO_VENDAS_ANO, 0), 'FM999G999G990D00') AS VLR_ORCADO_VENDAS,
+       TO_CHAR(NVL(DK.VLR_REALIZADO_ANO, 0), 'FM999G999G990D00') AS VLR_REALIZADO,
+       CASE
+           WHEN DK.VLR_REALIZADO_ANO > DK.VLR_ORCADO_VENDAS_ANO THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_VDA,
+
+       /*MARGEM*/
+       /*CASE
+           WHEN DK.VLR_MARGEM_REAL_ANO > DK.VLR_MARGEM_ORC_ANO THEN
+            M.PONTOS_MARGEM
+           ELSE
+            0
+       END AS PTOS_MARG,*/
+       M.PONTOS_MARGEM,
+       TO_CHAR(NVL(DK.VLR_MARGEM_ORC_ANO, 0), 'FM999G999G990D00') AS VLR_MARGEM_ORC,
+       TO_CHAR(NVL(DK.VLR_MARGEM_REAL_ANO, 0), 'FM999G999G990D00') AS VLR_MARGEM_REAL,
+       CASE
+           WHEN DK.VLR_MARGEM_REAL_ANO > DK.VLR_MARGEM_ORC_ANO THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_MARG_VLR,
+       M.META_MARGEM,
+       NVL(ROUND(100 * DK.VLR_MARGEM_REAL_ANO /
+                 NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+                 2),
+           0) AS MARGEM,
+
+       /*PERMANENCIA*/
+       M.PONTOS_PERM,
+       M.META_PERMANENCIA_INI,
+       M.META_PERMANENCIA_FIM,
+       NVL(CASE
+             WHEN DK.CUSTO_PERM_ANO = 0 OR DK.ESTMED_MEDIO_ANO IS NULL THEN
+              NULL
+             ELSE
+              ROUND(360 / (DK.CUSTO_PERM_ANO / (DK.ESTMED_MEDIO_ANO / 365.25)),
+                    0)
+           END,
+           0) AS PERMANENCIA,
+
+       /*PREVENTIVA*/
+       M.PONTOS_PREV,
+       M.META_PREVENTIVA,
+       CASE
+         WHEN DK.MESES_PREV_POSITIVO > 0 THEN
+          ROUND(DK.VLR_PREVENTIVA_ANO / DK.MESES_PREV_POSITIVO, 2)
+         ELSE
+          0
+       END AS PREVENTIVA
+
+  FROM DADOS_KPIS DK
+  LEFT JOIN METAS_APR M ON DK.REDE = M.COD_REDE
+--CROSS JOIN PERIODO P
+--WHERE DK.REGIAO = 9999
+ ORDER BY DK.COD_UNIDADE
+
+),
+
+VALORES_REGIAOES AS (
+SELECT DK1.REGIAO,
+       CASE
+           WHEN DK1.REGIAO = 8720 THEN
+            '8720 - REGIÃO XX'
+           WHEN DK1.REGIAO = 9999 THEN
+            'LOJAS FECHADAS'
+           ELSE
+            DK1.REGIAO || ' - ' || REG.DES_REGIAO
+       END AS DES_REGIAO,
+       CASE
+           WHEN DK1.REGIAO = 8720 THEN
+            'ELIANE DE FATIMA DA SILVEIRA CAVALHEIRO'
+           ELSE
+            REG.DES_REGIONAL
+       END AS DES_REGIONAL,
+       TO_CHAR(NVL(SUM(DK1.VLR_ORCADO_VENDAS_ANO), 0), 'FM999G999G990D00') AS ORC_VDA_REGIAO,
+       TO_CHAR(NVL(SUM(DK1.VLR_REALIZADO_ANO), 0), 'FM999G999G990D00') AS VDA_REAL_REGIAO,
+       TO_CHAR(NVL(SUM(DK1.VLR_MARGEM_ORC_ANO), 0), 'FM999G999G990D00') AS VLR_MARG_ORC_REGIAO,
+       TO_CHAR(NVL(SUM(DK1.VLR_MARGEM_REAL_ANO), 0), 'FM999G999G990D00') AS VLR_MARG_REAL_REGIAO
+FROM DADOS_KPIS DK1
+LEFT JOIN V_DADOS_REGIONAIS_AVT REG ON DK1.REGIAO = REG.REGIAO
+GROUP BY DK1.REGIAO, REG.DES_REGIAO, REG.DES_REGIONAL
+
+),
+
+
+SELECAO_FINAL AS (
+SELECT REGIAO,
+       COD_UNIDADE,
+       DES_UNIDADE,
+       REDE,
+       APURACAO,
+       QTD_MESES,
+
+       /*VENDA*/
+       PTOS_VDA,
+       VLR_ORCADO_VENDAS,
+       VLR_REALIZADO,
+       AVAL_VDA,
+       
+       /*MARGEM*/
+       VLR_MARGEM_ORC,
+       VLR_MARGEM_REAL,
+       AVAL_MARG_VLR,
+       META_MARGEM,
+       MARGEM,
+       CASE
+           WHEN MARGEM > META_MARGEM THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_MARG,
+       CASE
+           WHEN MARGEM > META_MARGEM THEN
+            PONTOS_MARGEM
+           ELSE
+            0
+       END AS PTOS_MARG,
+
+       /*PERMANENCIA*/
+       CASE
+           WHEN PERMANENCIA BETWEEN META_PERMANENCIA_INI AND META_PERMANENCIA_FIM THEN
+            PONTOS_PERM
+           ELSE
+            0
+       END AS PTOS_PERM,
+       META_PERMANENCIA_INI || ' a ' || META_PERMANENCIA_FIM AS META_PERMANECNIA,
+       PERMANENCIA,
+       CASE
+           WHEN PERMANENCIA BETWEEN META_PERMANENCIA_INI AND META_PERMANENCIA_FIM THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_PERM,
+
+       /*PREVENTIVA*/
+       META_PREVENTIVA,
+       PREVENTIVA,
+       CASE
+           WHEN PREVENTIVA < META_PREVENTIVA THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_PREV,
+       CASE
+           WHEN PREVENTIVA < META_PREVENTIVA THEN
+            PONTOS_PREV
+           ELSE
+            0
+       END AS PTOS_PREV
+FROM DADOS_FINAIS
+
+)
+
+SELECT A.REGIAO,
+       B.DES_REGIAO,
+       B.DES_REGIONAL,
+       A.COD_UNIDADE || ' - ' || A.DES_UNIDADE AS UNIDADE,
+       A.REDE,
+       A.APURACAO,
+       A.QTD_MESES,
+
+       A.VLR_ORCADO_VENDAS,
+       A.VLR_REALIZADO,
+       A.AVAL_VDA,
+       A.PTOS_VDA,
+
+       A.VLR_MARGEM_ORC,
+       A.VLR_MARGEM_REAL,
+       A.AVAL_MARG_VLR,
+       A.META_MARGEM,
+       A.MARGEM,
+       A.AVAL_MARG,
+       A.PTOS_MARG,
+
+       A.META_PERMANECNIA,
+       A.PERMANENCIA,
+       A.AVAL_PERM,
+       A.PTOS_PERM,
+
+       A.META_PREVENTIVA,
+       A.PREVENTIVA,
+       A.AVAL_PREV,
+       A.PTOS_PREV,
+
+       (A.PTOS_VDA + A.PTOS_MARG + A.PTOS_PERM + A.PTOS_PREV) AS POTUACAO_FINAL,
+       DECODE(
+              NVL(A.PTOS_VDA,0)
+              + NVL(A.PTOS_MARG,0)
+              + NVL(A.PTOS_PERM,0)
+              + NVL(A.PTOS_PREV,0),
+              4, 'OK', 'N') AS AVAL_FINAL,
+
+       B.ORC_VDA_REGIAO,
+       B.VDA_REAL_REGIAO,
+       B.VLR_MARG_ORC_REGIAO,
+       B.VLR_MARG_REAL_REGIAO,
+
+       'Referência: ' || A.APURACAO || ' | ' ||
+       'Região: ' ||
+                    CASE
+                        WHEN :REGIAO IS NOT NULL AND A.REGIAO = :REGIAO THEN TO_CHAR(A.REGIAO)
+                        ELSE 'TODAS'
+                    END
+                  || ' | Rede: ' ||
+                    CASE
+                        WHEN :REDE   IS NOT NULL AND A.REDE   = :REDE   THEN TO_CHAR(A.REDE)
+                        ELSE 'TODAS'
+                    END
+                  || ' | Unidade: ' ||
+                    CASE
+                        WHEN :UNIDADE IS NOT NULL AND A.COD_UNIDADE = :UNIDADE THEN TO_CHAR(A.COD_UNIDADE)
+                        ELSE 'TODAS'
+                    END AS PARAMETROS
+
+
+FROM SELECAO_FINAL A
+LEFT JOIN VALORES_REGIAOES B ON A.REGIAO = B.REGIAO
+WHERE (A.REGIAO = :REGIAO OR :REGIAO = 0)
+  AND (A.REDE = :REDE OR :REDE = 0)
+  AND (A.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
+ORDER BY A.REGIAO, A.COD_UNIDADE
+
+
+
+
+
+
+/* ===================================================================
+   VERSÃO FOLHA 2 EM EXCEL - AJUSTANDO NOVA LÓGICA DE DATAS => OFICIAL
+   =================================================================== */
+
+WITH
+
+/* ===== Base mensal filtrada (TRUNC por mês — mantém a lógica) ===== */
+BASE AS (
+ -- VERSÃO FOLHA
+  SELECT T.*
+    FROM GRZ_KPI_AVALIACAO_PLR_TB T
+  --CROSS JOIN PERIODO P
+   WHERE TRUNC(T.DTA_INI, 'MM') BETWEEN :DATA_INICIO AND :DATA_FIM
+
+
+-- VERSÃO PL/SQL
+ /*SELECT T.*
+  FROM GRZ_KPI_AVALIACAO_PLR_TB T
+  --CROSS JOIN PERIODO P
+  WHERE TRUNC(T.DTA_INI,'MM') BETWEEN '&DATA_INICIO' AND '&DATA_FIM'*/
+
+),
+
+/* ===== Agregações por unidade (mesma regra do teu relatório) ===== */
+DADOS_KPIS AS (
+  SELECT
+    --COD_UNIDADE,
+    DECODE(COD_UNIDADE,
+              7022, 22,
+              7047, 47,
+              7065, 65,
+              7138, 138,
+              7140, 140,
+              7183, 183,
+              7244, 244,
+              7353, 353,
+              7386, 386,
+              7412, 412,
+              7430, 430,
+              7442, 442,
+              7461, 461,
+              7466, 466,
+              7491, 491,
+              7543, 543,
+              7555, 555,
+              7570, 570,
+              7577, 653,
+              7587, 587,
+              7588, 588,
+              7592, 592,
+              7597, 597,
+              7601, 601,
+              7602, 608,
+              7620, 620,
+              7500, 651,
+              7051, 652,
+              7066, 654,
+              COD_UNIDADE) COD_UNIDADE,
+    MIN(DES_UNIDADE) AS DES_UNIDADE,
+    MIN(REDE)  AS REDE,
+    MIN(REGIAO) AS REGIAO,
+    MIN(DTA_INI) AS REF_INI,
+    MAX(DTA_FIM) AS REF_FIM,
+
+    SUM(NVL(VLR_ORCADO_VENDAS,0))  AS VLR_ORCADO_VENDAS_ANO,
+    SUM(NVL(VLR_REALIZADO,0))      AS VLR_REALIZADO_ANO,
+    SUM(NVL(VLR_VENDA_LIQUIDA,0))  AS VLR_VENDA_LIQUIDA_ANO,
+    SUM(NVL(VLR_LUCRO,0))          AS VLR_LUCRO_ANO,
+    SUM(NVL(VLR_MARGEM_ORC,0))     AS VLR_MARGEM_ORC_ANO,
+    SUM(NVL(VLR_MARGEM_REAL,0))    AS VLR_MARGEM_REAL_ANO,
+    SUM(NVL(VLR_FALTA_INVENTARIO,0)) AS VLR_FALTA_INVENTARIO_ANO,
+    SUM(NVL(VLR_CUSTO_FOLHA,0))    AS VLR_CUSTO_FOLHA_ANO,
+    SUM(NVL(VLR_VENDA_LOJA,0))     AS VLR_VENDA_LOJA_ANO,
+    SUM(NVL(VLR_VDA_DOMINGO,0))    AS VLR_VDA_DOMINGO_ANO,
+    SUM(NVL(TOTAL_HRS,0))          AS TOTAL_HRS_ANO,
+    SUM(NVL(ADMITIDOS,0))          AS ADMITIDOS_ANO,
+    SUM(NVL(DEMITIDOS,0))          AS DEMITIDOS_ANO,
+
+    SUM(NVL(VLR_PREVENTIVA,0))     AS VLR_PREVENTIVA_ANO,
+    COUNT(DISTINCT CASE WHEN NVL(VLR_PREVENTIVA,0)>0 THEN TRUNC(DTA_INI,'MM') END) AS MESES_PREV_POSITIVO,
+
+    SUM(NVL(VLR_CUSTO_PERM,0))     AS CUSTO_PERM_ANO,
+    SUM(NVL(VLR_ESTMEDIO_PERM,0))  AS ESTMED_MEDIO_ANO,
+
+    MAX(EFETIVO_INICIAL) KEEP (DENSE_RANK FIRST ORDER BY DTA_INI) AS EFETIVO_INICIAL_ANO,
+    MAX(EFETIVO_FINAL)   KEEP (DENSE_RANK LAST  ORDER BY DTA_FIM) AS EFETIVO_FINAL_ANO,
+
+    COUNT(DISTINCT TRUNC(DTA_INI,'MM')) AS MESES_COBERTOS
+  FROM BASE
+  GROUP BY DECODE(COD_UNIDADE,
+              7022, 22,
+              7047, 47,
+              7065, 65,
+              7138, 138,
+              7140, 140,
+              7183, 183,
+              7244, 244,
+              7353, 353,
+              7386, 386,
+              7412, 412,
+              7430, 430,
+              7442, 442,
+              7461, 461,
+              7466, 466,
+              7491, 491,
+              7543, 543,
+              7555, 555,
+              7570, 570,
+              7577, 653,
+              7587, 587,
+              7588, 588,
+              7592, 592,
+              7597, 597,
+              7601, 601,
+              7602, 608,
+              7620, 620,
+              7500, 651,
+              7051, 652,
+              7066, 654,
+              COD_UNIDADE)
+),
+
+METAS_APR AS (
+SELECT
+      COD_REDE,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 1 THEN VALOR1 END), 0), 0) AS META_MARGEM,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 1 THEN QTD_PONTOS END), 0), 0) AS PONTOS_MARGEM,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 2 THEN VALOR1 END), 0), 0) AS META_PERMANENCIA_INI,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 2 THEN VALOR2 END), 0), 0) AS META_PERMANENCIA_FIM,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 2 THEN QTD_PONTOS END), 0), 0) AS PONTOS_PERM,
+      TO_CHAR(NVL(MAX(CASE WHEN COD_CALCULO = 4 THEN VALOR1 END), 0), 'FM999G999G990D00', 'NLS_NUMERIC_CHARACTERS='',.''') AS META_INVENTARIO,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 4 THEN QTD_PONTOS END), 0), 0) AS PONTOS_INVE,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 5 THEN VALOR1 END), 0), 0) AS META_PREVENTIVA,
+      NVL(ROUND(MAX(CASE WHEN COD_CALCULO = 5 THEN QTD_PONTOS END), 0), 0) AS PONTOS_PREV
+FROM SISLOGWEB.GRZ_CAD_CALCULO_APR@NLGRZ
+WHERE DES_CALCULO LIKE '%2025'
+  AND COD_CALCULO IN (1,2,4,5)
+GROUP BY COD_REDE
+ORDER BY COD_REDE
+
+
+
+),
+
+/*
+COLUNAS BACKUPS
+
+TO_CHAR(NVL(DK.VLR_VENDA_LIQUIDA_ANO, 0), 'FM999G999G990D00') AS VLR_VENDA_LIQUIDA,
+TO_CHAR(NVL(DK.VLR_VDA_DOMINGO_ANO, 0), 'FM999G999G990D00') AS VLR_VDA_DOMINGO,
+TO_CHAR(NVL(DK.VLR_LUCRO_ANO, 0), 'FM999G999G990D00') AS VLR_LUCRO,
+NVL(ROUND(100 * DK.VLR_FALTA_INVENTARIO_ANO /
+         NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+         2),
+   0) AS INVENTARIO,
+NVL(ROUND(100 * DK.VLR_LUCRO_ANO /
+         NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+         2),
+   0) AS LUCRATIVIDADE,
+NVL(ROUND(100 * DK.VLR_CUSTO_FOLHA_ANO /
+         NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+         2),
+   0) AS FOLHA,
+NVL(TRUNC(NVL(DK.VLR_VENDA_LOJA_ANO, 0) /
+          NULLIF(DK.TOTAL_HRS_ANO, 0),
+          0),
+    0) AS PRODUTIVIDADE,
+ROUND(CASE
+ WHEN (DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2 = 0 THEN
+  0
+ ELSE
+  DK.DEMITIDOS_ANO * 100 /
+  ((DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2)
+END, 2) AS TURNOVER,
+DK.ADMITIDOS_ANO AS ADMITIDOS,
+DK.DEMITIDOS_ANO AS DEMITIDOS
+
+*/
+
+
+/* ============================ SQL FINAL ============================ */
+DADOS_FINAIS AS (
+SELECT DK.REGIAO,
+       DK.COD_UNIDADE,
+       DK.DES_UNIDADE,
+       DK.REDE,
+       TO_CHAR(TRUNC(DK.REF_INI, 'MM'), 'MM/YYYY') || ' a ' ||
+       TO_CHAR(DK.REF_FIM, 'MM/YYYY') AS APURACAO,
+       DK.MESES_COBERTOS AS QTD_MESES,
+
+       /*VENDAS*/
+       CASE
+           WHEN DK.VLR_REALIZADO_ANO > DK.VLR_ORCADO_VENDAS_ANO THEN
+            5
+           ELSE
+            0
+       END AS PTOS_VDA,
+       TO_CHAR(NVL(DK.VLR_ORCADO_VENDAS_ANO, 0), 'FM999G999G990D00') AS VLR_ORCADO_VENDAS,
+       TO_CHAR(NVL(DK.VLR_REALIZADO_ANO, 0), 'FM999G999G990D00') AS VLR_REALIZADO,
+       CASE
+           WHEN DK.VLR_REALIZADO_ANO > DK.VLR_ORCADO_VENDAS_ANO THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_VDA,
+
+       /*MARGEM*/
+       M.PONTOS_MARGEM,
+       TO_CHAR(NVL(DK.VLR_MARGEM_ORC_ANO, 0), 'FM999G999G990D00') AS VLR_MARGEM_ORC,
+       TO_CHAR(NVL(DK.VLR_MARGEM_REAL_ANO, 0), 'FM999G999G990D00') AS VLR_MARGEM_REAL,
+       CASE
+           WHEN DK.VLR_MARGEM_REAL_ANO > DK.VLR_MARGEM_ORC_ANO THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_MARG_VLR,
+       M.META_MARGEM,
+       NVL(ROUND(100 * DK.VLR_MARGEM_REAL_ANO /
+                 NULLIF(DK.VLR_VENDA_LIQUIDA_ANO, 0),
+                 2),
+           0) AS MARGEM,
+
+       /*PERMANENCIA*/
+       M.PONTOS_PERM,
+       M.META_PERMANENCIA_INI,
+       M.META_PERMANENCIA_FIM,
+       NVL(CASE
+             WHEN DK.CUSTO_PERM_ANO = 0 OR DK.ESTMED_MEDIO_ANO IS NULL THEN
+              NULL
+             ELSE
+              ROUND(360 / (DK.CUSTO_PERM_ANO / (DK.ESTMED_MEDIO_ANO / 365.25)),
+                    0)
+           END,
+           0) AS PERMANENCIA,
+
+       /*PREVENTIVA*/
+       M.PONTOS_PREV,
+       M.META_PREVENTIVA,
+       CASE
+         WHEN DK.MESES_PREV_POSITIVO > 0 THEN
+          ROUND(DK.VLR_PREVENTIVA_ANO / DK.MESES_PREV_POSITIVO, 2)
+         ELSE
+          0
+       END AS PREVENTIVA
+
+  FROM DADOS_KPIS DK
+  LEFT JOIN METAS_APR M ON DK.REDE = M.COD_REDE
+--CROSS JOIN PERIODO P
+--WHERE DK.REGIAO = 9999
+ ORDER BY DK.COD_UNIDADE
+
+),
+
+VALORES_REGIOES AS (
+SELECT DK1.REGIAO,
+       CASE
+           WHEN DK1.REGIAO = 8720 THEN
+            '8720 - REGIÃO XX'
+           WHEN DK1.REGIAO = 9999 THEN
+            'LOJAS FECHADAS'
+           ELSE
+            DK1.REGIAO || ' - ' || REG.DES_REGIAO
+       END AS DES_REGIAO,
+       CASE
+           WHEN DK1.REGIAO = 8720 THEN
+            'ELIANE DE FATIMA DA SILVEIRA CAVALHEIRO'
+           ELSE
+            REG.DES_REGIONAL
+       END AS DES_REGIONAL,
+       TO_CHAR(NVL(SUM(DK1.VLR_ORCADO_VENDAS_ANO), 0), 'FM999G999G990D00') AS ORC_VDA_REGIAO,
+       TO_CHAR(NVL(SUM(DK1.VLR_REALIZADO_ANO), 0), 'FM999G999G990D00') AS VDA_REAL_REGIAO,
+       TO_CHAR(NVL(SUM(DK1.VLR_MARGEM_ORC_ANO), 0), 'FM999G999G990D00') AS VLR_MARG_ORC_REGIAO,
+       TO_CHAR(NVL(SUM(DK1.VLR_MARGEM_REAL_ANO), 0), 'FM999G999G990D00') AS VLR_MARG_REAL_REGIAO
+FROM DADOS_KPIS DK1
+LEFT JOIN V_DADOS_REGIONAIS_AVT REG ON DK1.REGIAO = REG.REGIAO
+WHERE (DK1.REGIAO = :REGIAO OR :REGIAO = 0)
+GROUP BY DK1.REGIAO, REG.DES_REGIAO, REG.DES_REGIONAL
+
+),
+
+
+SELECAO_FINAL AS (
+SELECT REGIAO,
+       COD_UNIDADE,
+       DES_UNIDADE,
+       REDE,
+       APURACAO,
+       QTD_MESES,
+
+       VLR_ORCADO_VENDAS,
+       VLR_REALIZADO,
+       AVAL_VDA,
+       PTOS_VDA,
+
+       VLR_MARGEM_ORC,
+       VLR_MARGEM_REAL,
+       AVAL_MARG_VLR,
+       META_MARGEM,
+       MARGEM,
+       CASE
+           WHEN MARGEM > META_MARGEM THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_MARG,
+       CASE
+           WHEN MARGEM > META_MARGEM THEN
+            PONTOS_MARGEM
+           ELSE
+            0
+       END AS PTOS_MARG,
+
+       CASE
+           WHEN PERMANENCIA BETWEEN META_PERMANENCIA_INI AND META_PERMANENCIA_FIM THEN
+            PONTOS_PERM
+           ELSE
+            0
+       END AS PTOS_PERM,
+       META_PERMANENCIA_INI || ' a ' || META_PERMANENCIA_FIM AS META_PERMANECNIA,
+       PERMANENCIA,
+       CASE
+           WHEN PERMANENCIA BETWEEN META_PERMANENCIA_INI AND META_PERMANENCIA_FIM THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_PERM,
+
+       CASE
+           WHEN PREVENTIVA < META_PREVENTIVA THEN
+            PONTOS_PREV
+           ELSE
+            0
+       END AS PTOS_PREV,
+       META_PREVENTIVA,
+       PREVENTIVA,
+       CASE
+           WHEN PREVENTIVA < META_PREVENTIVA THEN
+            'OK'
+           ELSE
+            'N'
+       END AS AVAL_PREV
+FROM DADOS_FINAIS
+
+),
+FINAL_LAYOUT AS (
+  -- (A) DETALHE: linhas das unidades
+  SELECT
+    A.REGIAO,
+    A.COD_UNIDADE,
+    A.DES_UNIDADE,
+    A.REDE,
+    A.APURACAO,
+    A.QTD_MESES,
+
+    A.VLR_ORCADO_VENDAS,
+    A.VLR_REALIZADO,
+    A.AVAL_VDA,
+    A.PTOS_VDA,
+
+    A.VLR_MARGEM_ORC,
+    A.VLR_MARGEM_REAL,
+    A.META_MARGEM,
+    A.MARGEM,
+    A.AVAL_MARG,
+    A.PTOS_MARG,
+
+    A.META_PERMANECNIA,
+    A.PERMANENCIA,
+    A.AVAL_PERM,
+    A.PTOS_PERM,
+
+    A.META_PREVENTIVA,
+    A.PREVENTIVA,
+    A.AVAL_PREV,
+    A.PTOS_PREV,
+
+    (A.PTOS_VDA + A.PTOS_MARG + A.PTOS_PERM + A.PTOS_PREV) AS PONTUACAO_FINAL,
+    DECODE(NVL(A.PTOS_VDA,0)+NVL(A.PTOS_MARG,0)+NVL(A.PTOS_PERM,0)+NVL(A.PTOS_PREV,0),
+           4,'OK','N') AS AVAL_FINAL,
+
+    /* colunas de totais da região ficam nulas nas linhas de detalhe */
+    --CAST(NULL AS VARCHAR2(30)) AS ORC_VDA_REGIAO,
+    --CAST(NULL AS VARCHAR2(30)) AS VDA_REAL_REGIAO,
+    --CAST(NULL AS VARCHAR2(30)) AS VLR_MARG_ORC_REGIAO,
+    --CAST(NULL AS VARCHAR2(30)) AS VLR_MARG_REAL_REGIAO,
+
+    /* cabeçalho/parametros (igual ao seu) */
+    /*'Referência: ' || A.APURACAO || ' | ' ||
+    'Região: ' ||
+      CASE WHEN :REGIAO  IS NOT NULL AND A.REGIAO      = :REGIAO  THEN TO_CHAR(A.REGIAO)      ELSE 'TODAS' END ||
+    ' | Rede: ' ||
+      CASE WHEN :REDE    IS NOT NULL AND A.REDE        = :REDE    THEN TO_CHAR(A.REDE)        ELSE 'TODAS' END ||
+    ' | Unidade: ' ||
+      CASE WHEN :UNIDADE IS NOT NULL AND A.COD_UNIDADE = :UNIDADE THEN TO_CHAR(A.COD_UNIDADE) ELSE 'TODAS' END
+    AS PARAMETROS,*/
+
+    1 AS ORDEM
+  FROM SELECAO_FINAL A
+  WHERE (A.REGIAO = :REGIAO OR :REGIAO = 0)
+    AND (A.REDE   = :REDE   OR :REDE   = 0)
+    AND (A.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
+
+  UNION ALL
+
+  -- (B) RODAPÉ: "TOTAL DA REGIÃO"
+  SELECT V.REGIAO,
+         CAST(NULL AS NUMBER) AS COD_UNIDADE,
+         'TOTAL DA REGIÃO:  ' || V.DES_REGIAO AS DES_UNIDADE,
+         CAST(NULL AS NUMBER) AS REDE,
+         CAST(NULL AS VARCHAR2(30)) AS APURACAO,
+         CAST(NULL AS NUMBER) AS QTD_MESES,
+
+         /* detalhe vazio */
+         V.ORC_VDA_REGIAO AS VLR_ORCADO_VENDAS,
+         V.VDA_REAL_REGIAO AS VLR_REALIZADO,
+         CAST(NULL AS VARCHAR2(2)) AS AVAL_VDA,
+         CAST(NULL AS NUMBER) AS PTOS_VDA,
+
+         V.VLR_MARG_ORC_REGIAO AS VLR_MARGEM_ORC,
+         V.VLR_MARG_REAL_REGIAO AS VLR_MARGEM_REAL,
+         CAST(NULL AS NUMBER) AS META_MARGEM,
+         CAST(NULL AS NUMBER) AS MARGEM,
+         CAST(NULL AS VARCHAR2(2)) AS AVAL_MARG,
+         CAST(NULL AS NUMBER) AS PTOS_MARG,
+
+         CAST(NULL AS VARCHAR2(30)) AS META_PERMANECNIA,
+         CAST(NULL AS NUMBER) AS PERMANENCIA,
+         CAST(NULL AS VARCHAR2(2)) AS AVAL_PERM,
+         CAST(NULL AS NUMBER) AS PTOS_PERM,
+
+         CAST(NULL AS NUMBER) AS META_PREVENTIVA,
+         CAST(NULL AS NUMBER) AS PREVENTIVA,
+         CAST(NULL AS VARCHAR2(2)) AS AVAL_PREV,
+         CAST(NULL AS NUMBER) AS PTOS_PREV,
+
+         CAST(NULL AS NUMBER) AS PONTUACAO_FINAL,
+         CAST(NULL AS VARCHAR2(2)) AS AVAL_FINAL,
+
+         /* repete o cabeçalho */
+         /*'Referência: ' || (:DATA_INICIO || ' a ' || :DATA_FIM) || ' | Região: ' ||
+               NVL(TO_CHAR(:REGIAO),'TODAS') || ' | Rede: ' ||
+               NVL(TO_CHAR(:REDE),'TODAS')   || ' | Unidade: ' ||
+               NVL(TO_CHAR(:UNIDADE),'TODAS') AS PARAMETROS,*/
+
+         2 AS ORDEM
+    FROM VALORES_REGIOES V
+)
+SELECT REGIAO,
+       COD_UNIDADE,
+       DES_UNIDADE,
+       REDE,
+       APURACAO,
+       QTD_MESES,
+       VLR_ORCADO_VENDAS,
+       VLR_REALIZADO,
+       AVAL_VDA,
+       PTOS_VDA,
+       VLR_MARGEM_ORC,
+       VLR_MARGEM_REAL,
+       META_MARGEM,
+       MARGEM,
+       AVAL_MARG,
+       PTOS_MARG,
+       META_PERMANECNIA,
+       PERMANENCIA,
+       AVAL_PERM,
+       PTOS_PERM,
+       META_PREVENTIVA,
+       PREVENTIVA,
+       AVAL_PREV,
+       PTOS_PREV,
+       PONTUACAO_FINAL,
+       AVAL_FINAL
+       --PARAMETROS
+  FROM FINAL_LAYOUT
+ ORDER BY REGIAO, ORDEM, COD_UNIDADE
+

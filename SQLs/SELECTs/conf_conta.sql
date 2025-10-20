@@ -1,0 +1,8 @@
+UPDATE RHWW0010 SET VALOR = 'false' WHERE PARAM = 'emailAuth';
+UPDATE RHWW0010 SET VALOR = 'gztweb@dulino.com' WHERE PARAM = 'emailFrom';
+UPDATE RHWW0010 SET VALOR = 'PP!}vFLRW!gW' WHERE PARAM = 'emailPass';
+UPDATE RHWW0010 SET VALOR = 'mail.dulino.com' WHERE PARAM = 'emailSmtp';
+UPDATE RHWW0010 SET VALOR = '587' WHERE PARAM = 'emailSmtpPort';
+UPDATE RHWW0010 SET VALOR = 'false' WHERE PARAM = 'emailTLS';
+UPDATE RHWW0010 SET VALOR = 'gztweb@dulino.com' WHERE PARAM = 'emailUser';
+COMMIT;

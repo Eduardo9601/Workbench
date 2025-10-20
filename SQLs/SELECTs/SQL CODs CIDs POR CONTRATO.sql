@@ -1,0 +1,127 @@
+SELECT DISTINCT AF.COD_CONTRATO
+              , PSF.NOME_PESSOA AS NOME_FUNCIONARIO
+              , ORG1.COD_ORGANOGRAMA
+              , ORG2.NOME_ORGANOGRAMA
+              --, PSF.COD_UNIDADE AS FILIAL_ATUAL
+              , AF.COD_CAUSA_AFAST
+              , AF.DATA_INICIO
+              , AF.DATA_FIM
+              , AF.COD_CID_10
+FROM RHFP0306 AF, PESSOA PSF, RHFP0310 ORG1, RHFP0400 ORG2
+WHERE AF.COD_CID_10 IN ('B34.2', 'B34.9', '97.2', 'J0.19', 'J0.6', 'J0.69', 'J00'
+                      , 'J01', 'J02', 'J02.0', 'J11.0', 'J118', 'J45.9', 'J98'
+                      , 'J0.3', 'J11', 'R05', 'U07.2', 'U07.1', 'Z0.3', 'Z03.9'
+                      , 'Z20', 'Z20.9', 'Z29.8')
+AND AF.DATA_INICIO BETWEEN '01/11/2018' AND '07/11/2022'
+AND PSF.COD_PESSOA = AF.COD_PESSOA
+AND ORG1.COD_CONTRATO = AF.COD_CONTRATO
+AND ORG2.COD_ORGANOGRAMA = ORG1.COD_ORGANOGRAMA
+AND AF.COD_CAUSA_AFAST = 6
+
+===---====
+
+
+SELECT DISTINCT AF.COD_CONTRATO
+            , PSF.DES_PESSOA AS NOME_FUNCIONARIO
+            , PSF.COD_UNIDADE AS FILIAL_ATUAL
+            , PSF.COD_FUNCAO AS COD_CARGO
+            , PSF.DES_FUNCAO AS NOME_CARGO
+            , AF.COD_CAUSA_AFAST
+            , AF.DATA_INICIO
+            , AF.DATA_FIM
+            , AF.COD_CID_10
+            , PG.COD_VD
+            , PG.VALOR_VD
+FROM RHFP0306 AF , V_DADOS_PESSOA PSF, RHFP1006 PG
+WHERE AF.COD_CID_10 IN ('B34.2', 'B34.9', '97.2', 'J0.19', 'J0.6', 'J0.69', 'J00'
+                      , 'J01', 'J02', 'J02.0', 'J11.0', 'J118', 'J45.9', 'J98'
+                      , 'J0.3', 'J11', 'R05', 'U07.2', 'U07.1', 'Z0.3', 'Z03.9'
+                      , 'Z20', 'Z20.9', 'Z29.8')
+AND AF.DATA_INICIO BETWEEN '01/11/2018' AND '07/11/2022'
+AND PSF.COD_CONTRATO = AF.COD_CONTRATO
+AND AF.COD_CONTRATO = PG.COD_CONTRATO
+AND AF.COD_CAUSA_AFAST = 6
+AND PG.COD_VD = 910
+ORDER BY PG.COD_VD
+
+
+============================
+
+
+SELECT DISTINCT AF.COD_CONTRATO
+            , PSF.DES_PESSOA AS NOME_FUNCIONARIO
+            , PSF.COD_UNIDADE AS FILIAL_ATUAL
+            , PSF.COD_FUNCAO AS COD_CARGO
+            , PSF.DES_FUNCAO AS NOME_CARGO
+            , AF.COD_CAUSA_AFAST
+            , AF.DATA_INICIO
+            , AF.DATA_FIM
+            , AF.COD_CID_10
+            , PG.COD_VD
+            , PG.VALOR_VD
+FROM RHFP0306 AF , V_DADOS_PESSOA PSF, RHFP1006 PG
+WHERE AF.COD_CID_10 IN ('B34.2', 'B34.9', '97.2', 'J0.19', 'J0.6', 'J0.69', 'J00'
+                      , 'J01', 'J02', 'J02.0', 'J11.0', 'J118', 'J45.9', 'J98'
+                      , 'J0.3', 'J11', 'R05', 'U07.2', 'U07.1', 'Z0.3', 'Z03.9'
+                      , 'Z20', 'Z20.9', 'Z29.8')
+AND AF.DATA_INICIO BETWEEN '01/11/2018' AND '07/11/2022'
+AND PSF.COD_CONTRATO = AF.COD_CONTRATO
+AND AF.COD_CONTRATO = PG.COD_CONTRATO
+AND AF.COD_CAUSA_AFAST = 6
+AND PG.COD_VD = 910
+GROUP BY AF.COD_CONTRATO
+       , PSF.DES_PESSOA AS NOME_FUNCIONARIO
+       , PSF.COD_UNIDADE AS FILIAL_ATUAL
+       , PSF.COD_FUNCAO AS COD_CARGO
+       , PSF.DES_FUNCAO AS NOME_CARGO
+       , AF.COD_CAUSA_AFAST
+       , AF.DATA_INICIO
+       , AF.DATA_FIM
+       , AF.COD_CID_10
+       , PG.COD_VD
+       , PG.VALOR_VD
+ORDER BY PSF.COD_UNIDADE DESC
+
+
+======
+
+
+
+
+
+
+
+
+SELECT DISTINCT AF.COD_CONTRATO
+              , PSF.DES_PESSOA AS NOME_FUNCIONARIO
+              , PSF.COD_UNIDADE AS FILIAL_ATUAL
+              , PSF.COD_FUNCAO AS COD_CARGO
+              , PSF.DES_FUNCAO AS NOME_CARGO
+              , AF.COD_CAUSA_AFAST
+              , AF.DATA_INICIO
+              , AF.DATA_FIM
+              , AF.COD_CID_10
+              , PG.COD_VD
+              , PG.VALOR_VD
+FROM RHFP0306 AF , V_DADOS_PESSOA PSF, RHFP1006 PG
+WHERE AF.COD_CID_10 IN ('B34.2', 'B34.9', 'B97.2', 'J0.19', 'J0.6', 'J0.69', 'J00'
+                      , 'J01', 'J02', 'J02.0', 'J11.0', 'J118', 'J45.9', 'J98'
+                      , 'J0.3', 'J11', 'R05', 'U07.2', 'U07.1', 'Z0.3', 'Z03.9'
+                      , 'Z20', 'Z20.9', 'Z29.8')
+AND AF.DATA_INICIO BETWEEN '01/11/2018' AND '07/11/2022'
+AND PSF.COD_CONTRATO = AF.COD_CONTRATO
+AND PG.COD_CONTRATO = AF.COD_CONTRATO
+AND AF.COD_CAUSA_AFAST = 6
+AND PG.COD_VD = 910
+GROUP BY AF.COD_CONTRATO
+       , PSF.DES_PESSOA
+       , PSF.COD_UNIDADE
+       , PSF.COD_FUNCAO
+       , PSF.DES_FUNCAO
+       , AF.COD_CAUSA_AFAST
+       , AF.DATA_INICIO
+       , AF.DATA_FIM
+       , AF.COD_CID_10
+       , PG.COD_VD
+       , PG.VALOR_VD
+ORDER BY PSF.COD_UNIDADE ASC

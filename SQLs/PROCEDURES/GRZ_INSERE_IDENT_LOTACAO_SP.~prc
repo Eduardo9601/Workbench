@@ -1,0 +1,251 @@
+CREATE OR REPLACE PROCEDURE GRZ_INSERE_IDENT_LOTACAO_SP AS
+BEGIN
+  FOR REC IN (SELECT SS1.COD_LOTACAO,
+                     SS1.DATA_INICIO,
+                     SS1.DATA_FIM,
+                     CASE                       
+                       WHEN SS1.ORGANOGRAMA IS NULL THEN
+                        SS2.COD_ORGANOGRAMA
+                       ELSE
+                        SS1.ORGANOGRAMA
+                     END AS COD_ORGANOGRAMA,
+                     CASE
+                       WHEN SS1.NOME_LOTACAO LIKE '%APRENDIZ%' THEN
+                        NVL(SS4.COD_FUNCAO, 74) -- Usa o código da função existente ou insere 74 como padrão
+                       WHEN SS1.NOME_LOTACAO LIKE '%AUX. DE LOJA%' THEN
+                        206
+                       WHEN SS1.NOME_LOTACAO LIKE '%AUX. TEMP.%' THEN
+                        204
+                       WHEN SS1.NOME_LOTACAO LIKE '%VEND. MODA MASC.%' THEN
+                        120
+                       WHEN SS1.NOME_LOTACAO LIKE '%CAIXA GERAL%' THEN
+                        102
+                       WHEN SS1.NOME_LOTACAO LIKE '%SERVENTE%' THEN
+                        68
+                       WHEN SS1.NOME_LOTACAO LIKE '%ORIENT. DE VENDA%' AND
+                            SS2.DES_REDE_LOCAL = 'GRAZZIOTIN' THEN
+                        122
+                       WHEN SS1.NOME_LOTACAO LIKE '%ORIENT. DE VENDA%' AND
+                            SS2.DES_REDE_LOCAL = 'TOTTAL' THEN
+                        121
+                       WHEN SS1.NOME_LOTACAO LIKE '%ORIENT. DE VENDA%' AND
+                            SS2.DES_REDE_LOCAL = 'GZT STORE' THEN
+                        305
+                       WHEN SS1.NOME_LOTACAO LIKE '%GERENTE%' AND
+                            SS3.IND_RESP_UNI = 'S ' THEN
+                        SS3.COD_FUNCAO
+                       ELSE
+                        411
+                     END AS COD_CLH,
+                     SS1.COD_TURNO,
+                     CASE                       
+                       WHEN SS1.NOME_LOTACAO LIKE '%AUX. DE LOJA%' THEN
+                        SS2.NUM_AUXI_LOJA
+                       WHEN SS1.NOME_LOTACAO LIKE '%GERENTE%' AND
+                            SS1.NOME_LOTACAO NOT LIKE '%GERENTE ADJ%' THEN
+                        SS2.NUM_GERENTES
+                       WHEN SS1.NOME_LOTACAO LIKE '%GERENTE ADJ%' THEN
+                        SS2.NUM_GERENTE_ADJ
+                       WHEN SS1.NOME_LOTACAO LIKE '%APRENDIZ%' THEN
+                        SS2.NUM_APRENDIZ
+                       WHEN SS1.NOME_LOTACAO LIKE '%ORIENT. DE VENDA%' THEN
+                        SS2.NUM_ORIENT_VENDA
+                       WHEN SS1.NOME_LOTACAO LIKE '%VEND. MODA MASC.%' THEN
+                        SS2.NUM_VEND_MODA_MASC
+                       WHEN SS1.NOME_LOTACAO LIKE '%CAIXA GERAL%' THEN
+                        SS2.NUM_CAIXA_GERAL
+                       WHEN SS1.NOME_LOTACAO LIKE '%AUX. TEMP.%' THEN
+                        SS2.NUM_AUXI_TEMP
+                       ELSE
+                        SS1.NUM_VAGAS
+                     END AS NUM_VAGAS,
+                     CASE
+                       WHEN SS1.NOME_LOTACAO LIKE '%SERVENTE%' THEN
+                        SS2.HORAS_BASE_SERVENTE
+                       ELSE
+                        NULL
+                     END AS NUM_HORAS,
+                     SS1.COD_MOTIVO,
+                     SS1.OBSERVACOES,
+                     SS1.VLR_PREMIO,
+                     SS1.VLR_CESTA,
+                     SS1.COD_TIPO_VAGA
+                FROM (SELECT A.EDICAO_QL,
+                             A.COD_LOTACAO,
+                             A.NOME_LOTACAO,
+                             CASE
+                               WHEN B.DATA_INICIO IS NOT NULL THEN
+                                B.DATA_INICIO
+                               ELSE
+                                TO_DATE('01/10/2024', 'DD/MM/YYYY')
+                             END AS DATA_INICIO,
+                             CASE
+                               WHEN B.DATA_FIM IS NOT NULL THEN
+                                B.DATA_FIM
+                               ELSE
+                                TO_DATE('31/12/2999', 'DD/MM/YYYY')
+                             END AS DATA_FIM,
+                             CASE
+                               WHEN B.COD_ORGANOGRAMA IS NOT NULL THEN
+                                B.COD_ORGANOGRAMA
+                               ELSE
+                                NULL
+                             END AS ORGANOGRAMA,
+                             CASE
+                               WHEN B.COD_CLH IS NOT NULL THEN
+                                B.COD_CLH
+                               ELSE
+                                NULL
+                             END AS COD_CLH,
+                             B.COD_TURNO,
+                             CASE
+                               WHEN B.NUM_VAGAS IS NOT NULL THEN
+                                B.NUM_VAGAS
+                               ELSE
+                                NULL
+                             END AS NUM_VAGAS,
+                             CASE
+                               WHEN B.NUM_HORAS IS NOT NULL THEN
+                                B.NUM_HORAS
+                               ELSE
+                                NULL
+                             END AS NUM_HORAS,
+                             CASE
+                               WHEN B.COD_MOTIVO IS NOT NULL THEN
+                                B.COD_MOTIVO
+                               ELSE
+                                414
+                             END AS COD_MOTIVO,
+                             B.OBSERVACOES,
+                             B.VLR_PREMIO,
+                             B.VLR_CESTA,
+                             A.COD_TIPO_VAGA
+                        FROM RHFP0509 A
+                        LEFT JOIN RHFP0510 B ON A.COD_LOTACAO = B.COD_LOTACAO) SS1
+                LEFT JOIN (SELECT DISTINCT COD_UNIDADE,
+                                          DES_UNIDADE,
+                                          COD_ORGANOGRAMA,
+                                          COD_REDE_LOCAL,
+                                          DES_REDE_LOCAL,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_FUNCAO IN
+                                                       (77, 78, 79, 80, 81, 86, 87, 88, 89, 90, 184, 185, 186, 188, 189, 190, 192, 294, 318) THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_GERENTES,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_FUNCAO IN
+                                                       (121, 305, 122) THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_ORIENT_VENDA,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_FUNCAO = 206 THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_AUXI_LOJA,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_FUNCAO = 120 THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_VEND_MODA_MASC,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_FUNCAO = 102 THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_CAIXA_GERAL,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_FUNCAO IN (74, 75, 409) THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_APRENDIZ,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_FUNCAO = 204 THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_AUXI_TEMP,
+                                          COUNT(DISTINCT CASE
+                                                  WHEN COD_UNIDADE = '7093' AND
+                                                       DES_FUNCAO LIKE '%GERENTE%' THEN
+                                                   COD_CONTRATO
+                                                  ELSE
+                                                   NULL
+                                                END) AS NUM_GERENTE_ADJ,
+                                          MAX(CASE
+                                                WHEN COD_FUNCAO = 68 THEN
+                                                 HR_BASE_MES
+                                                ELSE
+                                                 NULL
+                                              END) AS HORAS_BASE_SERVENTE
+                            FROM V_DADOS_COLAB_AVT
+                           WHERE COD_EMP = 8
+                             AND STATUS = 0
+                             AND STATUS_AFAST IN
+                                 ('EM ATIVIDADE', 'AFASTADO TEMP',
+                                  'EM FÉRIAS')
+                             AND COD_TIPO = 1
+                             AND COD_FUNCAO IN
+                                 (68, 77, 78, 79, 80, 81, 86, 87, 88, 89, 90, 184, 185, 186, 188, 189, 190, 192, 294, 318, 121, 305, 122, 206, 120, 102, 204, 409, 74, 75)
+                           GROUP BY COD_UNIDADE,
+                                    DES_UNIDADE,
+                                    COD_ORGANOGRAMA,
+                                    COD_REDE_LOCAL,
+                                    DES_REDE_LOCAL
+                           ORDER BY COD_UNIDADE ASC) SS2 ON SS1.EDICAO_QL =
+                                                            SS2.COD_UNIDADE
+                LEFT JOIN (SELECT COD_UNIDADE, COD_FUNCAO, IND_RESP_UNI
+                            FROM V_DADOS_COLAB_AVT
+                           WHERE COD_EMP = 8
+                             AND STATUS = 0
+                             AND COD_TIPO = 1
+                             AND IND_RESP_UNI = 'S') SS3 ON SS1.EDICAO_QL =
+                                                            SS3.COD_UNIDADE
+                LEFT JOIN (SELECT DISTINCT COD_UNIDADE, COD_FUNCAO
+                            FROM V_DADOS_COLAB_AVT
+                           WHERE COD_EMP = 8
+                             AND STATUS = 0
+                             AND COD_TIPO = 1
+                             AND COD_FUNCAO IN (74, 75, 409)) SS4 ON SS1.EDICAO_QL =
+                                                                     SS4.COD_UNIDADE) LOOP
+    INSERT INTO RHFP0510
+      (COD_LOTACAO,
+       DATA_INICIO,
+       DATA_FIM,
+       COD_ORGANOGRAMA,
+       COD_CLH,
+       COD_TURNO,
+       NUM_VAGAS,
+       NUM_HORAS,
+       COD_MOTIVO,
+       OBSERVACOES,
+       VLR_PREMIO,
+       VLR_CESTA)
+    VALUES
+      (REC.COD_LOTACAO,
+       REC.DATA_INICIO,
+       REC.DATA_FIM,
+       REC.COD_ORGANOGRAMA,
+       REC.COD_CLH,
+       NULL,
+       REC.NUM_VAGAS,
+       REC.NUM_HORAS,
+       REC.COD_MOTIVO,
+       NULL,
+       NULL,
+       NULL);
+  END LOOP;
+
+  COMMIT;
+EXCEPTION
+  WHEN OTHERS THEN
+    ROLLBACK;
+    RAISE;
+END GRZ_INSERE_IDENT_LOTACAO_SP;
+/

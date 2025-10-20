@@ -1,0 +1,107 @@
+CREATE OR REPLACE PROCEDURE GRZ_ATUALIZA_REGIOES AS
+
+  /* INFORME 1 PARA SIM E 0 PARA NÃO */
+
+  --WATUALIZANL     NUMBER(2) := 1;
+  WATUALIZAFOLHA NUMBER(2) := 1;
+  --WATUALIZAVENDAS NUMBER(2) := 1;
+
+  /* CURSOR PRINCIPAL, BUSCA AS LOJAS DE CADA GRUPO*/
+  /* INFORME OS GRUPOS DE QUEBRAS ATUALIZADOS*/
+
+  CURSOR C1 IS
+    SELECT A.*
+      FROM NL.GE_GRUPOS_UNIDADES@NLGRZ A
+     WHERE A.COD_GRUPO IN
+           (8701, 8702, 8703, 8704, 8705, 8706, 8707, 8708, 8709, 8710, 8711, 8712, 8713, 8714, 8715, 8716, 8717, 8718, 8719, 8720, 8721, 8722, 8723) --essas 3 últimas é por precaução caso venham existir futuramente
+    -- AND A.COD_UNIDADE = 4
+     ORDER BY A.COD_UNIDADE;
+  R1 C1 %ROWTYPE;
+
+BEGIN
+  OPEN C1;
+  FETCH C1
+    INTO R1;
+  WHILE C1%FOUND LOOP
+  
+    IF WATUALIZAFOLHA = 1 THEN
+    
+      UPDATE PE0002
+         SET VALOR = R1.COD_GRUPO
+       WHERE COD_CAMPO = 1
+         AND COD_PESSOA =
+             (SELECT B.COD_PESSOA
+                FROM RHFP0401 A, RHFP0400 B
+               WHERE A.COD_ORGANOGRAMA = B.COD_ORGANOGRAMA
+                 AND A.COD_ORGANOGRAMA_SUB = 8
+                 AND A.EDICAO_ORG = R1.COD_UNIDADE);
+    END IF;
+  
+    FETCH C1
+      INTO R1;
+  END LOOP;
+  CLOSE C1;
+END GRZ_ATUALIZA_REGIOES;
+
+
+
+/*======== VERSÃO 2 COM INSERSÃO =============*/
+
+
+CREATE OR REPLACE PROCEDURE GRZ_ATUALIZA_REGIOES
+AS
+  /* 1 = sim / 0 = não */
+  W_ATUALIZA_FOLHA NUMBER(1) := 1;
+  W_INSERE_FOLHA   NUMBER(1) := 2;
+BEGIN
+  FOR rec IN (
+    SELECT cod_grupo,
+           cod_unidade
+      FROM NL.GE_GRUPOS_UNIDADES@NLGRZ
+     WHERE cod_grupo IN (8701,8702,8703,…,8723)
+     ORDER BY cod_unidade
+  ) LOOP
+
+    -- 1) UPDATE normal
+    IF W_ATUALIZA_FOLHA = 1 THEN
+      UPDATE PE0002 P
+         SET P.VALOR = rec.cod_grupo
+       WHERE P.COD_CAMPO = 1
+         AND P.COD_PESSOA = (
+           SELECT B.COD_PESSOA
+             FROM RHFP0401 A
+             JOIN RHFP0400 B
+               ON A.COD_ORGANOGRAMA = B.COD_ORGANOGRAMA
+            WHERE A.COD_ORGANOGRAMA_SUB = 8
+              AND A.EDICAO_ORG         = rec.cod_unidade
+              AND ROWNUM = 1
+         );
+    END IF;
+
+    -- 2) INSERT só se não existir
+    IF W_INSERE_FOLHA = 2 THEN
+      INSERT INTO PE0002 (COD_PESSOA, COD_CAMPO, VALOR)
+      SELECT B.COD_PESSOA,
+             1,
+             rec.cod_grupo
+        FROM RHFP0401 A
+        JOIN RHFP0400 B
+          ON A.COD_ORGANOGRAMA = B.COD_ORGANOGRAMA
+       WHERE A.COD_ORGANOGRAMA_SUB = 8
+         AND A.EDICAO_ORG         = rec.cod_unidade
+         AND NOT EXISTS (
+           SELECT 1
+             FROM PE0002 P
+            WHERE P.COD_PESSOA = B.COD_PESSOA
+              AND P.COD_CAMPO  = 1
+         );
+    END IF;
+
+  END LOOP;
+
+  COMMIT;
+EXCEPTION
+  WHEN OTHERS THEN
+    ROLLBACK;
+    RAISE;
+END GRZ_ATUALIZA_REGIOES;

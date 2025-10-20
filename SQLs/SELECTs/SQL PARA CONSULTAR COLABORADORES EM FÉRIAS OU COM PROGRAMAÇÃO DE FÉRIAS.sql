@@ -1,0 +1,41 @@
+--SQL PARA CONSULTAR COLABORADORES EM FÉRIAS OU COM PROGRAMAÇÃO DE FÉRIAS
+
+--=================================================--
+--=================================================--
+
+SELECT * FROM V_DADOS_PESSOA
+SELECT * FROM RHFP0327
+
+--=============================--
+
+--VERSAO 1
+
+SELECT A.COD_CONTRATO,
+       B.DES_PESSOA,
+       B.NOME_ORGANOGRAMA,
+       A.DIAS_FERIAS_CONCED,
+       A.DATA_FERIAS,
+       A.DATA_RETORNO
+  FROM RHFP0327 A, V_DADOS_PESSOA B
+ WHERE A.COD_CONTRATO = B.COD_CONTRATO
+   AND DATA_FERIAS BETWEEN '01/11/2024' AND '31/03/2025'
+   AND B.NOME_ORGANOGRAMA IN
+       ('INFRAESTRUTURA, SUPORTE E GESTÃO', 'TECNOLOGIA E INOVAÇÃO')
+ ORDER BY A.DATA_FERIAS ASC
+
+
+
+--VERSAO 2
+SELECT COD_CONTRATO,
+       DES_PESSOA,
+       DES_UNIDADE,
+       --DIAS_FERIAS_CONCED,
+       DATA_FERIAS,
+       DATA_RETORNO
+  FROM V_DADOS_COLAB_AVT
+ WHERE DATA_FERIAS BETWEEN '01/11/2024' AND '31/03/2025'
+   AND EDICAO_DIVISAO = '740'
+ ORDER BY DATA_FERIAS ASC
+
+--=================================================--
+--=================================================--

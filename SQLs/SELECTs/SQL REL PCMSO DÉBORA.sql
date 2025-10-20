@@ -1,0 +1,34 @@
+SELECT DISTINCT OP.COD_OPERADOR,
+                VDA.DES_PESSOA,
+                VDA.COD_FUNCAO,
+                VDA.DES_FUNCAO,
+                ORG.COD_ORGANOGRAMA,
+                VDA.COD_UNIDADE,
+                PER2.COD_PERFIL,
+                PER2.NOME_PERFIL
+  FROM OPERADOR       OP,
+       RHFP0300       CT,
+       RHFP0310       ORG,
+       V_DADOS_PESSOA VDA,
+       RHFP0500       CARG,
+       RHCS0290       PER1,
+       RHCS0230       PER2
+ WHERE CT.COD_FUNC = OP.COD_PESSOA
+   AND ORG.COD_CONTRATO = CT.COD_CONTRATO
+   AND VDA.COD_CONTRATO = CT.COD_CONTRATO
+   AND CARG.COD_CLH = VDA.COD_FUNCAO
+   AND PER1.COD_CLH = CARG.COD_CLH
+   AND PER1.COD_PERFIL = PER2.COD_PERFIL
+   AND OP.IND_INATIVO = 'N'
+   AND VDA.COD_GRUPO IN (1, 2, 3, 4, 7) -- SOMENTE LOJAS
+   AND OP.COD_PERFIL <> 1
+   AND VDA.COD_EMP = 8
+   AND ORG.DATA_FIM = '31/12/2999'
+   AND (VDA.DES_FUNCAO LIKE '%GERENTE%')
+   AND OP.COD_OPERADOR NOT IN ('F377119', 'F332852');
+    
+
+
+                                                                          
+
+SELECT * FROM V_DADOS_PESSOA

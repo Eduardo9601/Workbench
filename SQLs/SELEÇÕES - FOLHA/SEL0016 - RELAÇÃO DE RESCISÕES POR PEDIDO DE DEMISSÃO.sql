@@ -1,0 +1,86 @@
+WITH ContratosVD829 AS (
+    -- Bloco de contratos com VD 829
+    SELECT
+        A.COD_CONTRATO,
+        B.DES_PESSOA,
+        B.DES_UNIDADE,
+        B.DATA_ADMISSAO,
+        B.DATA_DEMISSAO,
+        E.DATA_AVISO_PREVIO,
+        B.COD_DEMISSAO,
+        B.DES_DEMISSAO,
+        E.DATA_RESCISAO,
+        E.DATA_PAGAMENTO,
+        C.DATA_REFERENCIA,
+        COUNT(A.COD_CONTRATO) OVER(PARTITION BY B.COD_UNIDADE) AS QTDE_UNID,  -- Contagem de contratos por unidade (VD 829)
+        COUNT(A.COD_CONTRATO) OVER() AS QTDE_CONTRATOS_829  -- Contagem geral de contratos com VD 829
+    FROM RHFP1006 A
+    INNER JOIN V_CONTRATOS_DEMITIDOS_AVT B ON A.COD_CONTRATO = B.COD_CONTRATO
+    INNER JOIN RHFP1003 C ON A.COD_MESTRE_EVENTO = C.COD_MESTRE_EVENTO
+    INNER JOIN RHFP1000 D ON A.COD_VD = D.COD_VD
+    INNER JOIN RHFP0350 E ON A.COD_CONTRATO = E.COD_CONTRATO
+    WHERE A.COD_VD = 829
+    AND C.COD_EVENTO = 17
+    AND B.COD_DEMISSAO = 21
+    AND C.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+    AND B.COD_EMP = '008'
+),
+ContratosVD1003 AS (
+    -- Bloco de contratos com VD 1003
+    SELECT
+        A.COD_CONTRATO,
+        B.DES_PESSOA,
+        B.DES_UNIDADE,
+        B.DATA_ADMISSAO,
+        B.DATA_DEMISSAO,
+        E.DATA_AVISO_PREVIO,
+        B.COD_DEMISSAO,
+        B.DES_DEMISSAO,
+        E.DATA_RESCISAO,
+        E.DATA_PAGAMENTO,
+        C.DATA_REFERENCIA,
+        COUNT(A.COD_CONTRATO) OVER(PARTITION BY B.COD_UNIDADE) AS QTDE_UNID,  -- Contagem de contratos por unidade (VD 1003)
+        COUNT(A.COD_CONTRATO) OVER() AS QTDE_CONTRATOS_1003  -- Contagem geral de contratos com VD 1003
+    FROM RHFP1006 A
+    INNER JOIN V_CONTRATOS_DEMITIDOS_AVT B ON A.COD_CONTRATO = B.COD_CONTRATO
+    INNER JOIN RHFP1003 C ON A.COD_MESTRE_EVENTO = C.COD_MESTRE_EVENTO
+    INNER JOIN RHFP1000 D ON A.COD_VD = D.COD_VD
+    INNER JOIN RHFP0350 E ON A.COD_CONTRATO = E.COD_CONTRATO
+    WHERE A.COD_VD = 1003
+    AND C.COD_EVENTO = 17
+    AND B.COD_DEMISSAO = 21
+    AND C.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+    AND B.COD_EMP = '008'
+)
+SELECT 2 AS PRIORIDADE,  -- Definindo prioridade para o bloco de VD 829
+       A.COD_CONTRATO || ' - ' || A.DES_PESSOA AS COLABORADOR,
+       A.DES_UNIDADE,
+       A.DATA_ADMISSAO,
+       A.DATA_DEMISSAO,
+       A.DATA_AVISO_PREVIO,
+       A.DES_DEMISSAO || ' SEM CARTA' AS CAUSA_DEMISSAO,
+       A.DATA_RESCISAO,
+       A.DATA_PAGAMENTO,
+       A.DATA_REFERENCIA,
+       A.QTDE_UNID,  -- Contagem de contratos por unidade
+       A.QTDE_CONTRATOS_829,  -- Contagem geral de contratos para VD 829
+       (SELECT COUNT(*) FROM ContratosVD1003) AS QTDE_CONTRATOS_1003  -- Contagem geral de contratos para VD 1003 (mesma contagem em todas as linhas)
+FROM ContratosVD829 A
+
+UNION ALL
+
+SELECT 4 AS PRIORIDADE,  -- Definindo prioridade para o bloco de VD 1003
+       A.COD_CONTRATO || ' - ' || A.DES_PESSOA AS COLABORADOR,
+       A.DES_UNIDADE,
+       A.DATA_ADMISSAO,
+       A.DATA_DEMISSAO,
+       A.DATA_AVISO_PREVIO,
+       A.DES_DEMISSAO || ' COM CARTA' AS CAUSA_DEMISSAO,
+       A.DATA_RESCISAO,
+       A.DATA_PAGAMENTO,
+       A.DATA_REFERENCIA,
+       A.QTDE_UNID,  -- Contagem de contratos por unidade
+       (SELECT COUNT(*) FROM ContratosVD829) AS QTDE_CONTRATOS_829,  -- Contagem geral de contratos para VD 829 (mesma contagem em todas as linhas)
+       A.QTDE_CONTRATOS_1003  -- Contagem geral de contratos para VD 1003
+FROM ContratosVD1003 A
+ORDER BY PRIORIDADE, DES_UNIDADE

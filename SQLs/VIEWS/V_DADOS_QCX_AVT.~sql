@@ -1,0 +1,24 @@
+CREATE OR REPLACE VIEW V_DADOS_QCX_AVT AS
+SELECT DISTINCT
+       MOV.COD_CONTRATO,
+       DC.DES_PESSOA,
+       DC.DES_FUNCAO,
+       DC.COD_UNIDADE,
+       DC.DES_UNIDADE,
+       MOV.DATA_MOV AS DATA_IMPORTACAO,
+       MOV.COD_VD,
+       MOV.QTDE_VD AS TOT_HORAS_LOGIN,
+       (SELECT TO_CHAR(SUM(A.VALOR_VD), 'FM999G999G990D00') AS VALOR
+        FROM RHFP1006 A
+        INNER JOIN RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+        WHERE MOV.COD_CONTRATO = A.COD_CONTRATO
+          AND A.COD_VD = 38
+          AND B.DATA_REFERENCIA = MOV.DATA_MOV) AS VALOR_LOGIN,
+       TO_CHAR(TO_DATE('15/' || TO_CHAR(ADD_MONTHS(MOV.DATA_MOV, -1), 'MM/YYYY'), 'DD/MM/YYYY'), 'DD/MM/YYYY')
+       || ' - ' ||
+       TO_CHAR(TO_DATE('15/' || TO_CHAR(MOV.DATA_MOV, 'MM/YYYY'), 'DD/MM/YYYY'), 'DD/MM/YYYY') AS PERIODO_GER_LOGIN,
+       'Índices gerados com base nas regras de operações do caixa, regras como: sangria, reforço, recebimento, vendas e liberações de acesso. Com tempo sendo encerrado no resumo do dia.' AS OBS
+FROM RHFP1004 MOV
+INNER JOIN V_DADOS_COLAB_AVT DC ON MOV.COD_CONTRATO = DC.COD_CONTRATO
+WHERE MOV.COD_VD = 838
+

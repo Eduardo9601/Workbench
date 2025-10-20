@@ -1,0 +1,365 @@
+Agora, no CTE, preciso incluir, cálculos, esses cálculos servirão para realizar o valor que chamo de VALOR_FINAL_PLR.
+
+Primeiro cálculo.
+
+- Valor do salário proporcional aos meses no CARGO_ANTERIOR.
+
+Esse cálculo, eu preciso aplicar algumas regras nele, onde algumas já estão inclusas, tentando incluir.
+
+O cálculo seria assim: No salário anterior, eu preciso retornar o valor que a pessoa tem com base nos meses trabalhados ainda no cargo anterior, mapeamento que realizamos, e, nesse valor aplicar um desconto que seria o TOTAL_ADICIONAIS, onde a quantidade gerada, deve ser realizao o cálculo assim como inclui ali no resultado final do CTE, mas que não sei se estaria correto.
+
+A fórmula na prática real, seria isso (pegarei como exemplo, o caso sinalizado em azul no print):
+
+Salário anterior: 1986,83
+
+Salário proporcional aos meses no cargo: 1986,83 / 12 * 7 = 1.158,98
+
+A formula: total_adicionais divido por 2: 35,29 / 2 = 17,64
+
+Ai o cálculo final aplicando o desconto em percentual do total adiocionais:
+1.158,98 / 100 * 17,64 = 204,44
+
+
+
+
+
+WITH CARGO_ANTERIOR AS (
+  SELECT DISTINCT A.COD_CONTRATO,
+                  A.COD_CLH AS COD_CLH_ANT,
+                  B.NOME_CLH AS NOME_CLH_ANT,
+                  A.DATA_INICIO AS DATA_INICIO_ANT,
+                  A.DATA_FIM AS DATA_FIM_ANT,
+                  
+                  -- TOTAL ADICIONAIS (HORAS PERDIDAS NO PERÍODO DO CARGO ANTERIOR EM 2024)
+                  TO_CHAR(ADICIONAIS.TOTAL_ADICIONAIS, 'FM999G999G990D00') AS TOTAL_ADICIONAIS,
+                  
+                  -- CÁLCULO DE MESES DENTRO DE 2024 COM CORTE NO DIA 15
+                  CASE
+                    WHEN EXTRACT(DAY FROM
+                                 GREATEST(A.DATA_INICIO,
+                                          TO_DATE('01/01/2024', 'DD/MM/YYYY'))) < 15 THEN
+                     TRUNC(MONTHS_BETWEEN(LEAST(A.DATA_FIM,
+                                                TO_DATE('31/12/2024',
+                                                        'DD/MM/YYYY')),
+                                          GREATEST(A.DATA_INICIO,
+                                                   TO_DATE('01/01/2024',
+                                                           'DD/MM/YYYY')))) + 1
+                    ELSE
+                     TRUNC(MONTHS_BETWEEN(LEAST(A.DATA_FIM,
+                                                TO_DATE('31/12/2024',
+                                                        'DD/MM/YYYY')),
+                                          ADD_MONTHS(GREATEST(A.DATA_INICIO,
+                                                              TO_DATE('01/01/2024',
+                                                                      'DD/MM/YYYY')),
+                                                     1))) + 1
+                  END AS MESES_NO_CARGO_ANT
+  
+    FROM RHFP0340 A
+   INNER JOIN RHFP0500 B ON A.COD_CLH = B.COD_CLH
+  
+  -- LATERAL JOIN: SOMA DE ADICIONAIS NO PERÍODO CORRETO DO CARGO ANTERIOR EM 2024
+    LEFT JOIN LATERAL (SELECT SUM(B.QTDE_VD) AS TOTAL_ADICIONAIS
+                         FROM RHFP1006 B
+                         LEFT JOIN RHFP1005 C ON B.COD_MESTRE_EVENTO =
+                                                 C.COD_MESTRE_EVENTO
+                         LEFT JOIN RHFP1003 D ON B.COD_MESTRE_EVENTO =
+                                                 D.COD_MESTRE_EVENTO
+                        WHERE B.COD_CONTRATO = A.COD_CONTRATO
+                          AND B.COD_MESTRE_EVENTO IN
+                              (16723, 16646, 16494, 16572, 16798, 16873,
+                               16941, 17017, 17151, 17226, 17090, 17337)
+                          AND B.COD_VD IN (631, 632, 831, 832, 887, 897)
+                          AND D.DATA_REFERENCIA BETWEEN
+                              GREATEST(A.DATA_INICIO,
+                                       TO_DATE('01/01/2024', 'DD/MM/YYYY')) AND
+                              LEAST(A.DATA_FIM,
+                                    TO_DATE('31/12/2024', 'DD/MM/YYYY'))) ADICIONAIS ON 1 = 1
+  
+   WHERE A.DATA_INICIO < TO_DATE('01/01/2024', 'DD/MM/YYYY')
+     AND A.DATA_FIM BETWEEN TO_DATE('01/01/2024', 'DD/MM/YYYY') AND
+         TO_DATE('31/12/2024', 'DD/MM/YYYY')
+     AND A.COD_CONTRATO IN
+         (384558, 385223, 385319, 386158, 386356, 386739, 386822, 387224,
+          387468, 388267, 389227, 389262, 389400, 389484, 389774, 390058,
+          390279, 390353, 390372, 390385, 390618, 390660, 390686, 390866,
+          391009, 391018, 391212, 391210, 391213, 391217, 391237, 391249,
+          391267, 391494, 391553, 391791, 391805, 391951, 391976, 392003,
+          392049, 392334, 392336, 392616, 392614, 392688, 392746, 392779,
+          392803, 392861, 393055, 393078, 393087, 393291, 393532, 393626,
+          393779, 394075, 394089, 394093, 394109, 394121, 394334)
+),
+
+CARGO_ATUAL AS (
+SELECT DISTINCT A.COD_CONTRATO,
+                A.COD_CLH AS COD_CLH_ATU,
+                B.NOME_CLH AS NOME_CLH_ATU,
+                A.DATA_INICIO AS DATA_INICIO_ATU,
+                A.DATA_FIM AS DATA_FIM_ATU,
+                -- CÁLCULO DE MESES COM CORTE NO DIA 15
+                CASE
+                  WHEN EXTRACT(DAY FROM A.DATA_INICIO) < 15 THEN
+                   TRUNC(MONTHS_BETWEEN(TO_DATE('31/12/2024', 'DD/MM/YYYY'),
+                                        A.DATA_INICIO)) + 1
+                  ELSE
+                   TRUNC(MONTHS_BETWEEN(TO_DATE('31/12/2024', 'DD/MM/YYYY'),
+                                        ADD_MONTHS(A.DATA_INICIO, 1))) + 1
+                END AS MESES_NO_CARGO_ATU
+
+  FROM RHFP0340 A
+ INNER JOIN RHFP0500 B ON A.COD_CLH = B.COD_CLH
+ WHERE A.DATA_FIM = TO_DATE('31/12/2999', 'DD/MM/YYYY')
+   AND A.DATA_INICIO >= TO_DATE('01/01/2024', 'DD/MM/YYYY')
+   AND A.COD_CONTRATO IN
+       (384558, 385223, 385319, 386158, 386356, 386739, 386822, 387224,
+        387468, 388267, 389227, 389262, 389400, 389484, 389774, 390058,
+        390279, 390353, 390372, 390385, 390618, 390660, 390686, 390866,
+        391009, 391018, 391212, 391210, 391213, 391217, 391237, 391249,
+        391267, 391494, 391553, 391791, 391805, 391951, 391976, 392003,
+        392049, 392334, 392336, 392616, 392614, 392688, 392746, 392779,
+        392803, 392861, 393055, 393078, 393087, 393291, 393532, 393626,
+        393779, 394075, 394089, 394093, 394109, 394121, 394334)
+),
+
+UNIDADE_ANTERIOR AS (
+  SELECT COD_CONTRATO,
+         COD_UNIDADE AS UNIDADE_ANT,
+         DES_UNIDADE AS DES_UNIDADE_ANT,
+         DATA_INI_ORG AS DATA_INI_UNID_ANT,
+         DATA_FIM_ORG AS DATA_FIM_UNID_ANT
+    FROM VH_EST_ORG_CONTRATO_AVT
+   WHERE DATA_FIM_ORG BETWEEN TO_DATE('01/01/2024', 'DD/MM/YYYY') AND
+         TO_DATE('31/12/2024', 'DD/MM/YYYY')
+     AND COD_CONTRATO IN
+         (384558, 385223, 385319, 386158, 386356, 386739, 386822, 387224,
+          387468, 388267, 389227, 389262, 389400, 389484, 389774, 390058,
+          390279, 390353, 390372, 390385, 390618, 390660, 390686, 390866,
+          391009, 391018, 391212, 391210, 391213, 391217, 391237, 391249,
+          391267, 391494, 391553, 391791, 391805, 391951, 391976, 392003,
+          392049, 392334, 392336, 392616, 392614, 392688, 392746, 392779,
+          392803, 392861, 393055, 393078, 393087, 393291, 393532, 393626,
+          393779, 394075, 394089, 394093, 394109, 394121, 394334)
+),
+
+
+UNIDADE_ATUAL AS (
+  SELECT COD_CONTRATO,
+         COD_UNIDADE AS UNIDADE_ATU,
+         DES_UNIDADE AS DES_UNIDADE_ATU,
+         DATA_INI_ORG AS DATA_INI_UNID_ATU,
+         DATA_FIM_ORG AS DATA_FIM_UNID_ATU
+    FROM VH_EST_ORG_CONTRATO_AVT
+   WHERE DATA_FIM_ORG = TO_DATE('31/12/2999', 'DD/MM/YYYY')
+     AND DATA_INI_ORG >= TO_DATE('01/01/2024', 'DD/MM/YYYY')
+     AND COD_CONTRATO IN
+         (384558, 385223, 385319, 386158, 386356, 386739, 386822, 387224,
+          387468, 388267, 389227, 389262, 389400, 389484, 389774, 390058,
+          390279, 390353, 390372, 390385, 390618, 390660, 390686, 390866,
+          391009, 391018, 391212, 391210, 391213, 391217, 391237, 391249,
+          391267, 391494, 391553, 391791, 391805, 391951, 391976, 392003,
+          392049, 392334, 392336, 392616, 392614, 392688, 392746, 392779,
+          392803, 392861, 393055, 393078, 393087, 393291, 393532, 393626,
+          393779, 394075, 394089, 394093, 394109, 394121, 394334)
+),
+
+
+UNIDADES_APR AS (
+    SELECT DISTINCT
+           ARGUMENTO_1 AS COD_UNIDADE,
+           MAX(CASE WHEN COD_VL = 11 THEN 1 END) AS TRIMESTRE_1,
+           MAX(CASE WHEN COD_VL = 12 THEN 1 END) AS TRIMESTRE_2,
+           MAX(CASE WHEN COD_VL = 13 THEN 1 END) AS TRIMESTRE_3,
+           MAX(CASE WHEN COD_VL = 14 THEN 1 END) AS TRIMESTRE_4,
+           MAX(CASE WHEN COD_VL = 15 THEN 1 END) AS POSSUI_PREJUIZO
+    FROM RHFP1026
+    WHERE COD_VL IN (11, 12, 13, 14, 15)
+    GROUP BY ARGUMENTO_1
+),
+
+
+SALARIO_ANTERIOR AS (
+    SELECT *
+    FROM (
+        SELECT 
+            S.COD_CONTRATO,
+            S.VALOR_VD AS SALARIO_ANTERIOR,
+            R.DATA_REFERENCIA AS REF_SALARIO_ANTERIOR,
+            ROW_NUMBER() OVER (
+                PARTITION BY S.COD_CONTRATO 
+                ORDER BY R.DATA_REFERENCIA DESC
+            ) AS RN
+        FROM RHFP1006 S
+        INNER JOIN RHFP1003 R ON S.COD_MESTRE_EVENTO = R.COD_MESTRE_EVENTO
+        INNER JOIN CARGO_ATUAL CA ON S.COD_CONTRATO = CA.COD_CONTRATO
+        WHERE S.COD_VD = 1700
+          AND R.COD_EVENTO = 1
+          AND R.DATA_REFERENCIA < CA.DATA_INICIO_ATU
+    ) 
+    WHERE RN = 1
+),
+
+SALARIO_ATUAL AS (
+    SELECT *
+    FROM (
+        SELECT 
+            S.COD_CONTRATO,
+            S.VALOR_VD AS SALARIO_ATUAL,
+            R.DATA_REFERENCIA AS REF_SALARIO_ATUAL,
+            ROW_NUMBER() OVER (
+                PARTITION BY S.COD_CONTRATO 
+                ORDER BY R.DATA_REFERENCIA ASC
+            ) AS RN
+        FROM RHFP1006 S
+        INNER JOIN RHFP1003 R ON S.COD_MESTRE_EVENTO = R.COD_MESTRE_EVENTO
+        INNER JOIN CARGO_ATUAL CA ON S.COD_CONTRATO = CA.COD_CONTRATO
+        WHERE S.COD_VD = 1700
+          AND R.COD_EVENTO = 1
+          AND R.DATA_REFERENCIA >= CA.DATA_INICIO_ATU
+    )
+    WHERE RN = 1
+)
+
+SELECT 
+    COALESCE(CA.COD_CONTRATO, CAT.COD_CONTRATO) AS COD_CONTRATO,
+
+    -- CARGO ANTERIOR
+    CAT.COD_CLH_ANT,
+    CAT.NOME_CLH_ANT,
+    CAT.DATA_INICIO_ANT,
+    CAT.DATA_FIM_ANT,
+    -- SALÁRIO ANTERIOR
+    SA.SALARIO_ANTERIOR,
+    SA.REF_SALARIO_ANTERIOR,
+    
+    CAT.TOTAL_ADICIONAIS,    
+    CAT.MESES_NO_CARGO_ANT,
+    
+    -- APR FINAL PROPORCIONAL AO TEMPO TRABALHADO EM 2024
+    ROUND(
+        (
+            NVL(SA.SALARIO_ANTERIOR, 0) * 0.50 *
+            (
+                CASE
+                    WHEN CAT.DATA_INICIO_ANT < TO_DATE('2024-01-01', 'YYYY-MM-DD') THEN 12
+                    WHEN CAT.DATA_INICIO_ANT BETWEEN TO_DATE('2024-01-01', 'YYYY-MM-DD') AND TO_DATE('2024-12-31', 'YYYY-MM-DD') THEN
+                        CASE
+                            WHEN EXTRACT(DAY FROM CAT.DATA_INICIO_ANT) < 15 THEN 12 - EXTRACT(MONTH FROM CAT.DATA_INICIO_ANT) + 1
+                            ELSE 12 - EXTRACT(MONTH FROM CAT.DATA_INICIO_ANT)
+                        END
+                    ELSE 0
+                END
+            ) / 12
+        ) * (1 - (NVL(CAT.TOTAL_ADICIONAIS, 0) / 2) / 100)
+    , 2) AS VALOR_PLR_PROPOR,
+
+    
+    -- UNIDADE ANTERIOR
+    UA.DES_UNIDADE_ANT,
+    UA.DATA_INI_UNID_ANT,
+    UA.DATA_FIM_UNID_ANT,
+
+    -- CARGO ATUAL
+    CA.COD_CLH_ATU,
+    CA.NOME_CLH_ATU,
+    CA.DATA_INICIO_ATU,
+    CA.DATA_FIM_ATU,
+    CA.MESES_NO_CARGO_ATU,   
+
+    -- SALÁRIO ATUAL
+    SAT.SALARIO_ATUAL,
+    SAT.REF_SALARIO_ATUAL,
+    
+    -- UNIDADE ATUAL
+    UB.DES_UNIDADE_ATU,
+    UB.DATA_INI_UNID_ATU,
+    UB.DATA_FIM_UNID_ATU,
+    
+    UA.TRIMESTRE_1,
+    UA.TRIMESTRE_2,
+    UA.TRIMESTRE_3,
+    UA.TRIMESTRE_4,
+    UA.POSSUI_PREJUIZO
+
+
+FROM CARGO_ATUAL CA
+LEFT JOIN CARGO_ANTERIOR CAT ON CA.COD_CONTRATO = CAT.COD_CONTRATO
+LEFT JOIN SALARIO_ANTERIOR SA ON CA.COD_CONTRATO = SA.COD_CONTRATO
+LEFT JOIN SALARIO_ATUAL SAT ON CA.COD_CONTRATO = SAT.COD_CONTRATO
+LEFT JOIN UNIDADE_ANTERIOR UA ON CA.COD_CONTRATO = UA.COD_CONTRATO
+LEFT JOIN UNIDADE_ATUAL UB ON CA.COD_CONTRATO = UB.COD_CONTRATO
+LEFT JOIN UNIDADES_APR UA ON UA.COD_UNIDADE = UB.UNIDADE_ATU
+ORDER BY CA.COD_CONTRATO;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SELECT B.COD_CONTRATO,
+       B.DES_PESSOA,
+       B.COD_UNIDADE,
+       B.NOME_ORGANOGRAMA,
+       B.COD_GRUPO,
+       B.DES_GRUPO,
+       B.DES_FUNCAO,
+       B.DTA_INI_FUNCAO,
+       B.DTA_FIM_FUNCAO,
+       --D.MESES_CARGO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD), 2), 'FM999G999G990D00') AS SALARIO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD * 2), 2), 'FM999G999G990D00') AS SALARIO_MULTIPLICADO,
+       C.NOTA_APR,
+       TO_CHAR(((ROUND(SUM(A.VALOR_VD * 2), 2) * C.NOTA_APR) / 100),
+               'FM999G999G990D00') AS APR_CALCULADA
+  FROM GRZ_FOLHA.RHFP1006 A
+  INNER JOIN V_DADOS_PESSOA B ON A.COD_CONTRATO = B.COD_CONTRATO
+       --VH_CARGO_CONTRATO_AVT D,
+   LEFT JOIN (SELECT COD_UNIDADE,
+               SUM(NVL(TREINAMENTO, 0) + NVL(TRAINEE, 0) + NVL(ORCADO, 0) +
+                   NVL(MARGEM_PERC, 0) + NVL(LUCRO, 0) + NVL(PERMANENCIA, 0) +
+                   NVL(INVENTARIO, 0) + NVL(PREVENTIVA, 0) +
+                   NVL(VALE_TRANSP, 0) + NVL(PRODUTIVIDADE, 0) +
+                   NVL(FOLHA, 0) + NVL(TURN_OVER, 0)) NOTA_APR
+          FROM NL.GRZ_DADOS_CALCULO_APR_ANUAL@NLGRZ A
+         WHERE A.ANO = 2024
+           AND COD_REDE IN (10, 30, 40, 50, 70)
+           AND A.REGIAO < 8730
+              --AND A.COD_UNIDADE BETWEEN 8700 AND 8720
+           AND A.COD_UNIDADE NOT IN (1549, 3549, 4549, 5549, 7549, 0)                     
+         GROUP BY COD_UNIDADE) C ON B.COD_UNIDADE = C.COD_UNIDADE
+ WHERE  B.DES_FUNCAO LIKE '%GERENTE%'   
+   --AND B.COD_GRUPO = '7'
+   AND B.COD_GRUPO IN ( 1 ,2 ,3 ,4 , 7)
+   AND A.COD_MESTRE_EVENTO = 17337
+   AND A.COD_VD = 1700
+   AND B.COD_TIPO = 1
+ GROUP BY B.COD_CONTRATO,
+          B.DES_PESSOA,
+          B.COD_UNIDADE,
+          B.NOME_ORGANOGRAMA,
+          B.COD_GRUPO,
+          B.DES_GRUPO,
+          B.DES_FUNCAO,
+          B.DTA_INI_FUNCAO,
+          B.DTA_FIM_FUNCAO,
+          --D.MESES_CARGO,
+          C.NOTA_APR
+ ORDER BY COD_UNIDADE ASC;
+ 
+ 
+ 
+ 
+  
+SELECT *  
+FROM NL.GRZ_DADOS_CALCULO_APR_ANUAL@NLGRZ A
+         WHERE A.ANO = 2024
+           AND COD_REDE = 70
+           AND COD_UNIDADE IN (7022, 7047, 7071, 7138, 7140, 7183, 7244, 7353, 7386, 
+7412, 7430, 7442, 7461, 7491, 7543, 7555, 7570, 7587, 
+7588, 7592, 7597, 7601, 7602, 7620, 7500, 7051, 7577, 7066);

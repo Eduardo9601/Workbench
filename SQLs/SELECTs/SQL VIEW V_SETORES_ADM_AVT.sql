@@ -1,0 +1,47 @@
+--VIEW V_SETORES_ADM_AVT
+
+CREATE OR REPLACE VIEW V_SETORES_ADM_AVT AS
+SELECT DISTINCT C.COD_CUSTO_CONTABIL,
+                A.COD_ORGANOGRAMA,
+                A.EDICAO_ORG,
+                A.EDICAO_ORG || ' - ' || B.NOME_ORGANOGRAMA AS NOME_ORGANOGRAMA,
+                C.COD_NIVEL_CONTABIL,
+                A.COD_NIVEL1,
+                A.COD_NIVEL2,
+                A.COD_NIVEL3,
+                A.COD_NIVEL4,
+                A.COD_NIVEL5,
+                A.COD_NIVEL6,
+                A.EDICAO_NIVEL1,
+                A.EDICAO_NIVEL2,
+                A.EDICAO_NIVEL3,
+                A.EDICAO_NIVEL4,
+                A.EDICAO_NIVEL5,
+                CASE
+                  WHEN TRIM(A.EDICAO_NIVEL6) IS NULL OR
+                       A.EDICAO_NIVEL6 = ' ' THEN
+                   '0'
+                  ELSE
+                   A.EDICAO_NIVEL6
+                END AS EDICAO_NIVEL6,
+                A.EDICAO_NIVEL1 || '.' || A.EDICAO_NIVEL2 || '.' ||
+                A.EDICAO_NIVEL3 || '.' || A.EDICAO_NIVEL4 || '.' ||
+                A.EDICAO_NIVEL5 || CASE
+                  WHEN A.EDICAO_NIVEL6 IS NOT NULL AND
+                       LENGTH(TRIM(A.EDICAO_NIVEL6)) > 0 THEN
+                   '.' || A.EDICAO_NIVEL6
+                  ELSE
+                   ''
+                END AS EDICAO_COMPLETA
+  FROM RHFP0401 A
+  LEFT JOIN RHFP0400 B ON B.COD_ORGANOGRAMA = A.COD_ORGANOGRAMA
+  LEFT JOIN RHFP0402 C ON C.COD_CUSTO_CONTABIL = B.COD_CUSTO_CONTABIL
+  LEFT JOIN RHFP0310 D ON D.COD_ORGANOGRAMA = A.COD_ORGANOGRAMA
+ WHERE A.COD_NIVEL3 IN (9, 21)
+   AND C.COD_CUSTO_CONTABIL IS NOT NULL
+   AND A.DATA_FIM = TO_DATE('31/12/2999', 'DD/MM/YYYY')
+   AND D.DATA_FIM = TO_DATE('31/12/2999', 'DD/MM/YYYY')
+   AND A.COD_ORGANOGRAMA NOT IN (346, 347, 348, 349, 350, 1465, 1611)
+   AND A.EDICAO_ORG NOT IN
+       (531, 546, 561, 572, 582, 587, 760, 813, 818, 821, 828, 833, 838, 838, 848, 853, 858, 868)
+ ORDER BY A.EDICAO_ORG, A.COD_ORGANOGRAMA;

@@ -1,0 +1,570 @@
+---========SCRIPTS PARA MAPEAR OS GESTORES E SUAS RESPECTIVAS EQUEIPES, E ATRELAR UM CÓDIGO DE UNIDADE(SUB) E O CPF DO GESTOR A CADA COLABORADOR.
+
+
+
+--========================--
+----===MAPEAMENTO DO SETOR TI===----
+
+--EQUIPE DIRLEI >> HELP DESK 
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '283'
+           AND B.COD_UNIDADE = 768
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '283' 
+           AND B.COD_UNIDADE_SUB = 7681
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+        'TI - HELP DESK' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 768
+   AND A.COD_CONTRATO IN (377414, 379901, 379995, 389250, 390125, 256897)
+
+
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+
+UNION ALL
+--========-
+--EQUIPE FABIO >> ANALISE DE SISTEMAS
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE = 768
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF           
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE_SUB = 7682
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'TI - ANALISE DE SISTEMAS' AS DES_UNIDADE_SUB    
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 768
+   AND A.COD_CONTRATO IN (385752, 388070, 389622, 352683)
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+UNION ALL
+--=========
+--EQUIPE FRAN H. >> SUPORTE
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '137'
+           AND B.COD_UNIDADE_SUB = 7683
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '137' 
+           AND B.COD_UNIDADE = 768
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'TI - SUPORTE' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 768
+   AND A.COD_CONTRATO IN (387775, 388907, 389304, 389512, 391534, 391897, 392684, 
+                          393193, 393390, 394222, 394414, 394844, 322644)
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+       
+  FROM dual
+
+UNION ALL
+--=========
+--EQUIPE MARCOS S. >> INFRA. E SEGURANÇA
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE_SUB = 7684
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE = 768
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'TI - INFRA. E SEGURANÇA' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 768
+   AND A.COD_CONTRATO IN (291498, 390837, 390828, 391532, 392821, 390296)
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+UNION ALL
+--========
+--EQUIPE IGOR >> DESENVOLVIMENTO
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE = 769
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE = 769
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'TI - DESENVOLVIMENTO' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 769
+   AND A.COD_CONTRATO IN (383197, 387692, 387772, 388164, 388575, 389902, 389947, 
+                          391149, 391411, 391940, 392358, 393947, 394260, 394289)
+
+
+
+
+--============================================
+----===MAPEAMENTO DO SETOR DO RH===----
+
+--EQUIPE Elisangela >> DERES
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE = 781
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE_SUB = 7811
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+        'RH - DERES' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 781
+   AND A.COD_CONTRATO IN (392663, 382420, 386191, 390291, 340774)
+
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+UNION ALL
+--========-
+--EQUIPE Karine >> DETRE
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE = 783
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF           
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE_SUB = 7831
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'RH - DETRE' AS DES_UNIDADE_SUB    
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 783
+   AND A.COD_CONTRATO IN (384461, 394783, 393331, 379135, 388941, 393398, 389266)
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+UNION ALL
+--=====================
+
+--EQUIPE Ariane >> DECOM
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE = 784
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF           
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE_SUB = 7841
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'RH - DECOM' AS DES_UNIDADE_SUB    
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 784
+   AND A.COD_CONTRATO IN (393727,  381482, 393297, 392524)
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+UNION ALL
+--=========
+--EQUIPE Fernanda >> DEPES
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE_SUB = 7861
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE = 786
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'RH - DEPES' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 786
+   AND A.COD_CONTRATO IN (388645, 353906, 388573, 391906, 383495, 382675, 
+                          393726, 332852, 290424, 391286, 388584, 392823)
+                          
+                          
+       
+       
+--========================--
+----===MAPEAMENTO DO SETOR FINANCEIRO===----
+
+--EQUIPE Jenison >> DECRE
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '128'
+           AND B.COD_UNIDADE = 763
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '128' 
+           AND B.COD_UNIDADE_SUB = 7631
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+        'FINANCEIRO - DECRE' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 763
+   AND A.COD_CONTRATO IN (394244, 393642, 394901, 393870, 393946, 393695, 390893, 391954, 363405)
+
+
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+
+UNION ALL
+--========-
+--EQUIPE Laura >> DECOB
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14'
+           AND B.COD_UNIDADE = 764
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF           
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '14' 
+           AND B.COD_UNIDADE_SUB = 7641
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'FINANCEIRO - DECOB' AS DES_UNIDADE_SUB    
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 764
+   AND A.COD_CONTRATO IN (393298, 391290, 394464, 393912, 389904, 394465, 392284, 385182, 
+                          392770, 393328, 391195, 394270, 390546, 393639, 394847, 390132)
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+UNION ALL
+--=========
+--EQUIPE Ana Paula >> CONTABIL
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '275'
+           AND B.COD_UNIDADE_SUB = 7701
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '275' 
+           AND B.COD_UNIDADE = 770
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'FINANCEIRO - CONTABIL' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 770
+   AND A.COD_CONTRATO IN (392519, 394611, 384586, 385353, 
+                          393597, 394392, 390225, 389249)
+   AND A.COD_CONTRATO NOT IN (389764)
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+       
+  FROM dual
+
+UNION ALL
+--=========
+--EQUIPE Tatiane >> PAGAMENTOS
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '373'
+           AND B.COD_UNIDADE_SUB = 7711
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '373' 
+           AND B.COD_UNIDADE = 771
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'FINANCEIRO - PAGAMENTOS' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 771
+   AND A.COD_CONTRATO IN (380380, 380580, 390831)
+
+
+UNION ALL
+
+SELECT '---' AS COD_CONTRATO,
+       '---' AS DES_PESSOA,
+       '---' AS COD_FUNCAO,
+       '---' AS DES_FUNCAO,
+       '---' AS COD_ORGANOGRAMA,
+       '---' AS COD_UNIDADE,
+       '---' AS DES_UNIDADE,
+       '---' AS CPF,
+       '---' AS COD_UNIDADE_SUB,
+       '---' AS DES_UNIDADE_SUB
+  FROM dual
+
+
+UNION ALL
+--========
+--EQUIPE Angelica >> RECEBIMENTOS
+
+SELECT TO_CHAR(A.COD_CONTRATO) AS COD_CONTRATO,
+       A.DES_PESSOA,
+       TO_CHAR(A.COD_FUNCAO) AS COD_FUNCAO,
+       A.DES_FUNCAO,
+       TO_CHAR(A.COD_ORGANOGRAMA) AS COD_ORGANOGRAMA,
+       TO_CHAR(A.COD_UNIDADE) AS COD_UNIDADE,
+       A.DES_UNIDADE,       
+       (SELECT B.CPF
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '374'
+           AND B.COD_UNIDADE = 772
+           AND ROWNUM = 1) AS CPF, -- Garante que apenas uma linha seja retornada para CPF
+       (SELECT TO_CHAR(B.COD_UNIDADE_SUB)
+          FROM GRZ_GESTORES_GRUPO_ADM B
+         WHERE B.COD_FUNCAO = '374' 
+           AND B.COD_UNIDADE_SUB = 7721
+           AND ROWNUM = 1) AS COD_UNIDADE_SUB, -- Garante que apenas uma linha seja retornada para COD_UNIDADE_SUB
+       'FINANCEIRO - RECEBIMENTOS' AS DES_UNIDADE_SUB
+  FROM V_DADOS_COLAB_AVT A
+ WHERE A.STATUS = 0
+   AND A.COD_UNIDADE = 772
+   AND A.COD_CONTRATO IN (393629, 392594, 393539, 385327, 381617, 388445, 392634, 386665)

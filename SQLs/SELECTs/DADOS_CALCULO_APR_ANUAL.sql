@@ -1,0 +1,43 @@
+SELECT B.COD_CONTRATO,
+       B.DES_PESSOA,
+       B.COD_UNIDADE,
+       B.DES_FUNCAO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD), 2), 'FM999G999G990D00', 'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD * 2), 2),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO_MULTIPLICADO,
+       C.NOTA_APR,
+       TO_CHAR(((ROUND(SUM(A.VALOR_VD * 2), 2) * C.NOTA_APR) / 100),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS APR_CALCULADA
+  FROM GRZ_FOLHA.RHFP1006@NLGZT A,
+       V_DADOS_PESSOA@GRZFOLHA B,
+       (SELECT COD_UNIDADE,
+               SUM(NVL(TREINAMENTO, 0) + NVL(TRAINEE, 0) + NVL(ORCADO, 0) +
+                   NVL(MARGEM_PERC, 0) + NVL(LUCRO, 0) + NVL(PERMANENCIA, 0) +
+                   NVL(INVENTARIO, 0) + NVL(PREVENTIVA, 0) +
+                   NVL(VALE_TRANSP, 0) + NVL(PRODUTIVIDADE, 0) +
+                   NVL(FOLHA, 0) + NVL(TURN_OVER, 0)) NOTA_APR
+          FROM NL.GRZ_DADOS_CALCULO_APR_ANUAL A
+         WHERE A.ANO = 2023
+              --AND COD_REDE = 70
+           AND A.REGIAO < 8730
+           AND A.COD_UNIDADE < 8000
+           AND A.COD_UNIDADE NOT IN (1549, 3549, 4549, 5549, 7549, 0)
+         GROUP BY COD_UNIDADE) C
+ WHERE B.COD_CONTRATO = A.COD_CONTRATO
+   AND B.COD_UNIDADE = C.COD_UNIDADE
+   AND B.COD_FUNCAO IN
+       ('7', '8', '78', '79', '86', '87', '128', '137', '184', '186', '189',
+        '190', '275', '283', '294', '299', '318', '325', '328', '330', '355',
+        '188', '14', '88', '81', '345', '80', '77', '192', '90', '185',
+        '264', '255')
+   AND B.COD_GRUPO IN (1, 2, 3, 4, 7)
+   AND A.COD_MESTRE_EVENTO = 15542
+   AND A.COD_VD IN (1700)
+ GROUP BY B.COD_CONTRATO,
+          B.DES_PESSOA,
+          B.COD_UNIDADE,
+          B.DES_FUNCAO,
+          C.NOTA_APR
+ ORDER BY COD_UNIDADE ASC

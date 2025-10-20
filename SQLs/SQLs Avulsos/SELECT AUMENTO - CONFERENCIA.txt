@@ -1,0 +1,192 @@
+SELECT COD_EVENTO,
+       COD_CONTRATO,
+       DATA_MOV,
+       COD_VD,
+       'V' AS TIPO_INF_VD,
+       '99' AS PRESTACAO_VD,
+       QTDE_VD,
+       VALOR_VD,
+       COD_ORIGEM_MOV,
+       '16494' AS COD_MESTRE_EVENTO,
+       DATA_DIGITACAO,
+       OBSERVACAO,
+       COMPETENCIA
+FROM RHFP1004
+WHERE COD_VD = 905
+AND DATA_MOV = '29/02/2024'
+AND COD_EVENTO = 1
+AND PRESTACAO_VD = 99
+AND VALOR_VD <> 0
+--AND COD_CONTRATO IN (390792, 393955, 385223, 385469)
+
+SELECT * FROM RHFP1004
+
+
+INSERT INTO RHFP1004
+(COD_EVENTO, COD_CONTRATO, DATA_MOV, COD_VD, TIPO_INF_VD, PRESTACAO_VD, QTDE_VD, VALOR_VD, COD_ORIGEM_MOV, COD_MESTRE_EVENTO, DATA_DIGITACAO, OBSERVACAO, COMPETENCIA)
+SELECT
+    COD_EVENTO,
+    COD_CONTRATO,
+    '29/02/2024' AS DATA_MOV,
+    COD_VD,
+    'V' AS TIPO_INF_VD,
+    '99' AS PRESTACAO_VD,
+    QTDE_VD,
+    VALOR_VD,
+    COD_ORIGEM_MOV,
+    16494 AS COD_MESTRE_EVENTO,
+    DATA_DIGITACAO,
+    OBSERVACAO,
+    COMPETENCIA
+FROM RHFP1004
+WHERE COD_VD = 905
+AND DATA_MOV = '31/01/2024'
+AND COD_EVENTO = 1
+AND PRESTACAO_VD = 99
+AND VALOR_VD <> 0
+--AND COD_CONTRATO IN (390792, 393955, 385223, 385469);
+
+
+
+--==========================--
+
+
+SELECT A.COD_EVENTO,
+       A.COD_CONTRATO,
+       A.DATA_MOV,
+       A.COD_VD,
+       'V' AS TIPO_INF_VD,
+       '99' AS PRESTACAO_VD,
+       A.QTDE_VD,
+       A.VALOR_VD,
+       A.COD_ORIGEM_MOV,
+       '16494' AS COD_MESTRE_EVENTO,
+       A.DATA_DIGITACAO,
+       A.OBSERVACAO,
+       A.COMPETENCIA
+FROM RHFP1004 A
+INNER JOIN RHFP0300 B ON A.COD_CONTRATO = B.COD_CONTRATO
+WHERE A.COD_VD = 905
+AND A.DATA_MOV = '29/02/2024'
+AND A.COD_EVENTO = 1
+AND A.PRESTACAO_VD = 99
+AND A.VALOR_VD <> 0
+AND A.COD_ORIGEM_MOV <> 1
+AND B.DATA_FIM IS NULL
+AND A.COD_CONTRATO = 393955
+
+
+
+
+
+
+
+Aumento Salarial (Evento 22) - Mestre 16612
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--PRIMEIRO EXECUTAR INSERT
+
+INSERT INTO RHFP1004 (
+SELECT 1 AS COD_EVENTO,
+       CC.COD_CONTRATO,
+       CC.DATA_REFERENCIA,
+       905 AS COD_VD,
+       CC.TIPO_INF_VD,
+       99 AS PRESTACAO_VD,
+       CC.QTDE_VD,
+       NVL(TRIM((CC.VALOR_VD +
+                             (SELECT FF.VALOR_VD
+                              FROM RHFP1004 FF
+                              WHERE FF.COD_EVENTO = 1
+                                AND FF.COD_CONTRATO = CC.COD_CONTRATO
+                                AND FF.DATA_MOV = CC.DATA_REFERENCIA
+                                AND FF.COD_VD = 905))), CC.VALOR_VD) AS VALOR_VD,
+       1 AS COD_ORIGEM_MOV,
+       CC.COD_MESTRE_EVENTO,
+       CC.DATA_REFERENCIA,
+       'Aumento Salarial (Evento 22) - Mestre 16612' AS OBSERVACAO,
+       NULL
+FROM RHFP1005 CC
+WHERE CC.COD_EVENTO = 22
+  AND CC.DATA_REFERENCIA = TO_DATE('29/02/2024', 'DD/MM/YYYY')
+  AND CC.COD_VD = 1090
+  --AND CC.COD_CONTRATO = 389622
+  AND CC.COD_CONTRATO NOT IN (SELECT FF.COD_CONTRATO
+                              FROM RHFP1004 FF
+                              WHERE FF.COD_EVENTO = 1
+                                AND FF.COD_CONTRATO = CC.COD_CONTRATO
+                                AND FF.DATA_MOV = CC.DATA_REFERENCIA
+                                AND FF.COD_VD = 905 )
+    AND CC.COD_CONTRATO IN (SELECT ORG.COD_CONTRATO
+                            FROM RHFP0310 ORG
+                            WHERE CC.COD_CONTRATO = ORG.COD_CONTRATO
+						                --AND ORG.COD_CONTRATO = 389622 -- TESTANDO APENAS UM CONTRATO
+                            AND ORG.DATA_FIM = '31/12/2999'
+                            AND ORG.COD_NIVEL2 = 8)/*INSERIR SOMENTE A EMPRESA 8 (DEMAIS EMPRESAS: 4, 276, 282, 1629)*/)
+
+
+
+------------------------------------------------------------------------------------------------------
+
+--SEGUNDO EXECUTAR UPDATE
+
+
+
+UPDATE RHFP1004 MOV SET MOV.VALOR_VD = (SELECT NVL(K.VALOR_VD + (SELECT FF.VALOR_VD
+                                                                 FROM RHFP1004 FF
+                                                                 WHERE FF.COD_EVENTO = 1
+                                                                   AND FF.COD_CONTRATO = K.COD_CONTRATO
+                                                                   AND FF.DATA_MOV = K.DATA_REFERENCIA
+                                                                   AND FF.COD_VD = 905
+                                                                   AND FF.COD_ORIGEM_MOV <> 1), K.VALOR_VD) AS VALOR_VD
+                                        FROM RHFP1005 K
+                                        WHERE K.COD_EVENTO = 22
+                                          AND K.DATA_REFERENCIA = TO_DATE('29/02/2024', 'DD/MM/YYYY')
+                                          AND K.COD_CONTRATO = MOV.COD_CONTRATO
+                                          AND K.COD_VD = 1090
+                                       ),
+			OBSERVACAO = 'Aumento Salarial (Evento 22) - Mestre 16612'
+WHERE MOV.COD_EVENTO = 1
+  AND MOV.DATA_MOV = TO_DATE('29/02/2024', 'DD/MM/YYYY')
+  AND MOV.COD_VD = 905
+  AND MOV.COD_ORIGEM_MOV <> 1
+  --AND MOV.COD_CONTRATO = 394553
+  AND MOV.COD_CONTRATO IN (SELECT COD_CONTRATO
+                           FROM RHFP1005
+                           WHERE COD_EVENTO = 22
+                             AND DATA_REFERENCIA = TO_DATE('29/02/2024', 'DD/MM/YYYY')
+                             AND COD_CONTRATO = MOV.COD_CONTRATO
+                             AND COD_VD = 1090)
+  AND EXISTS (SELECT 1
+              FROM RHFP1004 FF
+              WHERE FF.COD_EVENTO = 1
+                AND FF.COD_CONTRATO = MOV.COD_CONTRATO
+                AND FF.DATA_MOV = MOV.DATA_MOV
+                AND FF.COD_VD = 905
+                AND FF.COD_ORIGEM_MOV <> 1)
+  AND MOV.COD_CONTRATO IN (SELECT ORG.COD_CONTRATO
+                           FROM RHFP0310 ORG
+                           WHERE MOV.COD_CONTRATO = ORG.COD_CONTRATO
+						                --AND ORG.COD_CONTRATO = 394553 -- TESTANDO APENAS UM CONTRATO
+                            AND ORG.DATA_FIM = '31/12/2999'
+                            AND ORG.COD_NIVEL2 = 8) /*INSERIR SOMENTE A EMPRESA 8 (DEMAIS EMPRESAS: 4, 276, 282, 1629)*/
+
+
+

@@ -1,0 +1,85 @@
+---======PROCEDIMENTO DE AUMENTO SALARIAL=====---
+
+--versão alternativa, gera para todas as empresas sem filtro
+
+
+--PRIMEIRO EXECUTAR INSERT
+
+INSERT INTO RHFP1004 (
+SELECT 1 AS COD_EVENTO,
+       CC.COD_CONTRATO,
+       CC.DATA_REFERENCIA,
+       905 AS COD_VD,
+       CC.TIPO_INF_VD,
+       99 AS PRESTACAO_VD,
+       CC.QTDE_VD,
+       NVL(TRIM((CC.VALOR_VD +
+                             (SELECT FF.VALOR_VD
+                              FROM RHFP1004 FF
+                              WHERE FF.COD_EVENTO = 1
+                                AND FF.COD_CONTRATO = CC.COD_CONTRATO
+                                AND FF.DATA_MOV = CC.DATA_REFERENCIA
+                                AND FF.COD_VD = 905))), CC.VALOR_VD) AS VALOR_VD,
+       1 AS COD_ORIGEM_MOV,
+       CC.COD_MESTRE_EVENTO,
+       CC.DATA_REFERENCIA,
+       'Aumento Salarial (Evento 22) - Mestre 15663' AS OBSERVACAO,
+       NULL
+FROM RHFP1005 CC
+WHERE CC.COD_EVENTO = 22
+  AND CC.DATA_REFERENCIA = TO_DATE('31/03/2023', 'DD/MM/YYYY')
+  AND CC.COD_VD = 1090
+  AND CC.COD_CONTRATO = 387692
+  AND CC.COD_CONTRATO NOT IN (SELECT FF.COD_CONTRATO
+                              FROM RHFP1004 FF
+                              WHERE FF.COD_EVENTO = 1
+                                AND FF.COD_CONTRATO = CC.COD_CONTRATO
+                                AND FF.DATA_MOV = CC.DATA_REFERENCIA
+                                AND FF.COD_VD = 905 ))
+
+
+
+------------------------------------------------------------------------------------------------------
+
+
+--SEGUNDO EXECUTAR UPDATE
+
+
+
+
+UPDATE RHFP1004 MOV SET MOV.VALOR_VD = (SELECT NVL(K.VALOR_VD + (SELECT FF.VALOR_VD
+                                                                 FROM RHFP1004 FF
+                                                                 WHERE FF.COD_EVENTO = 1
+                                                                   AND FF.COD_CONTRATO = K.COD_CONTRATO
+                                                                   AND FF.DATA_MOV = K.DATA_REFERENCIA
+                                                                   AND FF.COD_VD = 905),K.VALOR_VD) AS VALOR_VD
+                                        FROM RHFP1005 K
+                                        WHERE K.COD_EVENTO = 22
+                                          AND K.DATA_REFERENCIA = TO_DATE('31/03/2023', 'DD/MM/YYYY')
+                                          AND K.COD_CONTRATO = MOV.COD_CONTRATO
+                                          AND K.COD_VD = 1090
+                                       ),
+			OBSERVACAO = 'Aumento Salarial (Evento 22) - Mestre 15663'
+WHERE MOV.COD_EVENTO = 1
+  AND MOV.DATA_MOV = TO_DATE('31/03/2023', 'DD/MM/YYYY')
+  AND MOV.COD_VD = 905
+  AND MOV.COD_CONTRATO = 387692
+  AND MOV.COD_CONTRATO IN (SELECT COD_CONTRATO
+                           FROM RHFP1005
+                           WHERE COD_EVENTO = 22
+                             AND DATA_REFERENCIA = TO_DATE('31/03/2023', 'DD/MM/YYYY')
+                             AND COD_CONTRATO = MOV.COD_CONTRATO
+                             AND COD_VD = 1090)
+  AND EXISTS (SELECT 1
+              FROM RHFP1004 FF
+              WHERE FF.COD_EVENTO = 1
+                AND FF.COD_CONTRATO = MOV.COD_CONTRATO
+                AND FF.DATA_MOV = MOV.DATA_MOV
+                AND FF.COD_VD = 905)
+
+
+
+
+
+
+

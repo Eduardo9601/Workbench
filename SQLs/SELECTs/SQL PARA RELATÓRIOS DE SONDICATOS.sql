@@ -1,0 +1,30 @@
+SELECT SI.COD_SINDICATO,
+:DATA_REFERENCIA AS DATA,
+PE.NOME_PESSOA,
+PRG.COD_PAR_SINDICATO,
+PAR.NOME_PAR_SINDICATO,
+PRG.DATA_INICIO,
+PRG.DATA_FIM,
+PRG.COD_REGRA,
+REG.NOME_REGRA
+FROM RHFP0329 SI, PESSOA PE, RHFP0335 PRG, RHFP0331 PAR, RHFP0334 REG
+WHERE PRG.COD_SINDICATO = SI.COD_SINDICATO
+  AND SI.COD_PESSOA = PE.COD_PESSOA
+  AND PRG.COD_PAR_SINDICATO = PAR.COD_PAR_SINDICATO
+  AND PRG.COD_REGRA = REG.COD_REGRA
+  AND PRG.COD_PAR_SINDICATO <> 1
+  AND :DATA_REFERENCIA BETWEEN PRG.DATA_INICIO AND PRG.DATA_FIM
+  AND DECODE(TO_CHAR(:DATA_REFERENCIA,'MM'),
+                       '01',IND_JAN,
+                       '02',IND_FEV,
+                       '03',IND_MAR,
+                       '04',IND_ABR,
+                       '05',IND_MAI,
+                       '06',IND_JUN,
+                       '07',IND_JUL,
+                       '08',IND_AGO,
+                       '09',IND_SET,
+                       '10',IND_OUT,
+                       '11',IND_NOV,
+                       '12',IND_DEZ,'N') = 'S'
+ORDER BY 1,3

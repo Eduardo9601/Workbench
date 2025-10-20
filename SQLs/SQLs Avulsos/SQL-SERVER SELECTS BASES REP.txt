@@ -1,0 +1,242 @@
+--SELECTS BASES REP
+
+--SELECT GERAL
+
+SELECT * FROM dbo.Empregador
+WHERE Descricao IN ('FILIAL 073', 'FILIAL 082', 'FILIAL 316', 
+'FILIAL 327', 'FILIAL 336', 'FILIAL 339', 
+'FILIAL 343', 'FILIAL 344', 'FILIAL 352', 
+'FILIAL 370', 'FILIAL 375', 'FILIAL 384', 
+'FILIAL 391', 'FILIAL 413', 'FILIAL 448', 
+'FILIAL 465', 'FILIAL 488', 'FILIAL 490', 
+'FILIAL 527', 'FILIAL 566', 'FILIAL 568', 
+'FILIAL 623', 'FILIAL 631', 'FILIAL 7002', 
+'FILIAL 7022', 'FILIAL 7041', 'FILIAL 7065', 
+'FILIAL 7093', 'FILIAL 7173', 'FILIAL 7386', 
+'FILIAL 7390', 'FILIAL 7412', 'FILIAL 7461', 
+'FILIAL 7491', 'FILIAL 7563', 'FILIAL 7589', 
+'FILIAL 7591')
+ORDER BY Descricao ASC
+
+
+--====================================================================--
+--====================================================================--
+--====================================================================--
+--====================================================================--
+
+--LOJAS BASE RARAYANE
+
+SELECT * FROM dbo.Empregador
+WHERE Descricao IN ('FILIAL 073', 'FILIAL 082', 'FILIAL 316', 
+'FILIAL 327', 'FILIAL 336', 'FILIAL 339', 
+'FILIAL 343', 'FILIAL 344', 'FILIAL 352', 
+'FILIAL 370', 'FILIAL 375', 'FILIAL 384', 
+'FILIAL 391', 'FILIAL 448', 'FILIAL 465', 
+'FILIAL 488','FILIAL 527')
+ORDER BY Descricao ASC
+
+
+--==============================--
+
+---MAPEADO AS LOJAS E CONFIRMADO
+
+SELECT A.arquivoBilheteId, A.localArquivo, A.repId, C.descricao 
+FROM dbo.ArquivoAFD A, dbo.RepAFD B, dbo.Rep C
+WHERE A.repId = B.repID
+AND C.repId = B.repID
+AND C.descricao IN ('FILIAL 073', 'FILIAL 082', 'FILIAL 316', 
+'FILIAL 327', 'FILIAL 336', 'FILIAL 339', 
+'FILIAL 343', 'FILIAL 344', 'FILIAL 352', 
+'FILIAL 370', 'FILIAL 375', 'FILIAL 384', 
+'FILIAL 391', 'FILIAL 448', 'FILIAL 465', 
+'FILIAL 488','FILIAL 527')
+ORDER BY C.descricao ASC
+
+
+--====================================================================--
+--====================================================================--
+
+
+--LOJAS BASE FRAN
+
+SELECT * FROM dbo.Empregador
+WHERE Descricao IN ('FILIAL 413', 'FILIAL 488', 
+'FILIAL 490', 'FILIAL 568', 
+'FILIAL 623', 'FILIAL 631')
+
+--==============================--
+
+---MAPEADO AS LOJAS E CONFIRMADO
+
+SELECT A.arquivoBilheteId, A.localArquivo, A.repId, C.descricao 
+FROM dbo.ArquivoAFD A, dbo.RepAFD B, dbo.Rep C
+WHERE A.repId = B.repID
+AND C.repId = B.repID
+AND C.descricao IN ('FILIAL 413', 'FILIAL 488', 
+'FILIAL 490', 'FILIAL 568', 
+'FILIAL 623', 'FILIAL 631')
+ORDER BY C.descricao ASC
+
+--====================================================================--
+--====================================================================--
+
+--SELECT LOJAS BASE FABRICIO
+
+SELECT * FROM dbo.Empregador
+WHERE Descricao IN ('FILIAL 566', 'FILIAL 7002', 
+'FILIAL 7022', 'FILIAL 7041', 'FILIAL 7065', 
+'FILIAL 7093', 'FILIAL 7173', 'FILIAL 7386', 
+'FILIAL 7390', 'FILIAL 7412', 'FILIAL 7461', 
+'FILIAL 7491', 'FILIAL 7563', 'FILIAL 7589', 
+'FILIAL 7591')
+
+
+---MAPEADO AS LOJAS E CONFIRMADO
+
+SELECT A.arquivoBilheteId, A.localArquivo, A.repId, C.descricao 
+FROM dbo.ArquivoAFD A, dbo.RepAFD B, dbo.Rep C
+WHERE A.repId = B.repID
+AND C.repId = B.repID
+AND C.descricao IN ('FILIAL 566', 'FILIAL 7002', 
+'FILIAL 7022', 'FILIAL 7041', 'FILIAL 7065', 
+'FILIAL 7093', 'FILIAL 7173', 'FILIAL 7386', 
+'FILIAL 7390', 'FILIAL 7412', 'FILIAL 7461', 
+'FILIAL 7491', 'FILIAL 7563', 'FILIAL 7589', 
+'FILIAL 7591')
+ORDER BY C.descricao ASC
+
+
+
+--====================================================================--
+--====================================================================--
+--====================================================================--
+--====================================================================--
+
+SELECT * FROM dbo.ArquivoAFD
+SELECT * FROM dbo.Empregador
+ORDER BY Descricao ASC
+
+SELECT A.repID, A.repAFDId, B.repId, B.descricao 
+FROM dbo.RepAFD A, dbo.Rep B
+WHERE A.repID = B.repId
+ORDER BY B.descricao ASC
+
+
+
+--===========================================================================================--
+--===========================================================================================--
+--===========================================================================================--
+--===========================================================================================--
+
+
+
+SELECT * FROM DBO.ArquivoAFD;
+
+UPDATE dbo.ArquivoAFD
+SET localArquivo = 'M:\Moavi\Batidas'
+WHERE localArquivo = 'M:\Moavi\AFD'
+
+
+--===========================================--
+--===========================================--
+
+
+
+
+--COMANDO PARA INSERIR NOVAS LINHAS DE LOCAL DE SALVAMENTOS DOS ARQUIVOS AFDs PARA AS LOJAS
+
+--INSERT BASE GZT - DIOGO
+
+INSERT INTO dbo.ArquivoAFD (localArquivo, repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta)
+SELECT
+    'M:\Moavi\Batidas', repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta
+FROM
+    dbo.ArquivoAFD
+--WHERE repId in (108, 74, 81, 53, 62, 137, 8, 67, 90, 72, 48, 93, 60, 112, 118)
+
+
+--==============================--
+
+
+--FABRICIO
+
+INSERT INTO dbo.ArquivoAFD (localArquivo, repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta)
+SELECT
+    'M:\Moavi\Batidas', repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta
+FROM
+    dbo.ArquivoAFD
+--WHERE repId in (65, 91, 59, 96, 100, 103)
+
+
+
+--===============================--
+
+--RARA
+
+INSERT INTO dbo.ArquivoAFD (localArquivo, repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta)
+SELECT
+    'M:\Moavi\AFD', repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta
+FROM
+    dbo.ArquivoAFD
+--WHERE repId in (180, 54, 150, 82, 175, 130, 184, 176, 73, 126, 71, 117, 140, 146, 29, 121)
+
+
+
+--==============--
+
+
+
+--CASO PRECISE DELETAR TODOS OS REGISTROS COM O NOME DO ARQUIVO ESPECIFICADO
+
+DELETE FROM DBO.ArquivoAFD
+WHERE localArquivo = 'M:\Antirion\AFD\Nova pasta';
+
+
+--CASO PRECISE SOMENTE ALTERAR
+
+UPDATE dbo.ArquivoAFD
+SET localArquivo = 'P:\nlcomum\Moavi\Batidas'
+WHERE localArquivo = 'P:\Moavi\Batidas'
+
+SELECT * FROM dbo.ArquivoAFD
+WHERE localArquivo = 'P:\nlcomum\Moavi\Batidas'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SELECT * FROM dbo.ArquivoAFD
+WHERE localArquivo = 'P:\nlcomum\Moavi\Batidas'
+
+--=====================--
+
+UPDATE dbo.ArquivoAFD
+SET localArquivo = 'P:\nlcomum\Moavi\Batidas'
+WHERE localArquivo = 'M:\EDU\AFD'
+
+SELECT * FROM dbo.ArquivoAFD
+WHERE localArquivo = 'M:\EDU\AFD'
+
+--=======================================--
+
+INSERT INTO dbo.ArquivoAFD (localArquivo, repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta)
+SELECT
+    'P:\nlcomum\Moavi\Batidas', repId, tipoArquivo, formato, diasPeriodo, adicionarData, urlServidor, usuarioServidor, senhaServidor, tokenAtual, urlColeta
+FROM
+    dbo.ArquivoAFD
+--WHERE repId in (180, 54, 150, 82, 175, 130, 184, 176, 73, 126, 71, 117, 140, 146, 29, 121)
+

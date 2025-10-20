@@ -1,0 +1,358 @@
+--SELECT VIEW OFFICIAL V_LOJAS_ATIVAS
+
+SELECT
+    LOJASATV.COD_PESSOA,
+    LOJASATV.COD_ORGANOGRAMA_SUB,
+    LOJASATV.COD_ORGANOGRAMA,
+    LOJASATV.UNIDADE,
+    LOJASATV.COD_PONTO,
+    LOJASATV.NOME_UNIDADE,
+    LOJASATV.REDE,
+    LOJASATV.DES_REDE,
+    LOJASATV.EMAIL,
+    LOJASATV.VALOR AS REGIAO,
+    LOJASATV.NUM_CGC AS CNPJ,
+    LOJASATV.CEP,
+    LOJASATV.TIP_LOGRA AS LOGRADOURO,
+    LOJASATV.NOME_LOGRA AS NOME_LOGRADOURO,
+    LOJASATV.NUMERO,
+    LOJASATV.NOME_BAIRRO,
+    LOJASATV.NOME_MUNIC AS CIDADE,
+    LOJASATV.COD_UF
+FROM (
+    SELECT
+        J.COD_PESSOA,
+        A1.COD_ORGANOGRAMA_SUB,
+        A2.COD_ORGANOGRAMA,
+        CASE
+            WHEN UNI.REDE IN (10, 30, 40, 50) THEN
+                LPAD(UNI.COD_UNIDADE, 3, '0')
+            WHEN UNI.REDE = 70 AND UNI.COD_UNIDADE IN (566, 580) THEN
+                LPAD(UNI.COD_UNIDADE, 3, '0')
+            WHEN UNI.REDE = 70 THEN
+                LPAD(UNI.COD_UNIDADE, 4, '0')
+        END UNIDADE,
+        Z.COD_PONTO,
+        CASE
+            WHEN UNI.REDE IN (10, 30, 40, 50) THEN
+                LPAD(UNI.COD_UNIDADE, 3, '0')
+            WHEN UNI.REDE = 70 AND UNI.COD_UNIDADE IN (566, 580) THEN
+                LPAD(UNI.COD_UNIDADE, 3, '0')
+            WHEN UNI.REDE = 70 THEN
+                LPAD(UNI.COD_UNIDADE, 4, '0')
+        END || ' - ' || UNI.DES_FANTASIA AS NOME_UNIDADE,
+        NVL(UNI.REDE, 0) REDE,
+        DECODE(UNI.REDE,
+            10,
+            'GRAZZIOTIN',
+            30,
+            'PORMENOS',
+            40,
+            'FRANCO GIORGI',
+            50,
+            'TOTTAL',
+            70,
+            'GZT STORE') DES_REDE,
+        J.EMAIL,
+        PE.VALOR,
+        UNI.NUM_CGC,
+        J.CEP,
+        L.TIP_LOGRA,
+        L.NOME_LOGRA,
+        J.NUMERO,
+        B.NOME_BAIRRO,
+        M.NOME_MUNIC,
+        J.COD_UF,
+/*        A1.EDICAO_NIVEL1 || '.' || 
+        A1.EDICAO_NIVEL2 || '.' || 
+        A1.EDICAO_NIVEL3 || '.' || 
+        A1.EDICAO_NIVEL4 || '.' || 
+        A1.EDICAO_NIVEL5,*/
+        ROW_NUMBER() OVER (PARTITION BY UNI.COD_UNIDADE ORDER BY
+            CASE WHEN A2.COD_NIVEL_ORG = 5 AND A3.COD_NIVEL_CONTABIL = 5 THEN 0 ELSE 1 END
+        ) AS RN
+    FROM
+        SISLOGWEB.V_UNIDADES_ATIVAS@NLGRZ UNI,
+        RHFP0401 A1,
+        RHFP0400 A2,
+        RHFP0402 A3,
+        RHFP0310 B1,
+        JURIDICA J,
+        PE0002 PE,
+        MUNICI M,
+        BAIRRO B,
+        LOGRA L,
+        GRAZZ.GRZ_LOC_PONTOS_UNIDADES@NLGRZ Z
+    WHERE
+        UNI.COD_UNIDADE = A1.EDICAO_ORG
+        AND A2.COD_ORGANOGRAMA = A1.COD_ORGANOGRAMA
+        AND A3.COD_CUSTO_CONTABIL = A2.COD_CUSTO_CONTABIL
+        AND B1.COD_ORGANOGRAMA = A1.COD_ORGANOGRAMA
+        AND J.CGC = UNI.NUM_CGC
+        AND PE.COD_PESSOA = J.COD_PESSOA
+        AND M.COD_MUNIC = J.COD_MUNIC
+        AND B.COD_BAIRRO = J.COD_BAIRRO
+        AND L.COD_LOGRA = J.COD_LOGRA
+        --AND Z.COD_UNIDADE = UNI.COD_UNIDADE
+        AND UNI.COD_UNIDADE NOT IN (900, 1549, 3549, 4549, 5549, 7549)
+        AND PE.VALOR BETWEEN 8701 AND 8719
+        AND A2.COD_NIVEL_ORG = 5
+        AND A3.COD_NIVEL_CONTABIL = 5
+        AND A3.EDICAO_NIVEL5 IS NOT NULL
+        AND A1.COD_NIVEL2 <> 282
+        AND A1.DATA_FIM = '31/12/2999'
+        AND B1.DATA_FIM = '31/12/2999'
+        AND (
+            (UNI.COD_UNIDADE LIKE '7%' AND B1.DATA_INICIO <= SYSDATE AND (B1.DATA_FIM IS NULL OR B1.DATA_FIM > SYSDATE))
+            OR
+            (UNI.COD_UNIDADE NOT LIKE '7%')
+        )
+) LOJASATV
+WHERE RN = 1
+ORDER BY
+    LOJASATV.UNIDADE ASC;
+
+
+
+SELECT * FROM GRAZZ.GRZ_LOC_ENDERECO_PONTOS@NLGRZ;
+SELECT * FROM GRAZZ.GRZ_LOC_PONTOS_UNIDADES@NLGRZ;
+
+
+
+
+
+
+
+
+
+
+SELECT 
+    EDICAO_NIVEL1 || '.' || 
+    EDICAO_NIVEL2 || '.' || 
+    EDICAO_NIVEL3 || '.' || 
+    EDICAO_NIVEL4 || '.' || 
+    EDICAO_NIVEL5 AS EDICAO_COMPLETA
+FROM RHFP0401;
+
+SELECT * FROM RHFP0401
+--============================================================--
+
+
+
+SELECT L.TIP_LOGRA, L.NOME_LOGRA, M.NOME_MUNIC
+FROM JURIDICA J, MUNICI M, LOGRA L
+WHERE J.COD_MUNIC = M.COD_MUNIC
+AND L.COD_LOGRA = J.COD_LOGRA
+
+SELECT * FROM JURIDICA;
+SELECT * FROM BAIRRO;
+SELECT * FROM CEP;
+SELECT * FROM LOGRA;
+SELECT * FROM MUNICI;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--========================================================================--
+
+SELECT * FROM PE0002    
+    
+SELECT * FROM JURIDICA
+WHERE     
+    
+SELECT J.COD_PESSOA, PE.COD_PESSOA, J.FANTASIA, PE.COD_CAMPO, PE.VALOR
+FROM JURIDICA J, PE0002 PE
+WHERE J.COD_PESSOA = PE.COD_PESSOA
+AND J.FANTASIA IN ('GRAZZIOTIN', 'PORMENOS', 'FRANCO GIORGI', 'TOTTAL', 'GZT')
+AND PE.VALOR BETWEEN 8701 AND 8719  
+
+
+--==========--
+
+
+
+
+
+SELECT * FROM JURIDICA
+WHERE FANTASIA  = 'GZT'
+
+   
+   
+   
+
+   
+   
+--==================================================--
+
+
+
+UPDATE JURIDICA
+SET EMAIL = 
+    CASE
+        WHEN SUBSTR(EMAIL, 6, 1) <> '7' THEN
+            'loja7' || SUBSTR(EMAIL, 6)
+        ELSE
+            EMAIL
+    END || REPLACE(SUBSTR(EMAIL, INSTR(EMAIL, '@')), '@', '@gztstore.com.br')
+WHERE COD_PESSOA IN (
+    SELECT
+        LOJASATV.COD_PESSOA
+    FROM (
+        SELECT
+            A2.COD_ORGANOGRAMA,
+            J.COD_PESSOA,
+            A1.COD_ORGANOGRAMA_SUB,
+            CASE
+                WHEN UNI.REDE IN (10, 30, 40, 50) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 AND UNI.COD_UNIDADE IN (566, 580) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 THEN
+                    LPAD(UNI.COD_UNIDADE, 4, '0')
+            END UNIDADE,
+            CASE
+                WHEN UNI.REDE IN (10, 30, 40, 50) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 AND UNI.COD_UNIDADE IN (566, 580) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 THEN
+                    LPAD(UNI.COD_UNIDADE, 4, '0')
+            END || ' - ' || UNI.DES_FANTASIA AS NOME_UNIDADE,
+            NVL(UNI.REDE, 0) REDE,
+            DECODE(UNI.REDE,
+                10,
+                'GRAZZIOTIN',
+                30,
+                'PORMENOS',
+                40,
+                'FRANCO GIORGI',
+                50,
+                'TOTTAL',
+                70,
+                'GZT STORE') DES_REDE,
+            UNI.NUM_CGC,
+            J.EMAIL,
+            ROW_NUMBER() OVER (PARTITION BY UNI.COD_UNIDADE ORDER BY
+                CASE WHEN A2.COD_NIVEL_ORG = 5 AND A3.COD_NIVEL_CONTABIL = 5 THEN 0 ELSE 1 END
+            ) AS RN
+        FROM
+            SISLOGWEB.V_UNIDADES_ATIVAS@NLGRZ UNI,
+            RHFP0401 A1,
+            RHFP0400 A2,
+            RHFP0402 A3,
+            RHFP0310 B1,
+            PESSOA_JURIDICA J
+        WHERE
+            UNI.COD_UNIDADE = A1.EDICAO_ORG
+            AND A2.COD_ORGANOGRAMA = A1.COD_ORGANOGRAMA
+            AND A3.COD_CUSTO_CONTABIL = A2.COD_CUSTO_CONTABIL
+            AND B1.COD_ORGANOGRAMA = A1.COD_ORGANOGRAMA
+            AND J.CGC = UNI.NUM_CGC
+            AND UNI.COD_UNIDADE NOT IN (900, 1549, 3549, 4549, 5549, 7549)
+            AND A2.COD_NIVEL_ORG = 5
+            AND A3.COD_NIVEL_CONTABIL = 5
+            AND A3.EDICAO_NIVEL5 IS NOT NULL
+            AND A2.COD_CUSTO_CONTABIL IS NOT NULL
+            AND A1.COD_NIVEL2 <> 282
+            AND A1.DATA_FIM = '31/12/2999'
+            AND B1.DATA_FIM = '31/12/2999'
+            AND UNI.DES_FANTASIA LIKE '%GZT %'
+    ) LOJASATV
+    WHERE RN = 1
+)
+AND SUBSTR(EMAIL, 1, 5) = 'loja';
+
+
+
+
+UPDATE PESSOA_JURIDICA
+SET EMAIL = 
+    CASE
+        WHEN SUBSTR(EMAIL, 6, 1) <> '7' THEN
+            SUBSTR(EMAIL, 1, 5) || '7' || SUBSTR(EMAIL, 6)
+        ELSE
+            EMAIL
+    END || REPLACE(SUBSTR(EMAIL, INSTR(EMAIL, '@')), '@', '@gztstore.com.br')
+WHERE COD_PESSOA IN (
+    SELECT DISTINCT
+        LOJASATV.COD_PESSOA
+    FROM (
+        SELECT
+            A2.COD_ORGANOGRAMA,
+            J.COD_PESSOA,
+            A1.COD_ORGANOGRAMA_SUB,
+            CASE
+                WHEN UNI.REDE IN (10, 30, 40, 50) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 AND UNI.COD_UNIDADE IN (566, 580) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 THEN
+                    LPAD(UNI.COD_UNIDADE, 4, '0')
+            END UNIDADE,
+            CASE
+                WHEN UNI.REDE IN (10, 30, 40, 50) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 AND UNI.COD_UNIDADE IN (566, 580) THEN
+                    LPAD(UNI.COD_UNIDADE, 3, '0')
+                WHEN UNI.REDE = 70 THEN
+                    LPAD(UNI.COD_UNIDADE, 4, '0')
+            END || ' - ' || UNI.DES_FANTASIA AS NOME_UNIDADE,
+            NVL(UNI.REDE, 0) REDE,
+            DECODE(UNI.REDE,
+                10,
+                'GRAZZIOTIN',
+                30,
+                'PORMENOS',
+                40,
+                'FRANCO GIORGI',
+                50,
+                'TOTTAL',
+                70,
+                'GZT STORE') DES_REDE,
+            UNI.NUM_CGC,
+            J.EMAIL,
+            ROW_NUMBER() OVER (PARTITION BY UNI.COD_UNIDADE ORDER BY
+                CASE WHEN A2.COD_NIVEL_ORG = 5 AND A3.COD_NIVEL_CONTABIL = 5 THEN 0 ELSE 1 END
+            ) AS RN
+        FROM
+            SISLOGWEB.V_UNIDADES_ATIVAS@NLGRZ UNI,
+            RHFP0401 A1,
+            RHFP0400 A2,
+            RHFP0402 A3,
+            RHFP0310 B1,
+            PESSOA_JURIDICA J
+        WHERE
+            UNI.COD_UNIDADE = A1.EDICAO_ORG
+            AND A2.COD_ORGANOGRAMA = A1.COD_ORGANOGRAMA
+            AND A3.COD_CUSTO_CONTABIL = A2.COD_CUSTO_CONTABIL
+            AND B1.COD_ORGANOGRAMA = A1.COD_ORGANOGRAMA
+            AND J.CGC = UNI.NUM_CGC
+            AND UNI.COD_UNIDADE NOT IN (900, 1549, 3549, 4549, 5549, 7549)
+            AND A2.COD_NIVEL_ORG = 5
+            AND A3.COD_NIVEL_CONTABIL = 5
+            AND A3.EDICAO_NIVEL5 IS NOT NULL
+            AND A2.COD_CUSTO_CONTABIL IS NOT NULL
+            AND A1.COD_NIVEL2 <> 282
+            AND A1.DATA_FIM = '31/12/2999'
+            AND B1.DATA_FIM = '31/12/2999'
+            AND UNI.DES_FANTASIA LIKE '%GZT %'
+        ) LOJASATV
+    WHERE RN = 1
+)
+AND SUBSTR(EMAIL, 1, 5) = 'loja';
+
+

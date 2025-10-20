@@ -1,0 +1,134 @@
+--==SCRIPT PARA GERAR O VALOR DA APR DOS GERENTES DAS LOJAS, COM BASES EM SEUS CRITÉRIOS==--
+
+---==VERSÃO 1
+
+SELECT B.COD_CONTRATO,
+       B.DES_PESSOA,
+       B.COD_UNIDADE,
+       B.DES_FUNCAO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD), 2), 'FM999G999G990D00', 'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD * 2), 2),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO_MULTIPLICADO,
+       C.NOTA_APR,
+       TO_CHAR(((ROUND(SUM(A.VALOR_VD * 2), 2) * C.NOTA_APR) / 100),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS APR_CALCULADA
+  FROM GRZ_FOLHA.RHFP1006@NLGZT A,
+       V_DADOS_PESSOA@GRZFOLHA B,
+       (SELECT COD_UNIDADE,
+               SUM(NVL(TREINAMENTO, 0) + NVL(TRAINEE, 0) + NVL(ORCADO, 0) +
+                   NVL(MARGEM_PERC, 0) + NVL(LUCRO, 0) + NVL(PERMANENCIA, 0) +
+                   NVL(INVENTARIO, 0) + NVL(PREVENTIVA, 0) +
+                   NVL(VALE_TRANSP, 0) + NVL(PRODUTIVIDADE, 0) +
+                   NVL(FOLHA, 0) + NVL(TURN_OVER, 0)) NOTA_APR
+          FROM NL.GRZ_DADOS_CALCULO_APR_ANUAL A
+         WHERE A.ANO = 2023
+              --AND COD_REDE = 70
+           AND A.REGIAO < 8730
+           AND A.COD_UNIDADE < 8000
+           AND A.COD_UNIDADE NOT IN (1549, 3549, 4549, 5549, 7549, 0)
+         GROUP BY COD_UNIDADE) C
+ WHERE B.COD_CONTRATO = A.COD_CONTRATO
+   AND B.COD_UNIDADE = C.COD_UNIDADE
+   AND B.COD_FUNCAO IN
+       ('7', '8', '78', '79', '86', '87', '128', '137', '184', '186', '189',
+        '190', '275', '283', '294', '299', '318', '325', '328', '330', '355',
+        '188', '14', '88', '81', '345', '80', '77', '192', '90', '185',
+        '264', '255')
+   AND B.COD_GRUPO IN (1, 2, 3, 4, 7)
+   AND A.COD_MESTRE_EVENTO = 15542 -- MESTRE DE 2022 - SEMPRE ALTERAR PARA O MESTRE ATUAL, NO CASO DESSE ANO 16413 = 2023
+   AND A.COD_VD IN (1700)
+ GROUP BY B.COD_CONTRATO,
+          B.DES_PESSOA,
+          B.COD_UNIDADE,
+          B.DES_FUNCAO,
+          C.NOTA_APR
+ ORDER BY COD_UNIDADE ASC
+
+
+
+
+
+--=====VERSÃO 2 ATUALIZADA = OFICIAL=====----
+
+
+SELECT B.COD_CONTRATO,
+       B.DES_PESSOA,
+       B.COD_UNIDADE,
+       B.DES_FUNCAO,
+       B.DTA_INI_FUNCAO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD), 2),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD * 2), 2),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO_MULTIPLICADO,
+       C.NOTA_APR,
+       TO_CHAR(((ROUND(SUM(A.VALOR_VD * 2), 2) * C.NOTA_APR) / 100) * (CASE
+                 WHEN EXTRACT(YEAR FROM B.DTA_INI_FUNCAO) = 2023 THEN
+                  0.5
+                 ELSE
+                  1
+               END) * (CASE
+                 WHEN D.ARGUMENTO_1 IS NOT NULL THEN
+                  0.5
+                 ELSE
+                  1
+               END),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS APR_CALCULADA,
+       CASE
+         WHEN EXISTS
+          (SELECT 1 FROM RHFP1026 WHERE ARGUMENTO_1 = B.COD_UNIDADE) THEN
+          D.ARGUMENTO_1
+         ELSE
+          NULL
+       END AS UNI_PREJUIZO,
+       CASE
+           WHEN EXTRACT(YEAR FROM B.DTA_INI_FUNCAO) = 2023 THEN 'Início em 2023'
+           WHEN D.ARGUMENTO_1 IS NOT NULL THEN 'Com prejuízo'
+           ELSE NULL
+       END AS DESTAQUE
+  FROM RHFP1006 A
+ INNER JOIN V_DADOS_PESSOA B ON B.COD_CONTRATO = A.COD_CONTRATO
+  LEFT JOIN (SELECT COD_VL, ARGUMENTO_1 
+             FROM RHFP1026 
+             WHERE COD_VL = 15) D ON B.COD_UNIDADE = D.ARGUMENTO_1
+ INNER JOIN (SELECT COD_UNIDADE,
+                    SUM(NVL(TREINAMENTO, 0) + NVL(TRAINEE, 0) +
+                        NVL(ORCADO, 0) + NVL(MARGEM_PERC, 0) + NVL(LUCRO, 0) +
+                        NVL(PERMANENCIA, 0) + NVL(INVENTARIO, 0) +
+                        NVL(PREVENTIVA, 0) + NVL(VALE_TRANSP, 0) +
+                        NVL(PRODUTIVIDADE, 0) + NVL(FOLHA, 0) +
+                        NVL(TURN_OVER, 0)) AS NOTA_APR
+               FROM NL.GRZ_DADOS_CALCULO_APR_ANUAL@NLGRZ
+              WHERE ANO = 2023
+                AND REGIAO < 8730
+                AND COD_UNIDADE < 8000
+                AND COD_UNIDADE NOT IN
+                    ('1549', '3549', '4549', '5549', '7549', '0')
+              GROUP BY COD_UNIDADE) C ON B.COD_UNIDADE = C.COD_UNIDADE
+ WHERE B.COD_FUNCAO IN
+       (7, 8, 14, 77, 78, 79, 80, 81, 86, 87, 88, 89, 90, 128, 137, 184, 185, 186, 188, 189, 190, 192, 255, 264, 275, 283, 294, 299, 318, 325, 328, 330, 345, 355)
+   AND B.COD_GRUPO IN ('1', '2', '3', '4', '7')
+   AND A.COD_MESTRE_EVENTO = 16413  --= MESTRE 2023
+   AND A.COD_VD = 1700
+--AND D.ARGUMENTO_1 IS NOT NULL
+ GROUP BY B.COD_CONTRATO,
+          B.DES_PESSOA,
+          B.COD_UNIDADE,
+          B.DES_FUNCAO,
+          B.DTA_INI_FUNCAO,
+          C.NOTA_APR,
+          D.ARGUMENTO_1
+ ORDER BY B.COD_UNIDADE ASC;
+ 
+ 
+ 
+
+
+
+
+
+

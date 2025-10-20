@@ -1,0 +1,36 @@
+----======GERANDO SQL PARA IMPORTAR NOTAS E VALORES DA APR DOS GERENTES LOJAS/ADM, REGIONAIS E SUPERVISORES=======----
+
+
+SELECT A.COD_CONTRATO, 
+       B.DES_PESSOA, 
+       B.DES_FUNCAO,
+       '/============/' AS ESPACO,
+       A.COD_EVENTO, 
+       A.COD_VD,
+       A.DATA_MOV,
+       A.TIPO_INF_VD,
+       A.QTDE_VD,
+       A.VALOR_VD
+  FROM RHFP1004 A
+ INNER JOIN V_DADOS_PESSOA B ON A.COD_CONTRATO = B.COD_CONTRATO
+ WHERE A.COD_VD = 219
+   AND A.COD_EVENTO = 9
+   AND A.DATA_MOV = '30/04/2023'
+   AND B.COD_FUNCAO IN
+       ('7', '8', '78', '79', '86', '87', '128', '137', '184', '186', '189',
+        '190', '275', '283', '294', '299', '318', '325', '328', '330', '355',
+        '188', '14', '88', '81', '345', '80', '77', '192', '90', '185',
+        '264', '255')
+        
+        
+SELECT * FROM RHFP1004
+ WHERE COD_VD = 219
+   AND COD_EVENTO = 9
+   AND DATA_MOV = '30/04/2024'
+   AND QTDE_VD <> 0 
+   AND VALOR_VD <> 0
+   AND COD_CONTRATO = 388575
+
+   
+   
+SELECT * FROM GRZ_RHFP1004_APR

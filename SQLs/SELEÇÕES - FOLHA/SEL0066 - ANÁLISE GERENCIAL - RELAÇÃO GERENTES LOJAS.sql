@@ -1,0 +1,130 @@
+WITH
+CONTRATOS AS (
+SELECT DISTINCT CT.STATUS,
+                CT.COD_CONTRATO,
+                CT.DES_PESSOA,
+                CT.DATA_NASCIMENTO,
+                CT.DATA_ADMISSAO,
+                CT.DATA_DEMISSAO,
+                FN.COD_FUNCAO,
+                FN.DES_FUNCAO,
+                FN.DATA_INI_CLH,
+                FN.DATA_FIM_CLH,
+                HR.HR_BASE_MES,
+                HR.DATA_INI_HR,
+                HR.DATA_FIM_HR,
+                CT.IND_DEFICIENCIA,
+                CT.SEXO,
+                ORG.COD_EMP,
+                ORG.EDICAO_EMP,
+                ORG.DES_EMP,
+                ORG.COD_ORGANOGRAMA,
+                ORG.COD_UNIDADE,
+                ORG.DES_UNIDADE,
+                ORG.DATA_INI_ORG,
+                ORG.DATA_FIM_ORG,
+                CASE
+                  WHEN ORG.COD_TIPO = 2 THEN
+                   ORG.EDICAO_ORG_3
+                  WHEN ORG.COD_TIPO = 3 THEN
+                   ORG.EDICAO_ORG_3
+                  ELSE
+                   ORG.COD_UNIDADE
+                END AS COD_FILIAL,
+                CASE
+                  WHEN ORG.COD_TIPO = 2 THEN
+                   ORG.NOME3
+                  WHEN ORG.COD_TIPO = 3 THEN
+                   ORG.NOME3
+                  ELSE
+                   ORG.DES_UNIDADE
+                END AS DES_FILIAL,
+                CASE
+                  WHEN ORG.COD_TIPO = 2 THEN
+                   ORG.EDICAO_ORG_4
+                  WHEN ORG.COD_TIPO = 3 THEN
+                   ORG.EDICAO_ORG_4
+                  ELSE
+                   ORG.COD_UNIDADE
+                END AS COD_DIVISAO,
+                CASE
+                  WHEN ORG.COD_TIPO = 2 THEN
+                   ORG.NOME4
+                  WHEN ORG.COD_TIPO = 3 THEN
+                   ORG.NOME4
+                  ELSE
+                   ORG.DES_UNIDADE
+                END AS DES_DIVISAO,
+                ORG.COD_REDE,
+                ORG.DES_REDE,
+                ORG.COD_TIPO,
+                ORG.DES_TIPO
+  FROM V_DADOS_CONTRATO_AVT    CT,
+       VH_EST_ORG_CONTRATO_AVT ORG,
+       VH_HIST_HORAS_COLAB_AVT HR,
+       VH_CARGO_CONTRATO_AVT   FN
+ WHERE CT.COD_CONTRATO = ORG.COD_CONTRATO
+   AND CT.COD_CONTRATO = HR.COD_CONTRATO
+   AND CT.COD_CONTRATO = FN.COD_CONTRATO
+   AND (CT.DATA_ADMISSAO <= :DATA_FIM)
+   AND (CT.DATA_DEMISSAO IS NULL OR CT.DATA_DEMISSAO >= :DATA_INICIO)
+  /* AND (CT.DATA_ADMISSAO <= TO_DATE('31/07/2025','DD/MM/YYYY'))
+   AND (CT.DATA_DEMISSAO IS NULL OR CT.DATA_DEMISSAO >= TO_DATE('01/07/2025','DD/MM/YYYY'))*/
+   /*AND (CT.DATA_DEMISSAO IS NULL OR
+       CT.DATA_DEMISSAO >= '01/07/2025')*/
+   AND :DATA_FIM BETWEEN ORG.DATA_INI_ORG AND ORG.DATA_FIM_ORG
+   AND :DATA_FIM BETWEEN FN.DATA_INI_CLH AND FN.DATA_FIM_CLH
+   AND :DATA_FIM BETWEEN HR.DATA_INI_HR AND HR.DATA_FIM_HR
+   AND ORG.COD_EMP = 8
+   --AND ORG.COD_TIPO = 1
+   AND ORG.EDICAO_ORG_4 IS NOT NULL
+ ORDER BY CT.COD_CONTRATO
+),
+
+STATUS_AFASTADOS AS (
+SELECT DISTINCT
+       ORG.COD_EMP,
+       CT.COD_CONTRATO,
+       ORG.COD_ORGANOGRAMA,
+       ORG.COD_UNIDADE,
+       NVL(AF.COD_CAUSA_AFAST,0) AS STATUS_AFAST,
+       AF.DATA_INICIO AS DATA_INI_AFAST,
+       AF.DATA_FIM AS DATA_FIM_AFAST
+  FROM RHFP0306 AF,
+       RHFP0300 CT,
+       VH_EST_ORG_CONTRATO_AVT ORG,
+       VH_CARGO_CONTRATO_AVT FN
+ WHERE CT.COD_CONTRATO = AF.COD_CONTRATO(+)
+   AND CT.COD_CONTRATO = ORG.COD_CONTRATO(+)
+   AND CT.COD_CONTRATO = FN.COD_CONTRATO(+)
+   AND ((:DATA_FIM BETWEEN CT.DATA_INICIO AND CT.DATA_FIM) OR
+        (CT.DATA_INICIO <= :DATA_FIM AND CT.DATA_FIM IS NULL))
+   AND :DATA_FIM BETWEEN AF.DATA_INICIO(+) AND AF.DATA_FIM(+)
+   AND :DATA_FIM BETWEEN ORG.DATA_INI_ORG(+) AND ORG.DATA_FIM_ORG(+)
+   AND :DATA_FIM BETWEEN FN.DATA_INI_CLH AND FN.DATA_FIM_CLH(+)
+   AND ORG.COD_EMP = 8
+   --AND ORG.COD_UNIDADE NOT IN (014, 050, 615, 7586, 7608)
+   --AND ORG.COD_TIPO = 1
+   --AND ORG.COD_UNIDADE NOT IN (014, 050, 615, 657, 7586, 7608) --657 essa ainda irá inaugurar em agosto
+)
+
+SELECT COD_CONTRATO,
+       DES_PESSOA,
+       DATA_ADMISSAO,
+       DATA_DEMISSAO,
+       DES_FUNCAO,
+       DATA_INI_CLH AS INICIO_FUNCAO,
+       DATA_FIM_CLH AS FIM_FUNCAO,
+       COD_UNIDADE,
+       DES_UNIDADE,
+       DATA_INI_ORG AS INICIO_UNIDADE,
+       DATA_FIM_ORG AS FIM_UNIDADE,
+       COD_REDE,
+       DES_REDE
+FROM CONTRATOS
+WHERE DES_FUNCAO LIKE '%GERENTE%'
+AND STATUS = 0
+AND COD_TIPO = 1
+AND (COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
+AND (COD_REDE = :REDE OR :REDE = 0)
+ORDER BY COD_UNIDADE

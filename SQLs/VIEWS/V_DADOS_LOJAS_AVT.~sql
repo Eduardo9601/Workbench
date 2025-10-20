@@ -1,0 +1,261 @@
+CREATE OR REPLACE VIEW V_DADOS_LOJAS_AVT AS
+WITH CONTRATOS AS (
+SELECT COD_CONTRATO,
+       COD_ORGANOGRAMA,
+       COD_UNIDADE,
+       DES_UNIDADE,
+       DATA_INI_ORG,
+       DATA_FIM_ORG,
+       COD_REDE_LOCAL,
+       DES_REDE_LOCAL,
+       COD_UF_ORG,
+       COD_GRUPO_EMP,
+       EDICAO_GRUPO_EMP,
+       DES_GRUPO_EMP,
+       COD_EMP,
+       EDICAO_EMP,
+       DES_EMPRESA,
+       COD_ORG_FILIAL,
+       EDICAO_FILIAL,
+       DES_FILIAL,
+       COD_ORG_DIVISAO,
+       EDICAO_DIVISAO,
+       DES_DIVISAO,
+       COD_ORG_DEPART,
+       EDICAO_DEPART,
+       DES_DEPART,
+       COD_ORG_SETOR,
+       EDICAO_SETOR,
+       DES_SETOR,
+       COD_ORG_SECAO,
+       EDICAO_SECAO,
+       DES_SECAO,
+       COD_ORG_UNI,
+       EDICAO_UNI,
+       DES_UNI,
+       DATA_INICIO,
+       DATA_FIM,
+       COD_TIPO,
+       DES_TIPO
+  FROM V_ESTRUTURA_ORG_CONTRATOS_AVT
+),
+
+HORARIOS_LOJAS AS (
+SELECT FILIAL,
+       'SEG - SEX: ' || TO_CHAR(MIN(CASE WHEN DIA IN ('SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA') THEN HORA_ENT END))
+        || ' - ' || TO_CHAR(MAX(CASE WHEN DIA IN ('SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA') THEN HORA_SAI END)) AS HR_SEMANA,
+
+       'SÁB: ' || TO_CHAR(MIN(CASE WHEN DIA='SABADO' THEN HORA_ENT END))
+        || ' - ' || TO_CHAR(MAX(CASE WHEN DIA='SABADO' THEN HORA_SAI END)) AS HR_SABADO,
+
+       CASE
+           WHEN MIN(CASE WHEN DIA='DOMINGO' THEN HORA_ENT END) IS NOT NULL
+            THEN 'DOM: ' || TO_CHAR(MIN(CASE WHEN DIA='DOMINGO' THEN HORA_ENT END))
+                 || ' - ' || TO_CHAR(MAX(CASE WHEN DIA='DOMINGO' THEN HORA_SAI END))
+           ELSE NULL
+       END AS HR_DOMINGO
+
+FROM V_DADOS_FILIAIS
+GROUP BY FILIAL
+  
+),
+
+-- Opcional: 1 REGIONAL por EDICAO_ORG (ajuste a regra de desempate se necessário)
+REGIONAL AS (
+  SELECT *
+    FROM (SELECT DR.*,
+                 ROW_NUMBER() OVER(PARTITION BY DR.EDICAO_ORG ORDER BY DR.COD_CONTRATO DESC) RN
+            FROM V_DADOS_REGIONAIS_AVT DR)
+   WHERE RN = 1
+)
+
+SELECT UNI.COD_ATIVIDADE,
+       CT.COD_TIPO,
+       CT.DES_TIPO,
+       PJ.COD_PESSOA,
+       CT.COD_ORGANOGRAMA,
+       UNI.COD_UNIDADE,
+       UNI.COD_UNIDADE || ' - ' || UNI.DES_FANTASIA AS DES_UNIDADE,
+       CT.DATA_INICIO,
+       CT.DATA_FIM,
+       UNI.COD_REDE,
+       UNI.DES_REDE,
+       CASE
+         WHEN UNI.COD_REDE = 10 THEN
+          'GRZ'
+         WHEN UNI.COD_REDE = 30 THEN
+          'PRM'
+         WHEN UNI.COD_REDE = 40 THEN
+          'FRG'
+         WHEN UNI.COD_REDE = 50 THEN
+          'TOT'
+         WHEN UNI.COD_REDE = 70 THEN
+          'GZT'
+         ELSE
+          NULL
+       END AS SIGLA_REDE,
+       UNI.COD_REGIAO,
+       UNI.DES_REGIAO,
+       DR.COD_CONTRATO AS CT_REGIONAL,
+       DR.NOME_PESSOA AS DES_REGIONAL,
+       DR.CPF AS CPF_REGIONAL,
+       DECODE(UNI.COD_REDE,
+              10,
+              'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') ||
+              '@grazziotin.com.br',
+              30,
+              'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') || '@pormenos.com.br',
+              40,
+              'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') ||
+              '@francogiorgi.com.br',
+              50,
+              'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') || '@tottal.com.br',
+              70,
+              DECODE(UNI.COD_UNIDADE,
+                     580,
+                     'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') ||
+                     '@gztstore.com.br',
+                     'loja' || LPAD(UNI.COD_UNIDADE, 4, '0') ||
+                     '@gztstore.com.br')) AS EMAIL_LOJA,
+       UNI.CELULAR,
+       UNI.TEL_FIXO,
+       SUBSTR(UNI.NUM_CGC, 1, 2) || '.' || SUBSTR(UNI.NUM_CGC, 3, 3) || '.' ||
+       SUBSTR(UNI.NUM_CGC, 6, 3) || '/' || SUBSTR(UNI.NUM_CGC, 9, 4) || '-' ||
+       SUBSTR(UNI.NUM_CGC, 13, 2) AS NUM_CNPJ,
+       PJ.CEP,
+       PJ.TIP_LOGRA AS TIPO_LOGRA,
+       PJ.NOME_TIP_LOGRA AS DES_TIP_LOGRA,
+       PJ.COD_LOGRA,
+       PJ.NOME_LOGRA AS DES_LOGRA,
+       PJ.NUMERO,
+       PJ.COMPLEMENTO,
+       PJ.COD_BAIRRO,
+       PJ.NOME_BAIRRO AS DES_BAIRRO,
+       PJ.COD_MUNIC AS COD_CIDADE,
+       PJ.NOME_MUNIC AS DES_CIDADE,
+       PJ.COD_UF,
+       CASE
+         WHEN CT.DATA_FIM_ORG = DATE '2999-12-31' THEN
+          'S'
+         ELSE
+          'N'
+       END AS IND_COLAB_LOCAL,
+       DECODE(CT.DATA_FIM, DATE '2999-12-31', 'S', 'N') AS IND_COLAB_LOCAL_CONTR,
+       COUNT(DISTINCT CT.COD_CONTRATO) AS QTDE_COLABORADORES,
+       HA.HR_SEMANA,
+       HA.HR_SABADO,
+       HA.HR_DOMINGO,
+       CT.EDICAO_EMP AS COD_EMPRESA,
+       CT.DES_EMPRESA,
+       UNI.DTA_INAUGURACAO,
+       UNI.TAM_AREA,
+       (SELECT Z.COD_NIVEL_ORG
+          FROM RHFP0400 Z
+         WHERE CT.COD_ORGANOGRAMA = Z.COD_ORGANOGRAMA
+           AND Z.COD_NIVEL_ORG = 5) AS COD_NIVEL,
+       CT.COD_GRUPO_EMP,
+       CT.COD_EMP,
+       CT.COD_ORG_FILIAL AS COD_FILIAL,
+       NVL(CT.COD_ORG_DIVISAO, 0) AS COD_DIVISAO,
+       NVL(CT.COD_ORG_DEPART, 0) AS COD_DEPARTAMENTO,
+       CT.COD_GRUPO_EMP || '.' || CT.COD_EMP || '.' || CT.COD_ORG_FILIAL || '.' ||
+       CT.COD_ORG_DIVISAO || '.' || CT.COD_ORG_DEPART AS NIVEL_COMPLETO,
+       CT.EDICAO_GRUPO_EMP,
+       CT.EDICAO_EMP,
+       CT.EDICAO_FILIAL,
+       NVL(CT.EDICAO_DIVISAO, 0) AS EDICAO_DIVISAO,
+       NVL(CT.EDICAO_DEPART, 0) AS EDICAO_DEPARTAMENTO,
+       CT.EDICAO_GRUPO_EMP || '.' || CT.EDICAO_EMP || '.' ||
+       CT.EDICAO_FILIAL || '.' || CT.EDICAO_DIVISAO || '.' ||
+       CT.EDICAO_DEPART AS EDICAO_COMPLETA,
+       UNI.TAM_AREA_PREDIAL,
+       BS.IP_LOJA,
+       CT.DATA_FIM_ORG
+  FROM V_UNIDADES_ATIVAS UNI
+  LEFT JOIN CONTRATOS CT ON UNI.COD_UNIDADE = CT.COD_UNIDADE
+                        AND CT.COD_EMP = 8
+                        AND CT.COD_TIPO = 1
+  LEFT JOIN REGIONAL DR ON UNI.COD_REGIAO = DR.EDICAO_ORG
+  LEFT JOIN RHFP0400 ORG ON CT.COD_ORG_FILIAL = ORG.COD_ORGANOGRAMA
+  LEFT JOIN PESSOA_JURIDICA PJ ON ORG.COD_PESSOA = PJ.COD_PESSOA
+  LEFT JOIN SISLOGWEB.GRZ_LOJAS_TAMANHO_BASE@NLGRZ BS ON UNI.COD_UNIDADE =
+                                                         BS.COD_UNIDADE
+  LEFT JOIN HORARIOS_LOJAS HA ON UNI.COD_UNIDADE = HA.FILIAL
+ GROUP BY UNI.COD_ATIVIDADE,
+          CT.COD_ORGANOGRAMA,
+          CT.COD_TIPO,
+          CT.DES_TIPO,
+          PJ.COD_PESSOA,
+          UNI.COD_UNIDADE,
+          UNI.COD_UNIDADE || ' - ' || UNI.DES_FANTASIA,
+          UNI.COD_REDE,
+          UNI.DES_REDE,
+          UNI.COD_REGIAO,
+          UNI.DES_REGIAO,
+          DR.COD_CONTRATO,
+          DR.NOME_PESSOA,
+          DR.CPF,
+          DECODE(UNI.COD_REDE,
+                 10,
+                 'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') ||
+                 '@grazziotin.com.br',
+                 30,
+                 'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') ||
+                 '@pormenos.com.br',
+                 40,
+                 'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') ||
+                 '@francogiorgi.com.br',
+                 50,
+                 'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') || '@tottal.com.br',
+                 70,
+                 DECODE(UNI.COD_UNIDADE,
+                        580,
+                        'loja' || LPAD(UNI.COD_UNIDADE, 3, '0') ||
+                        '@gztstore.com.br',
+                        'loja' || LPAD(UNI.COD_UNIDADE, 4, '0') ||
+                        '@gztstore.com.br')),
+          UNI.CELULAR,
+          UNI.TEL_FIXO,
+          UNI.NUM_CGC,
+          PJ.CEP,
+          PJ.TIP_LOGRA,
+          PJ.NOME_TIP_LOGRA,
+          PJ.COD_LOGRA,
+          PJ.NOME_LOGRA,
+          PJ.NUMERO,
+          PJ.COMPLEMENTO,
+          PJ.COD_BAIRRO,
+          PJ.NOME_BAIRRO,
+          PJ.COD_MUNIC,
+          PJ.NOME_MUNIC,
+          PJ.COD_UF,
+          HA.HR_SEMANA,
+          HA.HR_SABADO,
+          HA.HR_DOMINGO,
+          CT.EDICAO_EMP,
+          CT.DES_EMPRESA,
+          CT.DATA_INICIO,
+          CT.DATA_FIM,
+          UNI.DTA_INAUGURACAO,
+          UNI.TAM_AREA,
+          CT.COD_GRUPO_EMP,
+          CT.COD_EMP,
+          CT.COD_ORG_FILIAL,
+          NVL(CT.COD_ORG_DIVISAO, 0),
+          NVL(CT.COD_ORG_DEPART, 0),
+          CT.COD_GRUPO_EMP || '.' || CT.COD_EMP || '.' || CT.COD_ORG_FILIAL || '.' ||
+          CT.COD_ORG_DIVISAO || '.' || CT.COD_ORG_DEPART,
+          CT.EDICAO_GRUPO_EMP,
+          CT.EDICAO_EMP,
+          CT.EDICAO_FILIAL,
+          NVL(CT.EDICAO_DIVISAO, 0),
+          NVL(CT.EDICAO_DEPART, 0),
+          CT.EDICAO_GRUPO_EMP || '.' || CT.EDICAO_EMP || '.' ||
+          CT.EDICAO_FILIAL || '.' || CT.EDICAO_DIVISAO || '.' ||
+          CT.EDICAO_DEPART,
+          UNI.TAM_AREA_PREDIAL,
+          BS.IP_LOJA,
+          CT.DATA_FIM_ORG
+ ORDER BY UNI.COD_UNIDADE ASC;
+ 
+ 

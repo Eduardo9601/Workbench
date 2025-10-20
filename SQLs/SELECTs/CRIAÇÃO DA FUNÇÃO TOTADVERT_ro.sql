@@ -1,0 +1,395 @@
+CREATE OR REPLACE TYPE TOTADVERT_row_type AS OBJECT (
+    COD_CONTRATO NUMBER(15,0),
+    NOME_PESSOA VARCHAR2(80 BYTE),
+    EDICAO_ORG VARCHAR2(10 BYTE),
+    NOME_ORGANOGRAMA VARCHAR2(60 BYTE),
+    MES_OCORRENCIA VARCHAR2(20 BYTE),
+    ORIGEM VARCHAR2(3 BYTE),
+    HORAS_EXTRAS_MAIS_2HRS VARCHAR2(25 BYTE),
+    INTERVALOS_INFERIOR_1H VARCHAR2(25 BYTE),
+    OCORRENCIAS_INFORMADAS VARCHAR2(25 BYTE),
+    HORAS_EXTRAS_MAIS_10HRS VARCHAR2(25 BYTE),
+    INTERVALOS_INFERIOR_15MIN VARCHAR2(25 BYTE),
+    OCORR_INTRAJORNADA_INFE_11HRS VARCHAR2(25 BYTE)
+);
+/
+
+CREATE OR REPLACE TYPE TOTADVERT_table_type AS TABLE OF TOTADVERT_row_type;
+/
+
+CREATE OR REPLACE FUNCTION TOTADVERT(DATA_INICIO_OCOR DATE, DATA_FIM_OCOR DATE) 
+RETURN TOTADVERT_table_type PIPELINED IS
+BEGIN 
+    FOR rec IN (
+        SELECT A.COD_CONTRATO,
+       A.NOME_PESSOA,
+       A.EDICAO_ORG       EDICAO_ORG,
+       A.NOME_ORGANOGRAMA NOME_ORGANOGRAMA,
+       A.MES_OCORRENCIA   MES_OCORRENCIA,
+       A.ORIGEM           ORIGEM,
+       COALESCE(A.TOTAL_HORAS_HM, 'SEM OCORRÊNCIAS') AS HORAS_EXTRAS_MAIS_2HRS,
+       COALESCE(B.TOTAL_HORAS_HM, 'SEM OCORRÊNCIAS') AS INTERVALOS_INFERIOR_1H,
+       COALESCE(C.TOTAL_HORAS_HM, 'SEM OCORRÊNCIAS') AS OCORRENCIAS_INFORMADAS,
+       COALESCE(D.TOTAL_HORAS_HM, 'SEM OCORRÊNCIAS') AS HORAS_EXTRAS_MAIS_10HRS,
+       COALESCE(E.TOTAL_HORAS_HM, 'SEM OCORRÊNCIAS') AS INTERVALOS_INFERIOR_15MIN,
+       COALESCE(F.TOTAL_HORAS_HM, 'SEM OCORRÊNCIAS') AS OCORR_INTRAJORNADA_INFE_11HRS
+  FROM (SELECT RHAF1123.COD_CONTRATO,
+               VSC.NOME_PESSOA,
+               RHFP0401.EDICAO_ORG,
+               RHFP0400.NOME_ORGANOGRAMA,
+               TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY') AS MES_OCORRENCIA,
+               RHAF1123.ORIGEM,
+               TO_CHAR(SUM(TRUNC(RHAF1123.NUM_HORAS)) +
+                       TRUNC(SUM((RHAF1123.NUM_HORAS -
+                                 TRUNC(RHAF1123.NUM_HORAS)) * 60) / 60),
+                       'FM9900') || ':' ||
+               TO_CHAR(MOD(SUM((RHAF1123.NUM_HORAS -
+                               TRUNC(RHAF1123.NUM_HORAS)) * 60),
+                           60),
+                       'FM00') AS TOTAL_HORAS_HM
+          FROM RHAF1123 RHAF1123
+          JOIN RHAF1129 RHAF1129 ON RHAF1123.COD_OCORRENCIA =
+                                    RHAF1129.COD_OCORRENCIA
+          LEFT JOIN RHAF1108 RHAF1108 ON RHAF1123.COD_CONTRATO =
+                                         RHAF1108.COD_CONTRATO
+          JOIN RHFP0310 RHFP0310 ON RHAF1123.COD_CONTRATO =
+                                    RHFP0310.COD_CONTRATO
+          JOIN RHFP0400 RHFP0400 ON RHFP0310.COD_ORGANOGRAMA =
+                                    RHFP0400.COD_ORGANOGRAMA
+          JOIN RHFP0401 RHFP0401 ON RHFP0400.COD_ORGANOGRAMA =
+                                    RHFP0401.COD_ORGANOGRAMA
+          LEFT JOIN RHAF1138 RHAF1138 ON RHAF1129.COD_MOTIVO_OCO =
+                                         RHAF1138.COD_MOTIVO_OCO
+          LEFT JOIN V_STATUS_COLAB VSC ON RHAF1123.COD_CONTRATO =
+                                          VSC.COD_CONTRATO
+         WHERE RHAF1123.DATA_OCORRENCIA BETWEEN DATA_INICIO_OCOR AND
+               DATA_FIM_OCOR
+           AND RHAF1123.DATA_OCORRENCIA BETWEEN RHAF1108.DATA_INICIO AND
+               RHAF1108.DATA_FIM
+           AND VSC.STATUS = 0
+           AND RHFP0310.DATA_FIM = '31/12/2999'
+           AND RHFP0401.COD_NIVEL2 = 8
+           AND RHFP0401.EDICAO_NIVEL3 NOT IN ('013', '001')
+           AND ROUND(RHAF1123.NUM_HORAS, 2) > 2
+           AND RHAF1123.COD_OCORRENCIA IN
+               (203, 204, 207, 208, 209, 210, 211, 212, 213, 214, 2022, 2023, 2026, 2029, 2036, 2041, 2043)
+         GROUP BY RHAF1123.COD_CONTRATO,
+                  VSC.NOME_PESSOA,
+                  RHFP0401.EDICAO_ORG,
+                  RHFP0400.NOME_ORGANOGRAMA,
+                  TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY'),
+                  RHAF1123.ORIGEM
+         ORDER BY RHFP0401.EDICAO_ORG ASC) A
+  LEFT JOIN (SELECT RHAF1123.COD_CONTRATO,
+                    VSC.NOME_PESSOA,
+                    RHFP0401.EDICAO_ORG,
+                    RHFP0400.NOME_ORGANOGRAMA,
+                    TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY') AS MES_OCORRENCIA,
+                    RHAF1123.ORIGEM,
+                    TO_CHAR(SUM(TRUNC(RHAF1123.NUM_HORAS)) +
+                            TRUNC(SUM((RHAF1123.NUM_HORAS -
+                                      TRUNC(RHAF1123.NUM_HORAS)) * 60) / 60),
+                            'FM9900') || ':' ||
+                    TO_CHAR(MOD(SUM((RHAF1123.NUM_HORAS -
+                                    TRUNC(RHAF1123.NUM_HORAS)) * 60),
+                                60),
+                            'FM00') AS TOTAL_HORAS_HM
+               FROM RHAF1123 RHAF1123
+               JOIN RHAF1129 RHAF1129 ON RHAF1123.COD_OCORRENCIA =
+                                         RHAF1129.COD_OCORRENCIA
+               LEFT JOIN RHAF1108 RHAF1108 ON RHAF1123.COD_CONTRATO =
+                                              RHAF1108.COD_CONTRATO
+               JOIN RHAF1119 ON RHAF1123.COD_CONTRATO =
+                                RHAF1119.COD_CONTRATO
+               JOIN RHAF1145 ON RHAF1119.COD_TURNO =
+                                RHAF1145.COD_TURNO
+               JOIN RHFP0310 RHFP0310 ON RHAF1123.COD_CONTRATO =
+                                         RHFP0310.COD_CONTRATO
+               JOIN RHFP0400 RHFP0400 ON RHFP0310.COD_ORGANOGRAMA =
+                                         RHFP0400.COD_ORGANOGRAMA
+               JOIN RHFP0401 RHFP0401 ON RHFP0400.COD_ORGANOGRAMA =
+                                         RHFP0401.COD_ORGANOGRAMA
+               LEFT JOIN RHAF1138 RHAF1138 ON RHAF1129.COD_MOTIVO_OCO =
+                                              RHAF1138.COD_MOTIVO_OCO
+               LEFT JOIN V_STATUS_COLAB VSC ON RHAF1123.COD_CONTRATO =
+                                              VSC.COD_CONTRATO
+              WHERE RHAF1123.DATA_OCORRENCIA BETWEEN DATA_INICIO_OCOR AND
+                    DATA_FIM_OCOR
+                AND RHAF1123.DATA_OCORRENCIA BETWEEN
+                    RHAF1108.DATA_INICIO AND RHAF1108.DATA_FIM
+                AND VSC.STATUS = 0
+                AND RHFP0310.DATA_FIM = '31/12/2999'
+                AND RHAF1145.CARGA_HORARIA BETWEEN 195 AND 220
+                AND RHAF1123.COD_OCORRENCIA = 2048
+                AND RHFP0401.COD_NIVEL2 = 8
+                AND RHFP0401.EDICAO_NIVEL3 NOT IN ('013', '001')
+              GROUP BY RHAF1123.COD_CONTRATO,
+                       VSC.NOME_PESSOA,
+                       RHFP0401.EDICAO_ORG,
+                       RHFP0400.NOME_ORGANOGRAMA,
+                       TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY'),
+                       RHAF1123.ORIGEM
+              ORDER BY RHFP0401.EDICAO_ORG ASC) B ON A.EDICAO_ORG =
+                                                     B.EDICAO_ORG
+                                                 AND A.NOME_ORGANOGRAMA =
+                                                     B.NOME_ORGANOGRAMA
+                                                 AND A.MES_OCORRENCIA =
+                                                     B.MES_OCORRENCIA
+                                                 AND A.ORIGEM =
+                                                     B.ORIGEM
+  LEFT JOIN (SELECT RHAF1123.COD_CONTRATO,
+                    VSC.NOME_PESSOA,
+                    RHFP0401.EDICAO_ORG,
+                    RHFP0400.NOME_ORGANOGRAMA,
+                    TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY') AS MES_OCORRENCIA,
+                    RHAF1123.ORIGEM,
+                    TO_CHAR(SUM(TRUNC(RHAF1123.NUM_HORAS)) +
+                            TRUNC(SUM((RHAF1123.NUM_HORAS -
+                                      TRUNC(RHAF1123.NUM_HORAS)) * 60) / 60),
+                            'FM9900') || ':' ||
+                    TO_CHAR(MOD(SUM((RHAF1123.NUM_HORAS -
+                                    TRUNC(RHAF1123.NUM_HORAS)) * 60),
+                                60),
+                            'FM00') AS TOTAL_HORAS_HM
+               FROM RHAF1123 RHAF1123
+               JOIN RHAF1129 RHAF1129 ON RHAF1123.COD_OCORRENCIA =
+                                         RHAF1129.COD_OCORRENCIA
+               LEFT JOIN RHAF1108 RHAF1108 ON RHAF1123.COD_CONTRATO =
+                                              RHAF1108.COD_CONTRATO
+               JOIN RHFP0310 RHFP0310 ON RHAF1123.COD_CONTRATO =
+                                         RHFP0310.COD_CONTRATO
+               JOIN RHFP0400 RHFP0400 ON RHFP0310.COD_ORGANOGRAMA =
+                                         RHFP0400.COD_ORGANOGRAMA
+               JOIN RHFP0401 RHFP0401 ON RHFP0400.COD_ORGANOGRAMA =
+                                         RHFP0401.COD_ORGANOGRAMA
+               LEFT JOIN RHAF1138 RHAF1138 ON RHAF1129.COD_MOTIVO_OCO =
+                                              RHAF1138.COD_MOTIVO_OCO
+               LEFT JOIN V_STATUS_COLAB VSC ON RHAF1123.COD_CONTRATO =
+                                              VSC.COD_CONTRATO
+              WHERE RHAF1123.DATA_OCORRENCIA BETWEEN DATA_INICIO_OCOR AND
+                    DATA_FIM_OCOR
+                AND RHAF1123.DATA_OCORRENCIA BETWEEN
+                    RHAF1108.DATA_INICIO AND RHAF1108.DATA_FIM
+                AND VSC.STATUS = 0
+                AND RHFP0310.DATA_FIM = '31/12/2999'
+                AND RHAF1123.ORIGEM = 'I'
+                AND RHFP0401.COD_NIVEL2 = 8
+                AND RHFP0401.EDICAO_NIVEL3 NOT IN ('013', '001')
+              GROUP BY RHAF1123.COD_CONTRATO,
+                       VSC.NOME_PESSOA,
+                       RHFP0401.EDICAO_ORG,
+                       RHFP0400.NOME_ORGANOGRAMA,
+                       TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY'),
+                       RHAF1123.ORIGEM
+              ORDER BY RHFP0401.EDICAO_ORG ASC) C ON A.EDICAO_ORG =
+                                                     C.EDICAO_ORG
+                                                 AND A.NOME_ORGANOGRAMA =
+                                                     C.NOME_ORGANOGRAMA
+                                                 AND A.MES_OCORRENCIA =
+                                                     C.MES_OCORRENCIA
+                                                 AND A.ORIGEM =
+                                                     C.ORIGEM
+  LEFT JOIN (SELECT RHAF1123.COD_CONTRATO,
+                    VSC.NOME_PESSOA,
+                    RHFP0401.EDICAO_ORG,
+                    RHFP0400.NOME_ORGANOGRAMA,
+                    TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY') AS MES_OCORRENCIA,
+                    RHAF1123.ORIGEM,
+                    TO_CHAR(SUM(TRUNC(RHAF1123.NUM_HORAS)) +
+                            TRUNC(SUM((RHAF1123.NUM_HORAS -
+                                      TRUNC(RHAF1123.NUM_HORAS)) * 60) / 60),
+                            'FM9900') || ':' ||
+                    TO_CHAR(MOD(SUM((RHAF1123.NUM_HORAS -
+                                    TRUNC(RHAF1123.NUM_HORAS)) * 60),
+                                60),
+                            'FM00') AS TOTAL_HORAS_HM
+               FROM RHAF1123 RHAF1123
+               JOIN RHAF1129 RHAF1129 ON RHAF1123.COD_OCORRENCIA =
+                                         RHAF1129.COD_OCORRENCIA
+               LEFT JOIN RHAF1108 RHAF1108 ON RHAF1123.COD_CONTRATO =
+                                              RHAF1108.COD_CONTRATO
+               JOIN RHAF1119 ON RHAF1123.COD_CONTRATO =
+                                RHAF1119.COD_CONTRATO
+               JOIN RHAF1145 ON RHAF1119.COD_TURNO =
+                                RHAF1145.COD_TURNO
+               JOIN RHFP0310 RHFP0310 ON RHAF1123.COD_CONTRATO =
+                                         RHFP0310.COD_CONTRATO
+               JOIN RHFP0400 RHFP0400 ON RHFP0310.COD_ORGANOGRAMA =
+                                         RHFP0400.COD_ORGANOGRAMA
+               JOIN RHFP0401 RHFP0401 ON RHFP0400.COD_ORGANOGRAMA =
+                                         RHFP0401.COD_ORGANOGRAMA
+               LEFT JOIN RHAF1138 RHAF1138 ON RHAF1129.COD_MOTIVO_OCO =
+                                              RHAF1138.COD_MOTIVO_OCO
+               LEFT JOIN V_STATUS_COLAB VSC ON RHAF1123.COD_CONTRATO =
+                                              VSC.COD_CONTRATO
+              WHERE RHAF1123.DATA_OCORRENCIA BETWEEN DATA_INICIO_OCOR AND
+                    DATA_FIM_OCOR
+                AND RHAF1123.DATA_OCORRENCIA BETWEEN
+                    RHAF1108.DATA_INICIO AND RHAF1108.DATA_FIM
+                AND VSC.STATUS = 0
+                AND RHFP0310.DATA_FIM = '31/12/2999'
+                AND RHAF1123.COD_OCORRENCIA = 2
+                AND RHAF1123.NUM_HORAS > 10
+                AND RHFP0401.COD_NIVEL2 = 8
+                AND RHFP0401.EDICAO_NIVEL3 NOT IN ('013', '001')
+              GROUP BY RHAF1123.COD_CONTRATO,
+                       VSC.NOME_PESSOA,
+                       RHFP0401.EDICAO_ORG,
+                       RHFP0400.NOME_ORGANOGRAMA,
+                       TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY'),
+                       RHAF1123.ORIGEM
+              ORDER BY RHFP0401.EDICAO_ORG ASC) D ON A.EDICAO_ORG =
+                                                     D.EDICAO_ORG
+                                                 AND A.NOME_ORGANOGRAMA =
+                                                     D.NOME_ORGANOGRAMA
+                                                 AND A.MES_OCORRENCIA =
+                                                     D.MES_OCORRENCIA
+                                                 AND A.ORIGEM =
+                                                     D.ORIGEM
+  LEFT JOIN (SELECT RHAF1123.COD_CONTRATO,
+                    VSC.NOME_PESSOA,
+                    RHFP0401.EDICAO_ORG,
+                    RHFP0400.NOME_ORGANOGRAMA,
+                    TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY') AS MES_OCORRENCIA,
+                    RHAF1123.ORIGEM,
+                    TO_CHAR(SUM(TRUNC(RHAF1123.NUM_HORAS)) +
+                            TRUNC(SUM((RHAF1123.NUM_HORAS -
+                                      TRUNC(RHAF1123.NUM_HORAS)) * 60) / 60),
+                            'FM9900') || ':' ||
+                    TO_CHAR(MOD(SUM((RHAF1123.NUM_HORAS -
+                                    TRUNC(RHAF1123.NUM_HORAS)) * 60),
+                                60),
+                            'FM00') AS TOTAL_HORAS_HM
+               FROM RHAF1123 RHAF1123
+               JOIN RHAF1129 RHAF1129 ON RHAF1123.COD_OCORRENCIA =
+                                         RHAF1129.COD_OCORRENCIA
+               LEFT JOIN RHAF1108 RHAF1108 ON RHAF1123.COD_CONTRATO =
+                                              RHAF1108.COD_CONTRATO
+               JOIN RHAF1119 ON RHAF1123.COD_CONTRATO =
+                                RHAF1119.COD_CONTRATO
+               JOIN RHAF1145 ON RHAF1119.COD_TURNO =
+                                RHAF1145.COD_TURNO
+               JOIN RHFP0310 RHFP0310 ON RHAF1123.COD_CONTRATO =
+                                         RHFP0310.COD_CONTRATO
+               JOIN RHFP0400 RHFP0400 ON RHFP0310.COD_ORGANOGRAMA =
+                                         RHFP0400.COD_ORGANOGRAMA
+               JOIN RHFP0401 RHFP0401 ON RHFP0400.COD_ORGANOGRAMA =
+                                         RHFP0401.COD_ORGANOGRAMA
+               LEFT JOIN RHAF1138 RHAF1138 ON RHAF1129.COD_MOTIVO_OCO =
+                                              RHAF1138.COD_MOTIVO_OCO
+               LEFT JOIN V_STATUS_COLAB VSC ON RHAF1123.COD_CONTRATO =
+                                              VSC.COD_CONTRATO
+              WHERE RHAF1123.DATA_OCORRENCIA BETWEEN DATA_INICIO_OCOR AND
+                    DATA_FIM_OCOR
+                AND RHAF1123.DATA_OCORRENCIA BETWEEN
+                    RHAF1108.DATA_INICIO AND RHAF1108.DATA_FIM
+                AND VSC.STATUS = 0
+                AND RHFP0310.DATA_FIM = '31/12/2999'
+                AND RHAF1145.CARGA_HORARIA BETWEEN 165 AND 180
+                AND RHAF1123.COD_OCORRENCIA = 2049
+                AND RHFP0401.COD_NIVEL2 = 8
+                AND RHFP0401.EDICAO_NIVEL3 NOT IN ('013', '001')
+              GROUP BY RHAF1123.COD_CONTRATO,
+                       VSC.NOME_PESSOA,
+                       RHFP0401.EDICAO_ORG,
+                       RHFP0400.NOME_ORGANOGRAMA,
+                       TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY'),
+                       RHAF1123.ORIGEM
+              ORDER BY RHFP0401.EDICAO_ORG ASC) E ON A.EDICAO_ORG =
+                                                     E.EDICAO_ORG
+                                                 AND A.NOME_ORGANOGRAMA =
+                                                     E.NOME_ORGANOGRAMA
+                                                 AND A.MES_OCORRENCIA =
+                                                     E.MES_OCORRENCIA
+                                                 AND A.ORIGEM =
+                                                     E.ORIGEM
+  LEFT JOIN (SELECT RHAF1123.COD_CONTRATO,
+                    VSC.NOME_PESSOA,
+                    RHFP0401.EDICAO_ORG,
+                    RHFP0400.NOME_ORGANOGRAMA,
+                    TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY') AS MES_OCORRENCIA,
+                    RHAF1123.ORIGEM,
+                    TO_CHAR(SUM(TRUNC(RHAF1123.NUM_HORAS)) +
+                            TRUNC(SUM((RHAF1123.NUM_HORAS -
+                                      TRUNC(RHAF1123.NUM_HORAS)) * 60) / 60),
+                            'FM9900') || ':' ||
+                    TO_CHAR(MOD(SUM((RHAF1123.NUM_HORAS -
+                                    TRUNC(RHAF1123.NUM_HORAS)) * 60),
+                                60),
+                            'FM00') AS TOTAL_HORAS_HM
+               FROM RHAF1123 RHAF1123
+               JOIN RHAF1129 RHAF1129 ON RHAF1123.COD_OCORRENCIA =
+                                         RHAF1129.COD_OCORRENCIA
+               LEFT JOIN RHAF1108 RHAF1108 ON RHAF1123.COD_CONTRATO =
+                                              RHAF1108.COD_CONTRATO
+               JOIN RHAF1119 ON RHAF1123.COD_CONTRATO =
+                                RHAF1119.COD_CONTRATO
+               JOIN RHAF1145 ON RHAF1119.COD_TURNO =
+                                RHAF1145.COD_TURNO
+               JOIN RHFP0310 RHFP0310 ON RHAF1123.COD_CONTRATO =
+                                         RHFP0310.COD_CONTRATO
+               JOIN RHFP0400 RHFP0400 ON RHFP0310.COD_ORGANOGRAMA =
+                                         RHFP0400.COD_ORGANOGRAMA
+               JOIN RHFP0401 RHFP0401 ON RHFP0400.COD_ORGANOGRAMA =
+                                         RHFP0401.COD_ORGANOGRAMA
+               LEFT JOIN RHAF1138 RHAF1138 ON RHAF1129.COD_MOTIVO_OCO =
+                                              RHAF1138.COD_MOTIVO_OCO
+               LEFT JOIN V_STATUS_COLAB VSC ON RHAF1123.COD_CONTRATO =
+                                              VSC.COD_CONTRATO
+              WHERE RHAF1123.DATA_OCORRENCIA BETWEEN DATA_INICIO_OCOR AND
+                    DATA_FIM_OCOR
+                AND RHAF1123.DATA_OCORRENCIA BETWEEN
+                    RHAF1108.DATA_INICIO AND RHAF1108.DATA_FIM
+                AND VSC.STATUS = 0
+                AND RHFP0310.DATA_FIM = '31/12/2999'
+                AND RHAF1123.COD_OCORRENCIA = 901
+                AND RHFP0401.COD_NIVEL2 = 8
+                AND RHFP0401.EDICAO_NIVEL3 NOT IN ('013', '001')
+              GROUP BY RHAF1123.COD_CONTRATO,
+                       VSC.NOME_PESSOA,
+                       RHFP0401.EDICAO_ORG,
+                       RHFP0400.NOME_ORGANOGRAMA,
+                       TO_CHAR(RHAF1123.DATA_OCORRENCIA, 'MM/YYYY'),
+                       RHAF1123.ORIGEM
+              ORDER BY RHFP0401.EDICAO_ORG ASC) F ON A.EDICAO_ORG =
+                                                     F.EDICAO_ORG
+                                                 AND A.NOME_ORGANOGRAMA =
+                                                     F.NOME_ORGANOGRAMA
+                                                 AND A.MES_OCORRENCIA =
+                                                     F.MES_OCORRENCIA
+                                                 AND A.ORIGEM =
+                                                     F.ORIGEM
+ORDER BY A.EDICAO_ORG ASC, A.MES_OCORRENCIA ASC
+
+    ) LOOP
+        PIPE ROW(TOTADVERT_row_type(
+            rec.COD_CONTRATO,
+            rec.NOME_PESSOA,
+            rec.EDICAO_ORG,
+            rec.NOME_ORGANOGRAMA,
+            rec.MES_OCORRENCIA,
+            rec.ORIGEM,
+            rec.HORAS_EXTRAS_MAIS_2HRS,
+            rec.INTERVALOS_INFERIOR_1H,
+            rec.OCORRENCIAS_INFORMADAS,
+            rec.HORAS_EXTRAS_MAIS_10HRS,
+            rec.INTERVALOS_INFERIOR_15MIN,
+            rec.OCORR_INTRAJORNADA_INFE_11HRS
+        ));
+    END LOOP;
+    RETURN;
+END;
+/
+
+
+--caso necessário deletar ambos=======---
+
+DROP FUNCTION TOTADVERT;
+DROP TYPE TOTADVERT_table_type;
+DROP TYPE TOTADVERT_row_type;
+
+--===================================--
+
+SELECT *
+  FROM TABLE(TOTADVERT(TO_DATE('&DATA_INICIO_OCOR', 'DD-MM-YYYY'),
+                       TO_DATE('&DATA_FIM_OCOR', 'DD-MM-YYYY')));

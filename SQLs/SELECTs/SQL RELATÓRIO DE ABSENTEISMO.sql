@@ -1,0 +1,442 @@
+/*ajuste sql rel absenteismo*/
+
+SELECT 
+    A.COD_CONTRATO, 
+    D.DES_PESSOA,
+    D.DES_UNIDADE,
+    B.DATA_REFERENCIA,
+    -- Soma das quantidades dos códigos 631, 632, 831, 832
+    SUM(CASE 
+            WHEN A.COD_VD IN (631, 632, 831, 832) 
+            THEN A.QTDE_VD 
+            ELSE 0 
+        END) AS SOMA_QTDE_VD
+FROM 
+    RHFP1006 A
+INNER JOIN 
+    RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+LEFT JOIN 
+    V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+WHERE 
+    B.DATA_REFERENCIA IN ('30/06/2024', '31/07/2024', '31/08/2024')
+    AND A.COD_VD IN (631, 632, 831, 832, 897)  -- Incluindo código 897, caso seja necessário
+    AND D.COD_EMP = '008'
+GROUP BY 
+    A.COD_CONTRATO, 
+    D.DES_PESSOA, 
+    D.DES_UNIDADE, 
+    B.DATA_REFERENCIA;
+
+
+
+
+
+
+--===================================
+
+/*CTE ABSENTEISMO POR CONTRATO*/
+
+WITH Total_Contratos_Geral AS (
+    -- Subconsulta para obter o total geral de contratos
+    SELECT
+        COUNT(COD_CONTRATO) AS TOTAL_CONTRATOS
+    FROM
+        V_DADOS_PESSOA_ALTER_AVT
+    WHERE
+        COD_EMP = '008'
+),
+Total_Contratos AS (
+    -- Subconsulta para obter a quantidade total de contratos por unidade e setor
+    SELECT
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA,
+        COUNT(DISTINCT D.COD_CONTRATO) AS QTDE_TOTAL_CONTRATOS
+    FROM
+        V_DADOS_PESSOA_ALTER_AVT D
+    WHERE
+        D.COD_EMP = '008'
+    GROUP BY
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA
+),
+Total_Gerais AS (
+    -- Subconsulta para obter os totais gerais de absenteísmo, faltas e atestados
+    SELECT
+        COUNT(DISTINCT CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832, 897)
+            THEN A.COD_CONTRATO
+            ELSE NULL
+        END) AS TOTAL_CONTR_ABS,  -- Total de contratos com absenteísmo
+        SUM(CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832)
+            THEN A.QTDE_VD
+            ELSE 0
+        END) AS TOTAL_FALTAS,  -- Total geral de faltas
+        SUM(CASE
+            WHEN A.COD_VD = 897
+            THEN A.QTDE_VD
+            ELSE 0
+        END) AS TOTAL_ATESTADOS  -- Total geral de atestados
+    FROM
+        RHFP1006 A
+    INNER JOIN
+        RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+    LEFT JOIN
+        V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+    WHERE
+        D.COD_EMP = '008'
+        AND A.COD_VD IN (631, 632, 831, 832, 897)
+        AND B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+),
+Total_Faltas_Atestados_Unidade AS (
+    -- Subconsulta para obter os totais de faltas e atestados por unidade e setor
+    SELECT
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA,
+        COUNT(DISTINCT CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832, 897)
+            THEN A.COD_CONTRATO
+            ELSE NULL
+        END) AS TOTAL_CONTR_ABS_UNI,
+        SUM(CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832)
+            THEN A.QTDE_VD
+            ELSE 0
+        END) AS TOTAL_FALTAS_UNIDADE,  -- Total de faltas por unidade e setor
+        SUM(CASE
+            WHEN A.COD_VD = 897
+            THEN A.QTDE_VD
+            ELSE 0
+        END) AS TOTAL_ATESTADOS_UNIDADE  -- Total de atestados por unidade e setor
+    FROM
+        RHFP1006 A
+    INNER JOIN
+        RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+    LEFT JOIN
+        V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+    WHERE
+        D.COD_EMP = '008'
+        AND A.COD_VD IN (631, 632, 831, 832, 897)
+        AND B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+    GROUP BY
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA
+)
+SELECT
+    A.COD_CONTRATO || ' - ' || D.DES_PESSOA AS COLABORADOR,
+    D.DATA_ADMISSAO,
+    D.DES_UNIDADE,
+    B.DATA_REFERENCIA,
+    INITCAP(TRIM(TO_CHAR(B.DATA_REFERENCIA, 'MONTH'))) || '/' || TO_CHAR(B.DATA_REFERENCIA, 'YYYY') AS REFERENCIA,
+    -- Quantidade total de contratos por unidade e setor
+    TCU.QTDE_TOTAL_CONTRATOS,
+    -- Soma das quantidades dos códigos 631, 632, 831, 832 (faltas)
+    SUM(CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832)
+            THEN TO_CHAR((A.QTDE_VD), 'FM999G999G990D00')
+            ELSE TO_CHAR(0)
+        END) AS FALTAS,
+    -- Soma das quantidades dos códigos 897 (atestados)
+    SUM(CASE
+            WHEN A.COD_VD = 897
+            THEN TO_CHAR((A.QTDE_VD), 'FM999G999G990D00')
+            ELSE TO_CHAR(0)
+        END) AS ATESTADOS,
+    -- Totais por unidade e setor
+    TFU.TOTAL_CONTR_ABS_UNI,
+    TO_CHAR(TFU.TOTAL_FALTAS_UNIDADE, 'FM999G999G990D00') AS TOTAL_FALTAS_UNIDADE,  -- Total de faltas por unidade e setor
+    TO_CHAR(TFU.TOTAL_ATESTADOS_UNIDADE, 'FM999G999G990D00') AS TOTAL_ATESTADOS_UNIDADE,  -- Total de atestados por unidade e setor
+    -- Totais gerais que são constantes para todas as linhas
+    TG.TOTAL_CONTR_ABS,  -- Total de contratos com absenteísmo
+    TO_CHAR(TG.TOTAL_FALTAS, 'FM999G999G990D00') AS TOTAL_FALTAS,        -- Total de faltas
+    TO_CHAR(TG.TOTAL_ATESTADOS, 'FM999G999G990D00') AS TOTAL_ATESTADOS,  -- Total de atestados
+    TC.TOTAL_CONTRATOS AS TOTAL_GERAL_CONTRATOS  -- Total de contratos
+
+FROM
+    RHFP1006 A
+INNER JOIN
+    RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+LEFT JOIN
+    V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+LEFT JOIN
+    Total_Contratos TCU ON D.COD_UNIDADE = TCU.COD_UNIDADE AND D.COD_ORGANOGRAMA = TCU.COD_ORGANOGRAMA -- JUNTA A CTE de contratos por unidade e setor
+JOIN
+    Total_Gerais TG ON 1=1  -- Junta a CTE dos totais gerais
+JOIN
+    Total_Contratos_Geral TC ON 1=1  -- Junta a CTE do total de contratos
+JOIN
+    Total_Faltas_Atestados_Unidade TFU ON D.COD_UNIDADE = TFU.COD_UNIDADE AND D.COD_ORGANOGRAMA = TFU.COD_ORGANOGRAMA -- Junta a CTE dos totais por unidade e setor
+WHERE
+    B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+    AND A.COD_VD IN (631, 632, 831, 832, 897)  -- Incluindo código 897
+    AND D.COD_EMP = '008'
+GROUP BY
+    A.COD_CONTRATO,
+    D.DES_PESSOA,
+    D.DATA_ADMISSAO,
+    D.DES_UNIDADE,
+    B.DATA_REFERENCIA,
+    TCU.QTDE_TOTAL_CONTRATOS,
+    TFU.TOTAL_CONTR_ABS_UNI,
+    TFU.TOTAL_FALTAS_UNIDADE,
+    TFU.TOTAL_ATESTADOS_UNIDADE,
+    TG.TOTAL_CONTR_ABS,
+    TG.TOTAL_FALTAS,
+    TG.TOTAL_ATESTADOS,
+    TC.TOTAL_CONTRATOS
+ORDER BY
+    D.DES_UNIDADE ASC,
+    D.DES_PESSOA ASC,
+    B.DATA_REFERENCIA ASC
+
+
+
+
+
+
+
+--===================================
+
+
+/*CTE ABSENTEISMO POR LOJA/SETOR*/
+
+WITH Total_Contratos AS (
+    SELECT
+        D.COD_UNIDADE,
+        COUNT(DISTINCT D.COD_CONTRATO) AS QTDE_TOTAL_CONTRATOS
+    FROM
+        V_DADOS_PESSOA_ALTER_AVT D
+    WHERE
+        D.COD_EMP = '008'
+    GROUP BY
+        D.COD_UNIDADE
+),
+Contratos_Absenteismo AS (
+    SELECT
+        D.COD_UNIDADE,
+        COUNT(DISTINCT A.COD_CONTRATO) AS QTDE_CONTRATOS_ABSENTEISMO
+    FROM
+        RHFP1006 A
+    LEFT JOIN
+        V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+    INNER JOIN
+        RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+    WHERE
+        D.COD_EMP = '008'
+        AND B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+        AND A.COD_VD IN (631, 632, 831, 832, 897)  -- Incluindo os códigos de faltas e atestados
+    GROUP BY
+        D.COD_UNIDADE
+),
+Total_Contratos_Geral AS (
+SELECT COUNT(COD_CONTRATO) AS TOTAL_CONTRATOS
+     FROM V_DADOS_PESSOA_ALTER_AVT
+     WHERE COD_EMP = '008'
+),
+Total_Gerais AS (
+    SELECT
+        COUNT(DISTINCT CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832, 897)
+            THEN A.COD_CONTRATO
+            ELSE NULL
+        END) AS TOTAL_CONTR_ABS,  -- Total geral de contratos com absenteísmo
+        SUM(CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832)
+            THEN TO_CHAR((A.QTDE_VD), 'FM999G999G990D00')
+            ELSE TO_CHAR(0)
+        END) AS TOTAL_FALTAS,  -- Total geral de faltas
+        SUM(CASE
+            WHEN A.COD_VD = 897
+            THEN TO_CHAR((A.QTDE_VD), 'FM999G999G990D00')
+            ELSE TO_CHAR(0)
+        END) AS TOTAL_ATESTADOS  -- Total geral de atestados
+    FROM
+        RHFP1006 A
+    LEFT JOIN
+        RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+    LEFT JOIN
+        V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+    WHERE
+        D.COD_EMP = '008'
+    AND B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+    AND A.COD_VD IN (631, 632, 831, 832, 897)
+)
+SELECT
+    D.COD_UNIDADE,
+    D.DES_UNIDADE,
+    T.QTDE_TOTAL_CONTRATOS,  -- Contagem total de contratos da CTE por unidade
+    C.QTDE_CONTRATOS_ABSENTEISMO,  -- Contagem de contratos com absenteísmo
+    B.DATA_REFERENCIA,
+    -- Formatação da referência com a primeira letra do mês maiúscula e o restante minúsculo, sem espaços
+    INITCAP(TRIM(TO_CHAR(B.DATA_REFERENCIA, 'MONTH'))) || '/' || TO_CHAR(B.DATA_REFERENCIA, 'YYYY') AS REFERENCIA,
+    -- Soma das faltas (códigos 631, 632, 831, 832)
+    SUM(CASE
+            WHEN A.COD_VD IN (631, 632, 831, 832)
+            THEN TO_CHAR((A.QTDE_VD), 'FM999G999G990D00')
+            ELSE TO_CHAR(0)
+        END) AS FALTAS,
+    -- Soma dos atestados (código 897)
+    SUM(CASE
+            WHEN A.COD_VD = 897
+            THEN TO_CHAR((A.QTDE_VD), 'FM999G999G990D00')
+            ELSE TO_CHAR(0)
+        END) AS ATESTADOS,
+    -- Totais gerais que são constantes para todas as linhas
+    TC.TOTAL_CONTRATOS,
+    TG.TOTAL_CONTR_ABS,  -- Formatação do total de contratos com absenteísmo
+    TO_CHAR(TG.TOTAL_FALTAS, 'FM999G999G990D00') AS TOTAL_FALTAS,        -- Formatação do total de faltas
+    TO_CHAR(TG.TOTAL_ATESTADOS, 'FM999G999G990D00') AS TOTAL_ATESTADOS
+FROM
+    RHFP1006 A
+INNER JOIN
+    RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+LEFT JOIN
+    V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+LEFT JOIN
+    Total_Contratos T ON D.COD_UNIDADE = T.COD_UNIDADE  -- Juntando a CTE de total de contratos por unidade
+LEFT JOIN
+    Contratos_Absenteismo C ON D.COD_UNIDADE = C.COD_UNIDADE  -- Juntando a CTE de contratos com absenteísmo
+CROSS JOIN
+    Total_Gerais TG  -- Juntando a CTE de totais gerais como CROSS JOIN para manter os mesmos valores em todas as linhas
+CROSS JOIN
+    Total_Contratos_Geral TC
+WHERE
+    B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+    AND A.COD_VD IN (631, 632, 831, 832, 897)
+    AND D.COD_EMP = '008'
+GROUP BY
+    D.COD_UNIDADE,
+    D.DES_UNIDADE,
+    B.DATA_REFERENCIA,
+    T.QTDE_TOTAL_CONTRATOS,
+    C.QTDE_CONTRATOS_ABSENTEISMO,
+    TC.TOTAL_CONTRATOS,
+    TG.TOTAL_CONTR_ABS,
+    TG.TOTAL_FALTAS,
+    TG.TOTAL_ATESTADOS
+ORDER BY
+    D.DES_UNIDADE,
+    B.DATA_REFERENCIA
+
+
+
+
+
+--===============================
+
+/*TOTAL POR REDE = AJUSTANDO*/
+
+
+WITH Total_Contratos AS (
+    -- Subconsulta para obter a quantidade total de contratos por unidade, organograma e rede
+    SELECT
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA,
+        D.COD_REDE_LOCAL,
+        COUNT(DISTINCT D.COD_CONTRATO) AS QTDE_TOTAL_CONTRATOS
+    FROM
+        V_DADOS_PESSOA_ALTER_AVT D
+    WHERE
+        D.COD_EMP = '008'
+    GROUP BY
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA,
+        D.COD_REDE_LOCAL
+),
+Contratos_Absenteismo AS (
+    -- Subconsulta para obter a quantidade de contratos com absenteísmo por unidade, organograma e rede
+    SELECT
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA,
+        D.COD_REDE_LOCAL,
+        COUNT(DISTINCT A.COD_CONTRATO) AS QTDE_CONTRATOS_ABS
+    FROM
+        RHFP1006 A
+    LEFT JOIN
+        V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+    INNER JOIN
+        RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+    WHERE
+        D.COD_EMP = '008'
+        AND B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+        AND A.COD_VD IN (631, 632, 831, 832, 897)  -- Incluindo os códigos de faltas e atestados
+    GROUP BY
+        D.COD_UNIDADE,
+        D.COD_ORGANOGRAMA,
+        D.COD_REDE_LOCAL
+)
+SELECT
+    D.COD_UNIDADE,
+    D.DES_UNIDADE,
+    B.DATA_REFERENCIA,
+    -- Contagem total de contratos da CTE por unidade (agregado por SUM para evitar erro no GROUP BY)
+    SUM(T.QTDE_TOTAL_CONTRATOS) AS QTDE_CONTR_UNID,
+    SUM(C.QTDE_CONTRATOS_ABS) AS QTDE_ABS_UNID,
+
+    -- Formatação da referência com a primeira letra do mês maiúscula e o restante minúsculo, sem espaços
+    INITCAP(TRIM(TO_CHAR(B.DATA_REFERENCIA, 'MONTH'))) || '/' || TO_CHAR(B.DATA_REFERENCIA, 'YYYY') AS REFERENCIA,
+
+    -- Contagem de contratos para cada rede
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '10' THEN T.QTDE_TOTAL_CONTRATOS ELSE 0 END) AS CONTR_REDE_10,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '30' THEN T.QTDE_TOTAL_CONTRATOS ELSE 0 END) AS CONTR_REDE_30,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '40' THEN T.QTDE_TOTAL_CONTRATOS ELSE 0 END) AS CONTR_REDE_40,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '50' THEN T.QTDE_TOTAL_CONTRATOS ELSE 0 END) AS CONTR_REDE_50,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '70' THEN T.QTDE_TOTAL_CONTRATOS ELSE 0 END) AS CONTR_REDE_70,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '001' THEN T.QTDE_TOTAL_CONTRATOS ELSE 0 END) AS CONTR_REDE_001,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '013' THEN T.QTDE_TOTAL_CONTRATOS ELSE 0 END) AS CONTR_REDE_013,
+
+    -- Contagem de contratos com absenteísmo para cada rede
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '10' THEN C.QTDE_CONTRATOS_ABS ELSE 0 END) AS ABS_REDE_10,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '30' THEN C.QTDE_CONTRATOS_ABS ELSE 0 END) AS ABS_REDE_30,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '40' THEN C.QTDE_CONTRATOS_ABS ELSE 0 END) AS ABS_REDE_40,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '50' THEN C.QTDE_CONTRATOS_ABS ELSE 0 END) AS ABS_REDE_50,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '70' THEN C.QTDE_CONTRATOS_ABS ELSE 0 END) AS ABS_REDE_70,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '001' THEN C.QTDE_CONTRATOS_ABS ELSE 0 END) AS ABS_REDE_001,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '013' THEN C.QTDE_CONTRATOS_ABS ELSE 0 END) AS ABS_REDE_013,
+
+    -- Soma das faltas (códigos 631, 632, 831, 832) para cada rede
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '10' AND A.COD_VD IN (631, 632, 831, 832) THEN A.QTDE_VD ELSE 0 END) AS FALTAS_10,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '30' AND A.COD_VD IN (631, 632, 831, 832) THEN A.QTDE_VD ELSE 0 END) AS FALTAS_30,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '40' AND A.COD_VD IN (631, 632, 831, 832) THEN A.QTDE_VD ELSE 0 END) AS FALTAS_40,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '50' AND A.COD_VD IN (631, 632, 831, 832) THEN A.QTDE_VD ELSE 0 END) AS FALTAS_50,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '70' AND A.COD_VD IN (631, 632, 831, 832) THEN A.QTDE_VD ELSE 0 END) AS FALTAS_70,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '001' AND A.COD_VD IN (631, 632, 831, 832) THEN A.QTDE_VD ELSE 0 END) AS FALTAS_001,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '013' AND A.COD_VD IN (631, 632, 831, 832) THEN A.QTDE_VD ELSE 0 END) AS FALTAS_013,
+
+    -- Soma dos atestados (código 897) para cada rede
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '10' AND A.COD_VD = 897 THEN A.QTDE_VD ELSE 0 END) AS ATEST_10,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '30' AND A.COD_VD = 897 THEN A.QTDE_VD ELSE 0 END) AS ATEST_30,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '40' AND A.COD_VD = 897 THEN A.QTDE_VD ELSE 0 END) AS ATEST_40,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '50' AND A.COD_VD = 897 THEN A.QTDE_VD ELSE 0 END) AS ATEST_50,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '70' AND A.COD_VD = 897 THEN A.QTDE_VD ELSE 0 END) AS ATEST_70,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '001' AND A.COD_VD = 897 THEN A.QTDE_VD ELSE 0 END) AS ATEST_001,
+    SUM(CASE WHEN D.COD_REDE_LOCAL = '013' AND A.COD_VD = 897 THEN A.QTDE_VD ELSE 0 END) AS ATEST_013
+
+FROM
+    RHFP1006 A
+INNER JOIN
+    RHFP1003 B ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+LEFT JOIN
+    V_DADOS_PESSOA_ALTER_AVT D ON A.COD_CONTRATO = D.COD_CONTRATO
+LEFT JOIN
+    Total_Contratos T ON D.COD_UNIDADE = T.COD_UNIDADE
+        AND D.COD_ORGANOGRAMA = T.COD_ORGANOGRAMA
+        AND D.COD_REDE_LOCAL = T.COD_REDE_LOCAL  -- Junta CTE de total de contratos por unidade, organograma e rede
+LEFT JOIN
+    Contratos_Absenteismo C ON D.COD_UNIDADE = C.COD_UNIDADE
+        AND D.COD_ORGANOGRAMA = C.COD_ORGANOGRAMA
+        AND D.COD_REDE_LOCAL = C.COD_REDE_LOCAL  -- Junta CTE de contratos com absenteísmo por unidade, organograma e rede
+WHERE
+    B.DATA_REFERENCIA BETWEEN :DATA_INICIO AND :DATA_FIM
+    AND A.COD_VD IN (631, 632, 831, 832, 897)
+    AND D.COD_EMP = '008'
+GROUP BY
+    D.COD_UNIDADE,
+    D.DES_UNIDADE,
+    B.DATA_REFERENCIA
+ORDER BY
+    D.COD_UNIDADE,
+    B.DATA_REFERENCIA
+
+    
+    

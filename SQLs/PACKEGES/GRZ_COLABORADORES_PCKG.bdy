@@ -1,0 +1,459 @@
+CREATE OR REPLACE PACKAGE BODY GRZ_COLABORADORES_PCKG IS
+
+  FUNCTION GESTOR_SETOR_CPF(P_ORGANOGRAMA NUMBER, P_COLABORADOR NUMBER)
+    RETURN VARCHAR2 IS
+    V_CPF_GESTOR  VARCHAR2(11) DEFAULT NULL;
+    V_NIVEL_CARGO NUMBER(2) DEFAULT 0;
+  BEGIN
+    BEGIN
+       SISLOGWEB.wp_pesquisa('P_ORGANOGRAMA', P_ORGANOGRAMA, null);
+       SISLOGWEB.wp_pesquisa('P_COLABORADOR', P_COLABORADOR, null);
+      SELECT CASE
+               WHEN UPPER(VC.CARGO) LIKE '%DIRETOR%' THEN
+                1
+               WHEN UPPER(VC.CARGO) LIKE '%SUPERVISOR%' THEN
+                2
+               WHEN UPPER(VC.CARGO) LIKE '%GERENTE%' THEN
+                3
+               ELSE
+                99
+             END NIVEL_CARGO
+        INTO V_NIVEL_CARGO
+        FROM GRZ_FOLHA.V_COLABORADORES@NLGZT VC
+       WHERE COD_FUNCIONARIO = P_COLABORADOR;
+    EXCEPTION
+      WHEN OTHERS THEN
+        V_NIVEL_CARGO := 99;
+    END;
+
+    IF V_NIVEL_CARGO > 1 THEN
+      SELECT CPF
+        INTO V_CPF_GESTOR
+        FROM (SELECT LPAD(VC.CPF, 11, 0) CPF, 1 ORDEM
+                FROM GRZ_FOLHA.V_COLABORADORES@NLGZT VC
+               WHERE COD_ORGANOGRAMA = P_ORGANOGRAMA
+                 AND COD_FUNCIONARIO <> P_COLABORADOR
+                 AND UPPER(VC.CARGO) LIKE '%DIRETOR%'
+                AND NVL(COD_AFASTAMENTO, 0) = 0
+              UNION
+              SELECT LPAD(VC.CPF, 11, 0) CPF, 2 ORDEM
+                FROM GRZ_FOLHA.V_COLABORADORES@NLGZT VC
+               WHERE COD_ORGANOGRAMA = P_ORGANOGRAMA
+                 AND COD_FUNCIONARIO <> P_COLABORADOR
+                 AND UPPER(VC.CARGO) LIKE '%SUPERVISOR%'
+                AND NVL(COD_AFASTAMENTO, 0) = 0
+              UNION
+              SELECT LPAD(VC.CPF, 11, 0) CPF, 3 ORDEM
+                FROM GRZ_FOLHA.V_COLABORADORES@NLGZT VC
+               WHERE COD_ORGANOGRAMA = P_ORGANOGRAMA
+                 AND COD_FUNCIONARIO <> P_COLABORADOR
+                 AND UPPER(VC.CARGO) LIKE '%GERENTE%'
+               AND NVL(COD_AFASTAMENTO, 0) = 0
+               ORDER BY ORDEM)
+       WHERE ORDEM < V_NIVEL_CARGO
+       ORDER BY ORDEM DESC FETCH FIRST ROW ONLY;
+    END IF;
+           SISLOGWEB.wp_pesquisa('encotrou', P_ORGANOGRAMA,V_CPF_Gestor);
+
+    RETURN V_CPF_GESTOR;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RETURN NULL;
+  END;
+
+  FUNCTION ORGANOGRAMA_NIVEL_ANT(P_ORGANOGRAMA NUMBER) RETURN NUMBER IS
+    V_ORG_ANTERIOR NUMBER(18) DEFAULT NULL;
+  BEGIN
+    SELECT GRZ_UTIL.only_numbers(COD_ORGANOGRAMA_SUB)
+      INTO V_ORG_ANTERIOR
+      FROM GRZ_FOLHA.V_ORGANOGRAMAS_NIVEIS@NLGZT
+     WHERE COD_ORGANOGRAMA = P_ORGANOGRAMA;
+    RETURN V_ORG_ANTERIOR;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RETURN NULL;
+  END;
+
+  FUNCTION GESTOR_IMEDIATO(P_ORGANOGRAMA NUMBER,
+                           P_COLABORADOR NUMBER,
+                           P_COD_UNIDADE NUMBER DEFAULT NULL,
+                           P_REDE        NUMBER DEFAULT NULL) RETURN VARCHAR2 IS
+    V_GESTOR_NIVEL_8 VARCHAR2(11) DEFAULT NULL;
+    V_GESTOR_NIVEL_7 VARCHAR2(11) DEFAULT NULL;
+    V_GESTOR_NIVEL_6 VARCHAR2(11) DEFAULT NULL;
+    V_GESTOR_NIVEL_5 VARCHAR2(11) DEFAULT NULL;
+    V_GESTOR_NIVEL_4 VARCHAR2(11) DEFAULT NULL;
+    V_GESTOR_NIVEL_3 VARCHAR2(11) DEFAULT NULL;
+    V_GESTOR_NIVEL_2 VARCHAR2(11) DEFAULT NULL;
+    V_GESTOR_NIVEL_1 VARCHAR2(11) DEFAULT NULL;
+    V_CPF_GESTOR     VARCHAR2(11) DEFAULT NULL;
+
+    V_ORGANOGRAMA NUMBER(18) DEFAULT P_ORGANOGRAMA; -- Inicializa com o organograma passado como parâmetro
+  BEGIN
+
+    SELECT GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_8,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_8,
+           GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_7,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_7,
+           GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_6,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_6,
+           GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_5,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_5,
+           GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_4,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_4,
+           GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_3,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_3,
+           GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_2,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_2,
+           GRZ_COLABORADORES_PCKG.GESTOR_SETOR_CPF(CODNIV_1,
+                                                   COD_FUNCIONARIO) GESTOR_NIVEL_1
+      INTO V_GESTOR_NIVEL_8,
+           V_GESTOR_NIVEL_7,
+           V_GESTOR_NIVEL_6,
+           V_GESTOR_NIVEL_5,
+           V_GESTOR_NIVEL_4,
+           V_GESTOR_NIVEL_3,
+           V_GESTOR_NIVEL_2,
+           V_GESTOR_NIVEL_1
+      FROM V_COLABORADORES
+     WHERE COD_FUNCIONARIO = P_COLABORADOR;
+
+    IF V_GESTOR_NIVEL_8 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_8;
+    ELSIF V_GESTOR_NIVEL_7 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_7;
+    ELSIF V_GESTOR_NIVEL_6 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_6;
+    ELSIF V_GESTOR_NIVEL_5 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_5;
+    ELSIF V_GESTOR_NIVEL_4 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_4;
+    ELSIF V_GESTOR_NIVEL_3 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_3;
+    ELSIF V_GESTOR_NIVEL_2 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_2;
+    ELSIF V_GESTOR_NIVEL_1 IS NOT NULL THEN
+      V_CPF_GESTOR := V_GESTOR_NIVEL_1;
+    ELSE
+      V_CPF_GESTOR := NULL;
+    END IF;
+
+    IF V_CPF_GESTOR IS NOT NULL THEN
+      RETURN V_CPF_GESTOR;
+    END IF;
+
+    -- Se não encontrou o gestor no loop e P_REDE não é NULL, faz uma busca na tabela GE_GRUPOS_UNIDADES
+    IF (V_CPF_GESTOR IS NULL AND P_REDE IS NOT NULL) THEN
+      BEGIN
+        SELECT LPAD(VC.CPF, 11, 0)
+          INTO V_CPF_GESTOR
+          FROM GE_GRUPOS_UNIDADES GGU
+         INNER JOIN V_COLABORADORES VC ON VC.COD_CENTRO_CUSTO =
+                                          GGU.COD_GRUPO
+         WHERE GGU.COD_GRUPO BETWEEN 8701 AND 8720
+           AND GGU.COD_UNIDADE = P_COD_UNIDADE;
+      EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+          V_CPF_GESTOR := NULL;
+        WHEN OTHERS THEN
+          -- Adicione um log ou tratamento específico aqui se necessário
+          V_CPF_GESTOR := NULL;
+      END;
+    END IF;
+
+    RETURN V_CPF_GESTOR;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- Adicione um log ou tratamento específico aqui se necessário
+      RETURN NULL;
+  END;
+
+  PROCEDURE GRZ_REP_ARH_FUNCIONARIOS IS
+  BEGIN
+    DECLARE
+      WLOTE              NUMBER(18);
+      WFOUNDINF          NUMBER(1);
+      WFOUNDAUD          NUMBER(1);
+      WIND_GESTOR        NUMBER(2);
+      WCPF_GESTOR        VARCHAR2(20);
+      WCIDADE            VARCHAR2(150);
+      WEMAIL             VARCHAR2(150);
+      WIND_UNIDADE       NUMBER(2);
+      WCOD_AREA          NUMBER(7);
+      WUNIDADE_GESTOR    NUMBER(5);
+      WUNIDADE_CONTABIL  NUMBER(5);
+      V_CURRENT_HOUR     NUMBER;
+      WCOD_FUNC_ANTERIOR NUMBER(18);
+      WGESTOR_TBM        NUMBER(5);
+
+      CURSOR C_COLABORADORES IS
+        SELECT VC.*
+          FROM (SELECT VC.COD_FUNCIONARIO,
+                       NVL(TO_NUMBER(VC.COD_CENTRO_CUSTO), 0) COD_CENTRO_CUSTO,
+                       VC.DES_NOME,
+                       VC.DTA_ADMISSAO,
+                       TO_DATE(VC.DTA_DEMISSAO, 'DD/MM/YYYY') DTA_DEMISSAO,
+                       VC.DATA_NASCIMENTO,
+                       VC.COD_ORGANOGRAMA,
+                       VC.COD_EMPRESA,
+                       VC.DES_EMPRESA,
+                       VC.COD_FUNCAO,
+                       VC.COD_TURNO,
+                       VC.QTD_CH_MENSAL,
+                       (CASE
+                         WHEN LENGTH(NUM_CART_TRAB) > 7 THEN
+                          SUBSTR(NUM_CART_TRAB, 1, 7)
+                         ELSE
+                          NUM_CART_TRAB
+                       END) NUM_CART_TRAB,
+                       VC.NUM_SERIE_CART_TRAB,
+                       VC.COD_AFASTAMENTO,
+                       VC.DATA_AFASTAMENTO_INI,
+                       VC.DATA_AFASTAMENTO_FIM,
+                       TO_NUMBER(VC.CPF) CPF,
+                       VC.SEXO,
+                       VC.CARGO,
+                       VC.DES_MUNIC,
+                       VC.EMAIL,
+                       VC.IND_GESTOR,
+                       VC.CODNIV_1,
+                       VC.CODNIV_2,
+                       VC.CODNIV_3,
+                       VC.CODNIV_4,
+                       VC.CODNIV_5,
+                       VC.CODNIV_6,
+                       VC.CODNIV_7,
+                       VC.CODNIV_8,
+                       VC.CPF_GESTOR
+                  FROM V_COLABORADORES VC) VC
+         WHERE NOT EXISTS
+         (SELECT 1
+                  FROM GRZ_ARH_FUNCIONARIOS GAF
+                 WHERE GAF.COD_FUNCIONARIO = VC.COD_FUNCIONARIO
+                   AND GAF.NUM_CPF = VC.CPF
+                   AND GAF.COD_FUNCAO = VC.COD_FUNCAO
+                   AND GAF.COD_UNIDADE = VC.COD_CENTRO_CUSTO
+                   AND NVL(GAF.CPF_GESTOR, 0) = NVL(VC.CPF_GESTOR, 0)
+                   AND NVL(GAF.DTA_DEMISSAO, DATE '7999-01-01') =
+                       NVL(VC.DTA_DEMISSAO, DATE '7999-01-01')
+                   AND NOT ((GAF.DTA_AFASTAMENTO_FIM IS NULL AND
+                        VC.DATA_AFASTAMENTO_FIM IS NULL) OR
+                        TO_CHAR(GAF.DTA_AFASTAMENTO_FIM, 'YYYYMMDD') =
+                        TO_CHAR(VC.DATA_AFASTAMENTO_FIM, 'YYYYMMDD'))
+                   AND GAF.COD_EMPRESA = VC.COD_EMPRESA);
+
+      CURSOR C_FILIAIS IS
+             SELECT *
+          FROM (SELECT DISTINCT VON.COD_ORGANOGRAMA,
+                       VC.COD_CENTRO_CUSTO AS CODUNIDADE,
+                       VON.NOME_ORGANOGRAMA
+                  FROM GRZ_FOLHA.V_ORGANOGRAMAS_NIVEIS@NLGZT VON
+                 INNER JOIN V_COLABORADORES VC ON VC.COD_ORGANOGRAMA = VON.COD_ORGANOGRAMA
+                 WHERE VC.COD_EMPRESA IN (8, 282)
+                   AND VC.COD_CENTRO_CUSTO NOT IN (901, 902, 903)
+                   AND NOT EXISTS
+                 (SELECT 1
+                          FROM GRZ_INT_UMENTOR_FILIAIS GITF
+                         WHERE VON.COD_ORGANOGRAMA = GITF.COD_ORGANOGRAMA)
+                 GROUP BY VON.COD_ORGANOGRAMA,
+                          VC.COD_CENTRO_CUSTO,
+                          VON.NOME_ORGANOGRAMA
+                UNION
+                SELECT DISTINCT VON.COD_ORGANOGRAMA,
+                       VC.COD_CENTRO_CUSTO AS CODUNIDADE,
+                       VON.NOME_ORGANOGRAMA
+                  FROM GRZ_FOLHA.V_ORGANOGRAMAS_NIVEIS@NLGZT VON
+                 INNER JOIN V_COLABORADORES VC ON VC.COD_ORGANOGRAMA = VON.COD_ORGANOGRAMA
+                 WHERE VON.COD_ORGANOGRAMA_SUB = 1777) vv
+         WHERE NOT EXISTS (
+    SELECT 1
+    FROM GRZ_INT_UMENTOR_FILIAIS GITF
+    WHERE GITF.COD_FILIAL = vv.codunidade
+    AND GITF.cod_organograma = vv.cod_organograma
+);
+
+        CURSOR C_AREAS IS
+          SELECT *
+            FROM (SELECT TO_NUMBER(VC.COD_CENTRO_CUSTO) AS COD_AREA,
+                         VON.NOME_ORGANOGRAMA AS DES_AREA
+                    FROM GRZ_FOLHA.V_ORGANOGRAMAS_NIVEIS@NLGZT VON
+                   INNER JOIN V_COLABORADORES VC ON VC.COD_ORGANOGRAMA = VON.COD_ORGANOGRAMA
+                   WHERE VON.COD_ORGANOGRAMA_SUB IN
+                         (SELECT VON.COD_ORGANOGRAMA
+                            FROM GRZ_FOLHA.V_ORGANOGRAMAS_NIVEIS@NLGZT VON
+                           WHERE VON.COD_ORGANOGRAMA_SUB = 9)
+                  UNION
+                  SELECT COD_GRUPO COD_AREA, DES_GRUPO DES_AREA
+                    FROM GE_GRUPOS
+                   WHERE COD_GRUPO IN (910, 930, 940, 950, 970)
+                  UNION
+                  SELECT TO_NUMBER(VC.COD_CENTRO_CUSTO) AS COD_AREA,
+                         VON.NOME_ORGANOGRAMA AS DES_AREA
+                    FROM GRZ_FOLHA.V_ORGANOGRAMAS_NIVEIS@NLGZT VON
+                   INNER JOIN V_COLABORADORES VC ON VC.COD_ORGANOGRAMA = VON.COD_ORGANOGRAMA
+                   WHERE VON.COD_ORGANOGRAMA_SUB = 1777)
+           WHERE COD_AREA NOT IN (SELECT COD_AREA FROM GRZ_INT_UMENTOR_AREAS);
+
+    BEGIN
+      FOR L_COLABORADORES IN C_COLABORADORES LOOP
+        WCOD_AREA := 0;
+
+        BEGIN
+          SELECT SISLOGWEB.GRZ_ARH_FUNCIONARIOS_SEQ.NEXTVAL
+            INTO WLOTE
+            FROM DUAL;
+        END;
+
+        BEGIN
+          SELECT '9' || REDE
+            INTO WCOD_AREA
+            FROM V_UNIDADES
+           WHERE COD_UNIDADE = L_COLABORADORES.COD_CENTRO_CUSTO
+           FETCH FIRST ROW ONLY;
+        EXCEPTION
+          WHEN OTHERS THEN
+            WCOD_AREA := L_COLABORADORES.COD_CENTRO_CUSTO;
+        END;
+
+        BEGIN
+          INSERT INTO SISLOGWEB.GRZ_ARH_FUNCIONARIOS
+            (COD_FUNCIONARIO,
+             COD_UNIDADE,
+             COD_CENTRO_CUSTO,
+             DES_NOME,
+             DTA_ADMISSAO,
+             DTA_DEMISSAO,
+             DTA_NASCTO,
+             DES_EMPRESA,
+             COD_FUNCAO,
+             COD_TURNO,
+             QTD_CH_MENSAL,
+             NUM_CART_TRAB,
+             NUM_SERIE_CART_TRAB,
+             COD_AFASTAMENTO,
+             DTA_AFASTAMENTO_INI,
+             DTA_AFASTAMENTO_FIM,
+             NUM_CPF,
+             DTA_SISTEMA,
+             LOTE,
+             IND_GESTOR,
+             CPF_GESTOR,
+             CIDADE,
+             EMAIL,
+             COD_UNIDADE_CONTABIL,
+             COD_AREA,
+             COD_EMPRESA)
+          VALUES
+            (L_COLABORADORES.COD_FUNCIONARIO,
+             L_COLABORADORES.COD_CENTRO_CUSTO,
+             L_COLABORADORES.COD_CENTRO_CUSTO,
+             L_COLABORADORES.DES_NOME,
+             L_COLABORADORES.DTA_ADMISSAO,
+             L_COLABORADORES.DTA_DEMISSAO,
+             L_COLABORADORES.DATA_NASCIMENTO,
+             L_COLABORADORES.DES_EMPRESA,
+             L_COLABORADORES.COD_FUNCAO,
+             L_COLABORADORES.COD_TURNO,
+             L_COLABORADORES.QTD_CH_MENSAL,
+             L_COLABORADORES.NUM_CART_TRAB,
+             L_COLABORADORES.NUM_SERIE_CART_TRAB,
+             L_COLABORADORES.COD_AFASTAMENTO,
+             L_COLABORADORES.DATA_AFASTAMENTO_INI,
+             L_COLABORADORES.DATA_AFASTAMENTO_FIM,
+             L_COLABORADORES.CPF,
+             SYSDATE,
+             WLOTE,
+             L_COLABORADORES.IND_GESTOR,
+             L_COLABORADORES.CPF_GESTOR,
+             L_COLABORADORES.DES_MUNIC,
+             L_COLABORADORES.EMAIL,
+             L_COLABORADORES.COD_CENTRO_CUSTO,
+             WCOD_AREA,
+             L_COLABORADORES.COD_EMPRESA);
+        EXCEPTION
+          WHEN DUP_VAL_ON_INDEX THEN
+            UPDATE SISLOGWEB.GRZ_ARH_FUNCIONARIOS
+               SET DTA_ADMISSAO         = L_COLABORADORES.DTA_ADMISSAO,
+                   DTA_DEMISSAO         = L_COLABORADORES.DTA_DEMISSAO,
+                   DTA_NASCTO           = L_COLABORADORES.DATA_NASCIMENTO,
+                   DES_EMPRESA          = L_COLABORADORES.DES_EMPRESA,
+                   COD_FUNCAO           = L_COLABORADORES.COD_FUNCAO,
+                   COD_TURNO            = L_COLABORADORES.COD_TURNO,
+                   QTD_CH_MENSAL        = L_COLABORADORES.QTD_CH_MENSAL,
+                   NUM_CART_TRAB        = L_COLABORADORES.NUM_CART_TRAB,
+                   NUM_SERIE_CART_TRAB  = L_COLABORADORES.NUM_SERIE_CART_TRAB,
+                   COD_AFASTAMENTO      = L_COLABORADORES.COD_AFASTAMENTO,
+                   DTA_AFASTAMENTO_INI  = L_COLABORADORES.DATA_AFASTAMENTO_INI,
+                   DTA_AFASTAMENTO_FIM  = L_COLABORADORES.DATA_AFASTAMENTO_FIM,
+                   NUM_CPF              = L_COLABORADORES.CPF,
+                   DES_NOME             = L_COLABORADORES.DES_NOME,
+                   COD_CENTRO_CUSTO     = L_COLABORADORES.COD_CENTRO_CUSTO,
+                   COD_UNIDADE          = L_COLABORADORES.COD_CENTRO_CUSTO,
+                   DTA_SISTEMA          = SYSDATE,
+                   LOTE                 = WLOTE,
+                   IND_GESTOR           = L_COLABORADORES.IND_GESTOR,
+                   CPF_GESTOR           = L_COLABORADORES.CPF_GESTOR,
+                   CIDADE               = L_COLABORADORES.DES_MUNIC,
+                   EMAIL                = L_COLABORADORES.EMAIL,
+                   COD_UNIDADE_CONTABIL = L_COLABORADORES.COD_CENTRO_CUSTO,
+                   COD_AREA             = WCOD_AREA,
+                   COD_COLABORADOR_ANT  = NULL,
+                   COD_EMPRESA          = L_COLABORADORES.COD_EMPRESA
+             WHERE COD_FUNCIONARIO = L_COLABORADORES.COD_FUNCIONARIO;
+        END;
+      END LOOP;
+      COMMIT;
+
+      FOR L_FILIAIS IN C_FILIAIS LOOP
+        BEGIN
+          INSERT INTO GRZ_INT_UMENTOR_FILIAIS
+            (COD_ORGANOGRAMA,
+             COD_FILIAL,
+             DES_FILIAL,
+             IND_STATUS,
+             JSON_ENVIO,
+             JSON_RETORNO,
+             DTA_SISTEMA)
+          VALUES
+            (L_FILIAIS.COD_ORGANOGRAMA,
+             L_FILIAIS.codUnidade,
+             L_FILIAIS.NOME_ORGANOGRAMA,
+             1,
+             NULL,
+             NULL,
+             SYSDATE);
+        EXCEPTION
+          WHEN DUP_VAL_ON_INDEX THEN
+            UPDATE GRZ_INT_UMENTOR_FILIAIS
+               SET COD_FILIAL = L_FILIAIS.codUnidade,
+                   DES_FILIAL = L_FILIAIS.NOME_ORGANOGRAMA
+             WHERE COD_ORGANOGRAMA = L_FILIAIS.COD_ORGANOGRAMA;
+        END;
+      END LOOP;
+
+      FOR L_AREAS IN C_AREAS LOOP
+
+        BEGIN
+          INSERT INTO GRZ_INT_UMENTOR_AREAS
+            (COD_AREA,
+             DES_AREA,
+             IND_STATUS,
+             JSON_ENVIO,
+             JSON_RETORNO,
+             DTA_SISTEMA)
+          VALUES
+            (L_AREAS.COD_AREA, L_AREAS.DES_AREA, 1, NULL, NULL, SYSDATE);
+        EXCEPTION
+          WHEN DUP_VAL_ON_INDEX THEN
+            UPDATE GRZ_INT_UMENTOR_AREAS
+               SET DES_AREA = L_AREAS.DES_AREA
+             WHERE COD_AREA = L_AREAS.COD_AREA;
+        END;
+      END LOOP;
+      COMMIT;
+    END;
+  END;
+
+END GRZ_COLABORADORES_PCKG;
+/

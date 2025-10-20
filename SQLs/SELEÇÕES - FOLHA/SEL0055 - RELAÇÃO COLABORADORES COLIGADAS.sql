@@ -1,0 +1,188 @@
+WITH
+CONTRATOS AS (
+  SELECT DISTINCT CT.STATUS,
+                  CT.COD_CONTRATO,
+                  CT.DES_PESSOA,
+                  CT.DATA_ADMISSAO,
+                  CT.DATA_DEMISSAO,
+                  -- Tempo de empresa individual
+                  TRUNC(MONTHS_BETWEEN(SYSDATE, CT.DATA_AVANCO) / 12) ||
+                  ' ano(s)' || ' e ' ||
+                  TRUNC(MOD(MONTHS_BETWEEN(SYSDATE, CT.DATA_AVANCO), 12)) ||
+                  ' mês(es)' AS TEMPO_EMPRESA,
+                  CT.DATA_NASCIMENTO,
+                  CT.IDADE,
+                  FN.COD_FUNCAO,
+                  FN.DES_FUNCAO,
+                  HR.HR_BASE_MES,
+                  CT.IND_DEFICIENCIA,
+                  CT.DES_DEFICIENCIA,
+                  ORG.COD_EMP,
+                  ORG.EDICAO_EMP,
+                  ORG.DES_EMP,
+                  ORG.COD_UNIDADE,
+                  ORG.DES_UNIDADE,
+                  CASE
+                      WHEN ORG.COD_TIPO = 2 THEN
+                       ORG.EDICAO_ORG_3
+                      WHEN ORG.COD_TIPO = 3 THEN
+                       ORG.EDICAO_ORG_3
+                      ELSE
+                       ORG.COD_UNIDADE
+                  END AS COD_FILIAL,
+                  CASE
+                      WHEN ORG.COD_TIPO = 2 THEN
+                       ORG.NOME3
+                      WHEN ORG.COD_TIPO = 3 THEN
+                       ORG.NOME3
+                      ELSE
+                       ORG.DES_UNIDADE
+                  END AS DES_FILIAL,
+                  CASE
+                      WHEN ORG.COD_TIPO = 2 THEN
+                       ORG.EDICAO_ORG_4
+                      WHEN ORG.COD_TIPO = 3 THEN
+                       ORG.EDICAO_ORG_4
+                      ELSE
+                       ORG.COD_UNIDADE
+                  END AS COD_DIVISAO,
+                  CASE
+                      WHEN ORG.COD_TIPO = 2 THEN
+                       ORG.NOME4
+                      WHEN ORG.COD_TIPO = 3 THEN
+                       ORG.NOME4
+                      ELSE
+                       ORG.DES_UNIDADE
+                  END AS DES_DIVISAO,
+                  ORG.EDICAO,
+                  ORG.COD_REDE,
+                  ORG.DES_REDE,
+                  ORG.COD_TIPO,
+                  ORG.DES_TIPO
+    FROM V_DADOS_CONTRATO_AVT CT,
+         VH_EST_ORG_CONTRATO_AVT ORG,
+         VH_HIST_HORAS_COLAB_AVT HR,
+         VH_CARGO_CONTRATO_AVT FN
+   WHERE CT.COD_CONTRATO = ORG.COD_CONTRATO
+     AND CT.COD_CONTRATO = HR.COD_CONTRATO
+     AND CT.COD_CONTRATO = FN.COD_CONTRATO
+     AND ((:DATA_REFERENCIA BETWEEN CT.DATA_ADMISSAO AND CT.DATA_DEMISSAO) OR
+          (CT.DATA_ADMISSAO <= :DATA_REFERENCIA AND CT.DATA_DEMISSAO IS NULL))
+     AND :DATA_REFERENCIA BETWEEN ORG.DATA_INI_ORG AND ORG.DATA_FIM_ORG
+     AND :DATA_REFERENCIA BETWEEN FN.DATA_INI_CLH AND FN.DATA_FIM_CLH
+     AND :DATA_REFERENCIA BETWEEN HR.DATA_INI_HR AND HR.DATA_FIM_HR
+     AND (ORG.COD_EMP = :EMPRESA OR :EMPRESA = 0)
+     AND ORG.EDICAO_ORG_4 IS NOT NULL
+   ORDER BY ORG.COD_TIPO, ORG.COD_REDE, ORG.COD_UNIDADE, CT.COD_CONTRATO
+),
+
+
+
+STATUS_AFASTADOS_EMP AS (
+SELECT DISTINCT
+       ORG.COD_EMP,
+       CT.COD_CONTRATO,
+       ORG.COD_UNIDADE,
+       NVL(AF.COD_CAUSA_AFAST,0) AS STATUS_AFAST,
+       NA.NOME_CAUSA_AFAST AS DES_AFAST
+  FROM RHFP0306 AF,
+       RHFP0300 CT,
+       VH_EST_ORG_CONTRATO_AVT ORG,
+       VH_CARGO_CONTRATO_AVT FN,
+       RHFP0100 NA
+ WHERE CT.COD_CONTRATO = AF.COD_CONTRATO(+)
+   AND CT.COD_CONTRATO = ORG.COD_CONTRATO(+)
+   AND CT.COD_CONTRATO = FN.COD_CONTRATO(+)
+   AND AF.COD_CAUSA_AFAST = NA.COD_CAUSA_AFAST(+)
+   AND ((:DATA_REFERENCIA BETWEEN CT.DATA_INICIO AND CT.DATA_FIM) OR
+        (CT.DATA_INICIO <= :DATA_REFERENCIA AND CT.DATA_FIM IS NULL))
+   AND :DATA_REFERENCIA BETWEEN AF.DATA_INICIO(+) AND AF.DATA_FIM(+)
+   AND :DATA_REFERENCIA BETWEEN ORG.DATA_INI_ORG(+) AND ORG.DATA_FIM_ORG(+)
+   AND :DATA_REFERENCIA BETWEEN FN.DATA_INI_CLH AND FN.DATA_FIM_CLH(+)
+   AND (ORG.COD_EMP = :EMPRESA OR :EMPRESA = 0)
+   --AND ORG.COD_EMP = 8
+),
+
+
+--- DADOS CONTRATOS EMPRESA
+DADOS_CONTRATOS_EMP AS (
+  SELECT A.COD_CONTRATO,
+         A.DES_PESSOA,
+         A.IDADE,
+         A.DATA_ADMISSAO,
+         A.DATA_DEMISSAO,
+         A.TEMPO_EMPRESA,
+         A.IND_DEFICIENCIA,
+         A.DES_DEFICIENCIA,
+         A.COD_FUNCAO,
+         A.DES_FUNCAO,
+         A.HR_BASE_MES,
+         S.STATUS_AFAST,
+         CASE
+             WHEN S.STATUS_AFAST = 0 THEN
+              'EM ATIVIDADE'
+             ELSE
+              S.DES_AFAST
+         END AS DES_AFAST,
+         A.COD_EMP,
+         A.DES_EMP,
+         A.COD_UNIDADE,
+         A.DES_UNIDADE,
+         A.COD_REDE,
+         A.DES_REDE,
+         A.COD_TIPO,
+         A.DES_TIPO,
+         A.EDICAO AS ORG_HIERARQUIA
+    FROM CONTRATOS A
+    LEFT JOIN STATUS_AFASTADOS_EMP S ON A.COD_CONTRATO = S.COD_CONTRATO
+    WHERE (A.COD_EMP = :EMPRESA OR :EMPRESA = 0)
+
+),
+
+TOTAIS_EMPRESA AS (
+SELECT A.COD_EMP AS EMPRESA,
+       SUM(A.HR_BASE_MES) AS QTD_HORAS_EMP,
+       COUNT(DISTINCT CASE
+               WHEN B.STATUS_AFAST NOT IN (0, 6, 7) THEN
+                A.COD_CONTRATO
+             END) AS QTD_AFAST_EMP,
+       SUM(CASE
+               WHEN B.STATUS_AFAST IN (0, 6, 7) THEN
+                1
+               ELSE
+                0
+           END) AS COLABS_ATV_EMP,
+       COUNT(DISTINCT A.COD_CONTRATO) AS TOT_COLAB_EMP
+  FROM DADOS_CONTRATOS_EMP A
+  LEFT JOIN STATUS_AFASTADOS_EMP B ON A.COD_CONTRATO = B.COD_CONTRATO
+ GROUP BY A.COD_EMP
+
+)
+
+
+SELECT A.COD_CONTRATO || ' - ' || A.DES_PESSOA AS COLABORADOR,
+       A.IDADE,
+       A.DATA_ADMISSAO,
+       A.DATA_DEMISSAO,
+       A.TEMPO_EMPRESA,
+       A.IND_DEFICIENCIA,
+       A.DES_DEFICIENCIA,
+       A.COD_FUNCAO,
+       A.DES_FUNCAO,
+       A.HR_BASE_MES,
+       A.STATUS_AFAST || ' - ' || A.DES_AFAST AS AFAST,
+       A.COD_EMP,
+       A.DES_EMP,
+       A.COD_UNIDADE,
+       A.DES_UNIDADE,
+       A.COD_REDE,
+       A.DES_REDE,
+       A.COD_TIPO,
+       A.DES_TIPO,
+       A.ORG_HIERARQUIA,
+       B.*,
+       :DATA_REFERENCIA AS REFERENCIA,
+       'EMPRESA: '  || :EMPRESA  AS PARAMETROS_USADOS
+FROM DADOS_CONTRATOS_EMP A
+JOIN TOTAIS_EMPRESA B ON A.COD_EMP = B.EMPRESA
+ORDER BY A.COD_TIPO, A.COD_REDE, A.COD_UNIDADE, A.COD_CONTRATO

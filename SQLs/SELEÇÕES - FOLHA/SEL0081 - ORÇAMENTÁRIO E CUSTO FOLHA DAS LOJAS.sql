@@ -1,0 +1,139 @@
+WITH
+PARAMS AS (
+  /*SELECT
+    TO_DATE('&DTA_INI','DD/MM/YYYY') AS DTA_INI,
+    TO_DATE('&DTA_FIM','DD/MM/YYYY') AS DTA_FIM
+  FROM DUAL*/
+  SELECT
+    :DATA_INICIO AS DTA_INI,
+    :DATA_FIM AS DTA_FIM
+  FROM DUAL
+),
+
+GRUPOS AS (
+  SELECT A.COD_EMP,
+         A.COD_UNIDADE,
+         A.DES_FANTASIA AS DES_UNIDADE,
+         A.REDE,
+         B.COD_GRUPO,
+         B.COD_QUEBRA AS REGIAO
+    FROM SISLOGWEB.V_UNIDADES_ATIVAS@NLGRZ A
+    LEFT JOIN NL.GE_GRUPOS_UNIDADES@NLGRZ B ON A.COD_UNIDADE =
+                                               B.COD_UNIDADE
+                                           AND B.COD_GRUPO IN
+                                               (910, 930, 940, 950, 970)
+   WHERE A.COD_UNIDADE NOT IN (7549, 900)
+  --AND A.COD_UNIDADE = 4
+),
+
+ORCADO AS (
+SELECT A.COD_UNIDADE,
+       B.DES_NOME AS DES_UNIDADE,
+       C.REDE,
+       C.REGIAO,
+       SUM(DECODE(A.DES_CHAVE,
+                  '01#01001',
+                  NVL(A.VLR_ORCADO, 0),
+                  '01#01003',
+                  NVL(A.VLR_ORCADO, 0),
+                  '01#01005',
+                  NVL(A.VLR_ORCADO, 0),
+                  0)) VLR_VENDA_ORC,
+       SUM(DECODE(A.DES_CHAVE,
+                  '01#01001',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '01#01003',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '01#01005',
+                  NVL(A.VLR_REALIZADO, 0),
+                  0)) VLR_VENDA_REAL,
+       SUM(DECODE(A.DES_CHAVE, '05#05001', NVL(A.VLR_REALIZADO, 0), 0)) VLR_VENDA_LIQUIDA,
+       SUM(DECODE(A.DES_CHAVE, '09#09001', NVL(A.VLR_ORCADO, 0), 0)) VLR_MARGEM_ORC,
+       SUM(DECODE(A.DES_CHAVE, '09#09001', NVL(A.VLR_REALIZADO, 0), 0)) VLR_MARGEM_REAL,
+       SUM(DECODE(A.DES_CHAVE, '11#11001', NVL(A.VLR_REALIZADO, 0), 0)) VLR_FALTA_INVENTARIO,
+       SUM(DECODE(A.DES_CHAVE, '45#45001', NVL(A.VLR_REALIZADO, 0), 0)) VLR_LUCRO,
+       SUM(DECODE(A.DES_CHAVE,
+                  '15#15001',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15005',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15010',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15015',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15020',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15025',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15030',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15035',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15040',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15045',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15049',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15050',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '15#15055',
+                  NVL(A.VLR_REALIZADO, 0),
+                  0)) CUSTO_FOLHA
+  FROM NL.OR_VALORES@NLGRZ A
+  JOIN NL.GE_UNIDADES@NLGRZ B ON A.COD_UNIDADE = B.COD_UNIDADE
+  JOIN GRUPOS C ON A.COD_UNIDADE = C.COD_UNIDADE
+  CROSS JOIN PARAMS P
+ WHERE A.COD_EMP = 1
+   AND C.COD_EMP = 1
+   AND A.COD_ORCAMENTO = 400
+      --AND B.COD_GRUPO = 999
+   AND A.DTA_ORCAMENTO >= P.DTA_INI
+   AND A.DTA_ORCAMENTO <= P.DTA_FIM
+   AND (A.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
+   AND (C.REDE = :REDE OR :REDE = 0)
+      /*AND A.DTA_ORCAMENTO >= '01/01/' || SUBSTR(PI_DATA_REF, 7, 4)
+           AND A.DTA_ORCAMENTO <= '01/' || SUBSTR(PI_DATA_REF, 4, 7)*/
+      --AND A.COD_UNIDADE BETWEEN 4 AND 4
+   AND A.COD_UNIDADE NOT IN (818, 848, 858, 838)
+   AND (A.DES_CHAVE = '01#01001' OR A.DES_CHAVE = '01#01003' OR
+        A.DES_CHAVE = '01#01005' OR A.DES_CHAVE = '05#05001' OR
+        A.DES_CHAVE = '09#09001' OR A.DES_CHAVE = '11#11001' OR
+        A.DES_CHAVE = '45#45001' OR A.DES_CHAVE = '15#15001' OR
+        A.DES_CHAVE = '15#15005' OR A.DES_CHAVE = '15#15010' OR
+        A.DES_CHAVE = '15#15015' OR A.DES_CHAVE = '15#15020' OR
+        A.DES_CHAVE = '15#15025' OR A.DES_CHAVE = '15#15030' OR
+        A.DES_CHAVE = '15#15035' OR A.DES_CHAVE = '15#15040' OR
+        A.DES_CHAVE = '15#15045' OR A.DES_CHAVE = '15#15049' OR
+        A.DES_CHAVE = '15#15050' OR A.DES_CHAVE = '15#15055')
+--  AND EXISTS(SELECT 1 FROM GE_GRUPOS_UNIDADES  WHERE COD_UNIDADE = A.COD_UNIDADE AND COD_GRUPO IN (PI_GRUPO_ANTIGO))
+ HAVING SUM(DECODE(A.DES_CHAVE,
+                  '01#01001',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '01#01003',
+                  NVL(A.VLR_REALIZADO, 0),
+                  '01#01005',
+                  NVL(A.VLR_REALIZADO, 0),
+                  0)) > 0
+ GROUP BY A.COD_UNIDADE,
+          B.DES_NOME,
+          C.REDE,
+          C.REGIAO
+ ORDER BY A.COD_UNIDADE
+
+)
+
+SELECT A.COD_UNIDADE,
+       A.DES_UNIDADE,
+       A.REDE,
+       A.REGIAO,
+       P.DTA_INI || ' - ' || P.DTA_FIM AS REF_APURACAO,
+       TO_CHAR(NVL(A.VLR_VENDA_ORC, 0), 'FM999G999G990D00') AS VLR_ORCADO_VENDAS,
+       TO_CHAR(NVL(A.VLR_VENDA_REAL, 0), 'FM999G999G990D00') AS VLR_REALIZADO,
+       TO_CHAR(NVL(A.VLR_VENDA_LIQUIDA, 0), 'FM999G999G990D00') AS VLR_VENDA_LIQUIDA,
+       --TO_CHAR(NVL(DK.VLR_VDA_DOMINGO_ANO, 0), 'FM999G999G990D00') AS VLR_VDA_DOMINGO,
+       --TO_CHAR(NVL(DK.VLR_LUCRO_ANO, 0), 'FM999G999G990D00') AS VLR_LUCRO,
+       TO_CHAR(NVL(A.CUSTO_FOLHA, 0), 'FM999G999G990D00') AS CUSTO_FOLHA,
+       ROUND(100 * A.CUSTO_FOLHA / NULLIF(A.VLR_VENDA_LIQUIDA, 0), 2) AS "FOLHA_%"
+  FROM ORCADO A
+  CROSS JOIN PARAMS P

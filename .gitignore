@@ -1,0 +1,18 @@
+# grandes / não versionar
+*.mp4
+*.mov
+*.zip
+*.7z
+*.iso
+*.dmp
+exports/
+backups/
+
+# vscode / temporários
+.vscode/
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+desktop.ini

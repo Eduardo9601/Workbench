@@ -1,0 +1,122 @@
+--===SQL PARA CONSULTAR CRITÉRIOS E GERAR RELAÇÃO DE AVALIAÇÃO DOS GERENTES DE LOJA PARA APR
+
+SELECT B.COD_UNIDADE,
+       B.DES_UNIDADE,
+       A.TREINAMENTO,
+       A.TRAINEE,
+       A.ORCADO,
+       A.MARGEM_PERC,
+       A.LUCRO,
+       A.PERMANENCIA,
+       A.INVENTARIO,
+       A.PREVENTIVA,
+       A.VALE_TRANSP,
+       A.PRODUTIVIDADE,
+       A.FOLHA,
+       A.TURN_OVER,
+       SUM(NVL(A.TREINAMENTO, 0) + NVL(A.TRAINEE, 0) + NVL(A.ORCADO, 0) +
+           NVL(A.MARGEM_PERC, 0) + NVL(A.LUCRO, 0) + NVL(A.PERMANENCIA, 0) +
+           NVL(A.INVENTARIO, 0) + NVL(A.PREVENTIVA, 0) +
+           NVL(A.VALE_TRANSP, 0) + NVL(A.PRODUTIVIDADE, 0) +
+           NVL(A.FOLHA, 0) + NVL(A.TURN_OVER, 0)) AS NOTA_APR,
+       A.REGIAO,
+       A.ANO
+  FROM NL.GRZ_DADOS_CALCULO_APR_ANUAL@NLGRZ A
+ INNER JOIN V_DADOS_LOJAS_AVT B ON A.COD_UNIDADE = B.COD_UNIDADE
+ WHERE A.ANO = 2023
+ AND A.COD_UNIDADE = 423
+ GROUP BY B.COD_UNIDADE,
+       B.DES_UNIDADE,
+       A.TREINAMENTO,
+       A.TRAINEE,
+       A.ORCADO,
+       A.MARGEM_PERC,
+       A.LUCRO,
+       A.PERMANENCIA,
+       A.INVENTARIO,
+       A.PREVENTIVA,
+       A.VALE_TRANSP,
+       A.PRODUTIVIDADE,
+       A.FOLHA,
+       A.TURN_OVER,
+       A.REGIAO,
+       A.ANO
+ ORDER BY B.COD_UNIDADE;
+ 
+ 
+ 
+--=======================================--
+
+
+---=== SQL FINAL QUE MAPEIA AS NOTAS DOS GERENTES DE LOJAS, COMO BASE NOS CRITÉRIOS PARA CADA LOJA
+
+SELECT B.COD_CONTRATO,
+       B.DES_PESSOA,
+       B.COD_UNIDADE,
+       B.DES_FUNCAO,
+       B.DTA_INI_FUNCAO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD), 2),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO,
+       TO_CHAR(ROUND(SUM(A.VALOR_VD * 2), 2),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS SALARIO_MULTIPLICADO,
+       C.NOTA_APR,
+       TO_CHAR(((ROUND(SUM(A.VALOR_VD * 2), 2) * C.NOTA_APR) / 100) * (CASE
+                 WHEN EXTRACT(YEAR FROM B.DTA_INI_FUNCAO) = 2023 THEN
+                  0.5
+                 ELSE
+                  1
+               END) * (CASE
+                 WHEN D.ARGUMENTO_1 IS NOT NULL THEN
+                  0.5
+                 ELSE
+                  1
+               END),
+               'FM999G999G990D00',
+               'NLS_NUMERIC_CHARACTERS = '',.''') AS APR_CALCULADA,
+       CASE
+         WHEN EXISTS
+          (SELECT 1 FROM RHFP1026 WHERE ARGUMENTO_1 = B.COD_UNIDADE) THEN
+          D.ARGUMENTO_1
+         ELSE
+          NULL
+       END AS UNI_PREJUIZO,
+       CASE
+           WHEN EXTRACT(YEAR FROM B.DTA_INI_FUNCAO) = 2023 THEN 'Início em 2023'
+           WHEN D.ARGUMENTO_1 IS NOT NULL THEN 'Com prejuízo'
+           ELSE NULL
+       END AS DESTAQUE
+  FROM RHFP1006 A
+ INNER JOIN V_DADOS_PESSOA B ON B.COD_CONTRATO = A.COD_CONTRATO
+  LEFT JOIN (SELECT COD_VL, ARGUMENTO_1 
+             FROM RHFP1026 
+             WHERE COD_VL = 15) D ON B.COD_UNIDADE = D.ARGUMENTO_1
+ INNER JOIN (SELECT COD_UNIDADE,
+                    SUM(NVL(TREINAMENTO, 0) + NVL(TRAINEE, 0) +
+                        NVL(ORCADO, 0) + NVL(MARGEM_PERC, 0) + NVL(LUCRO, 0) +
+                        NVL(PERMANENCIA, 0) + NVL(INVENTARIO, 0) +
+                        NVL(PREVENTIVA, 0) + NVL(VALE_TRANSP, 0) +
+                        NVL(PRODUTIVIDADE, 0) + NVL(FOLHA, 0) +
+                        NVL(TURN_OVER, 0)) AS NOTA_APR
+               FROM NL.GRZ_DADOS_CALCULO_APR_ANUAL@NLGRZ
+              WHERE ANO = 2023
+                AND REGIAO < 8730
+                AND COD_UNIDADE < 8000
+                AND COD_UNIDADE NOT IN
+                    ('1549', '3549', '4549', '5549', '7549', '0')
+              GROUP BY COD_UNIDADE) C ON B.COD_UNIDADE = C.COD_UNIDADE
+ WHERE B.COD_FUNCAO IN
+       (7, 8, 14, 77, 78, 79, 80, 81, 86, 87, 88, 89, 90, 128, 137, 184, 185, 186, 188, 189, 190, 192, 255, 264, 275, 283, 294, 299, 318, 325, 328, 330, 345, 355)
+   AND B.COD_GRUPO IN ('1', '2', '3', '4', '7')
+   AND A.COD_MESTRE_EVENTO = 16413  --= MESTRE 2023
+   AND A.COD_VD = 1700
+--AND D.ARGUMENTO_1 IS NOT NULL
+ GROUP BY B.COD_CONTRATO,
+          B.DES_PESSOA,
+          B.COD_UNIDADE,
+          B.DES_FUNCAO,
+          B.DTA_INI_FUNCAO,
+          C.NOTA_APR,
+          D.ARGUMENTO_1
+ ORDER BY B.COD_UNIDADE ASC;
