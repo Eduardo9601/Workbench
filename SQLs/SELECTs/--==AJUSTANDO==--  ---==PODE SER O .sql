@@ -1,4 +1,4 @@
---==AJUSTANDO==--  ---==PODE SER O OFICAL==---
+--==AJUSTANDO ==PODE SER O OFICAL==---
 
 WITH CTE AS (
   SELECT
