@@ -28,6 +28,7 @@ DADOS_KPIS AS (
     DECODE(COD_UNIDADE,
               7022, 22,
               7047, 47,
+              7059, 59,
               7065, 65,
               7138, 138,
               7140, 140,
@@ -55,6 +56,7 @@ DADOS_KPIS AS (
               7500, 651,
               7051, 652,
               7066, 654,
+              7643, 643,
               COD_UNIDADE) COD_UNIDADE,
     MIN(DES_UNIDADE) AS DES_UNIDADE,
     MIN(REDE)  AS REDE,
@@ -90,6 +92,7 @@ DADOS_KPIS AS (
   GROUP BY DECODE(COD_UNIDADE,
               7022, 22,
               7047, 47,
+              7059, 59,
               7065, 65,
               7138, 138,
               7140, 140,
@@ -117,6 +120,7 @@ DADOS_KPIS AS (
               7500, 651,
               7051, 652,
               7066, 654,
+              7643, 643,
               COD_UNIDADE)
 ),
 
