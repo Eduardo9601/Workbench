@@ -201,6 +201,7 @@ ORDER BY A.COD_EVENTO, A.COD_VD, A.COD_CONTRATO
 )
 SELECT X.EMPRESA,
        X.COLABORADOR,
+       X.DT_CONTRATO,
        X.DES_UNIDADE,
        X.DES_REDE,
        X.REFERENCIA,
@@ -271,6 +272,7 @@ SELECT X.EMPRESA,
   FROM (
         SELECT EMPRESA,
                COLABORADOR,
+               DT_CONTRATO,
                DES_UNIDADE,
                DES_REDE,
                REFERENCIA,
@@ -345,6 +347,8 @@ SELECT X.EMPRESA,
 
           FROM (SELECT VE.EMPRESA || ' - ' || CT.DES_EMP AS EMPRESA,
                         CT.COD_CONTRATO || ' - ' || CT.DES_PESSOA AS COLABORADOR,
+                        TO_CHAR(CT.DATA_ADMISSAO,'DD/MM/YYYY')
+                        || NVL2(CT.DATA_DEMISSAO, ' - ' || TO_CHAR(CT.DATA_DEMISSAO,'DD/MM/YYYY'), '') AS DT_CONTRATO,
                         CT.DES_UNIDADE,
                         CT.DES_REDE,
                         VE.REFERENCIA,
@@ -376,6 +380,3 @@ SELECT X.EMPRESA,
                                                      4101 AS V4101, 4102 AS V4102,
                                                      4103 AS V4103, 4104 AS V4104))) X
  ORDER BY X.DES_UNIDADE, X.COLABORADOR, X.REFERENCIA
-
-
-
