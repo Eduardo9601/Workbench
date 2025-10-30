@@ -83,4 +83,4 @@ SELECT 4 AS PRIORIDADE,  -- Definindo prioridade para o bloco de VD 1003
        (SELECT COUNT(*) FROM ContratosVD829) AS QTDE_CONTRATOS_829,  -- Contagem geral de contratos para VD 829 (mesma contagem em todas as linhas)
        A.QTDE_CONTRATOS_1003  -- Contagem geral de contratos para VD 1003
 FROM ContratosVD1003 A
-ORDER BY PRIORIDADE, DES_UNIDADE
+ORDER BY PRIORIDADE, DES_UNIDADE;

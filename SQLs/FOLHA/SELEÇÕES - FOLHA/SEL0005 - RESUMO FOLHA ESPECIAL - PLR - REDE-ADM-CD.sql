@@ -401,4 +401,4 @@ FROM
 ORDER BY
     COD_REDE_REP ASC, -- Ordenação principal por contrato
     ORDER_COL ASC,
-    RN ASC
+    RN ASC;

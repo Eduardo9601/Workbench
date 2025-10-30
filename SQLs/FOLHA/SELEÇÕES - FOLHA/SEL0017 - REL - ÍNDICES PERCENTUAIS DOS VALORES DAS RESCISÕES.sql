@@ -213,5 +213,5 @@ LEFT JOIN
 CROSS JOIN
     Totais T
 ORDER BY
-    R.MES_ANO
+    R.MES_ANO;
 

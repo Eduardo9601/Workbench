@@ -332,4 +332,4 @@ FROM
 ORDER BY
   EDICAO_ORG_REP ASC, -- Usando a coluna de repetição para ordenação
   ORDER_COL ASC,
-  RN ASC
+  RN ASC;

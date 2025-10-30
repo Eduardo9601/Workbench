@@ -195,4 +195,4 @@ FROM (
 )
 ORDER BY
     CASE WHEN MES_ANO = 'Total Geral' THEN 1 ELSE 0 END,
-    MES_ANO
+    MES_ANO;

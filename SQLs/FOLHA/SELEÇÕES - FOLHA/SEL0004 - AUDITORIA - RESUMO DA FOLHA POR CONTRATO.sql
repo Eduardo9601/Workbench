@@ -448,4 +448,4 @@ FROM
 ORDER BY
     COD_CONTRATO_REP ASC, -- Ordenação principal por contrato
     ORDER_COL ASC,
-    RN ASC
+    RN ASC;
