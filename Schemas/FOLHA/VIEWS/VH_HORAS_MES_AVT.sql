@@ -6,7 +6,7 @@ SELECT COD_CONTRATO,
        DES_UNIDADE,
 
        /* data de competência para ordenar/filtrar */
-       TRUNC(COMPETENCIA, 'MM') AS MES_DT,
+       TRUNC(COMPETENCIA, 'MM') AS COMPETENCIA,
 
        /* rótulo para exibição */
        TO_CHAR(TRUNC(COMPETENCIA, 'MM'), 'MM/YYYY') AS MES,
@@ -34,63 +34,57 @@ SELECT COD_CONTRATO,
 )
 
 SELECT COD_CONTRATO,
-       DES_PESSOA,
-       COD_UNIDADE,
-       DES_UNIDADE,
-       MES_DT AS COMPETENCIA,
-       MES,
+    DES_PESSOA,
+    COD_UNIDADE,
+    DES_UNIDADE,
+    COMPETENCIA,
+    MES,
        CASE
          WHEN TOTAL_HORAS < 0 THEN
           '-' || TRUNC(ABS(TOTAL_HORAS)) || ':' ||
           LPAD(ROUND(MOD(ABS(TOTAL_HORAS), 1) * 60), 2, '0')
          ELSE
-          TRUNC(TOTAL_HORAS) || ':' ||
-          LPAD(ROUND(MOD(TOTAL_HORAS, 1) * 60), 2, '0')
+          TRUNC(TOTAL_HORAS) || ':' || LPAD(ROUND(MOD(TOTAL_HORAS, 1) * 60), 2, '0')
        END AS HORAS,
-       
+
        CASE
          WHEN TOTAL_FALTAS < 0 THEN
           '-' || TRUNC(ABS(TOTAL_FALTAS)) || ':' ||
           LPAD(ROUND(MOD(ABS(TOTAL_FALTAS), 1) * 60), 2, '0')
          ELSE
-          TRUNC(TOTAL_FALTAS) || ':' ||
-          LPAD(ROUND(MOD(TOTAL_FALTAS, 1) * 60), 2, '0')
+          TRUNC(TOTAL_FALTAS) || ':' || LPAD(ROUND(MOD(TOTAL_FALTAS, 1) * 60), 2, '0')
        END AS FALTAS,
-       
+
        CASE
          WHEN TOTAL_COMPENSAR < 0 THEN
           '-' || TRUNC(ABS(TOTAL_COMPENSAR)) || ':' ||
           LPAD(ROUND(MOD(ABS(TOTAL_COMPENSAR), 1) * 60), 2, '0')
          ELSE
-          TRUNC(TOTAL_COMPENSAR) || ':' ||
-          LPAD(ROUND(MOD(TOTAL_COMPENSAR, 1) * 60), 2, '0')
+          TRUNC(TOTAL_COMPENSAR) || ':' || LPAD(ROUND(MOD(TOTAL_COMPENSAR, 1) * 60), 2, '0')
        END AS COMPENSAR,
-       
+
        CASE
          WHEN TOTAL_ATRASOS < 0 THEN
           '-' || TRUNC(ABS(TOTAL_ATRASOS)) || ':' ||
           LPAD(ROUND(MOD(ABS(TOTAL_ATRASOS), 1) * 60), 2, '0')
          ELSE
-          TRUNC(TOTAL_ATRASOS) || ':' ||
-          LPAD(ROUND(MOD(TOTAL_ATRASOS, 1) * 60), 2, '0')
+          TRUNC(TOTAL_ATRASOS) || ':' || LPAD(ROUND(MOD(TOTAL_ATRASOS, 1) * 60), 2, '0')
        END AS ATRASOS,
-       
+
        CASE
          WHEN TOTAL_EXTRAS < 0 THEN
           '-' || TRUNC(ABS(TOTAL_EXTRAS)) || ':' ||
           LPAD(ROUND(MOD(ABS(TOTAL_EXTRAS), 1) * 60), 2, '0')
          ELSE
-          TRUNC(TOTAL_EXTRAS) || ':' ||
-          LPAD(ROUND(MOD(TOTAL_EXTRAS, 1) * 60), 2, '0')
+          TRUNC(TOTAL_EXTRAS) || ':' || LPAD(ROUND(MOD(TOTAL_EXTRAS, 1) * 60), 2, '0')
        END AS EXTRAS,
-       
+
        CASE
          WHEN TOTAL_FERIAS < 0 THEN
           '-' || TRUNC(ABS(TOTAL_FERIAS)) || ':' ||
           LPAD(ROUND(MOD(ABS(TOTAL_FERIAS), 1) * 60), 2, '0')
          ELSE
-          TRUNC(TOTAL_FERIAS) || ':' ||
-          LPAD(ROUND(MOD(TOTAL_FERIAS, 1) * 60), 2, '0')
+          TRUNC(TOTAL_FERIAS) || ':' || LPAD(ROUND(MOD(TOTAL_FERIAS, 1) * 60), 2, '0')
        END AS FERIAS
-  FROM HORAS_MES
+FROM HORAS_MES
 
