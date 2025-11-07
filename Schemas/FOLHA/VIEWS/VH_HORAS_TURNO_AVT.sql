@@ -127,7 +127,7 @@ SELECT COD_CONTRATO,
           LPAD(RHYF0118(RHYF0117(HORARIO_3_ENT), 'S'), 5, '0')
          ELSE
           LPAD(RHYF0118(RHYF0117(HORARIO_1_ENT), 'S'), 5, '0')
-       END AS HOR_1_ENT,
+       END AS ENTRADA_1,
        CASE
          WHEN COD_HORARIO IN (1, 2) THEN
           NULL
@@ -135,7 +135,7 @@ SELECT COD_CONTRATO,
           LPAD(RHYF0118(RHYF0117(HORARIO_3_SAI), 'S'), 5, '0')
          ELSE
           LPAD(RHYF0118(RHYF0117(HORARIO_1_SAI), 'S'), 5, '0')
-       END AS HOR_1_SAI,
+       END AS SAIDA_1,
 
        /* 2º período */
        CASE
@@ -145,7 +145,7 @@ SELECT COD_CONTRATO,
           LPAD(RHYF0118(RHYF0117(HORARIO_4_ENT), 'S'), 5, '0')
          ELSE
           LPAD(RHYF0118(RHYF0117(HORARIO_2_ENT), 'S'), 5, '0')
-       END AS HOR_2_ENT,
+       END AS ENTRADA_2,
        CASE
          WHEN COD_HORARIO IN (1, 2) THEN
           NULL
@@ -153,7 +153,7 @@ SELECT COD_CONTRATO,
           LPAD(RHYF0118(RHYF0117(HORARIO_4_SAI), 'S'), 5, '0')
          ELSE
           LPAD(RHYF0118(RHYF0117(HORARIO_2_SAI), 'S'), 5, '0')
-       END AS HOR_2_SAI
+       END AS SAIDA_2
 
   FROM BASE
   --WHERE COD_CONTRATO = 389622
