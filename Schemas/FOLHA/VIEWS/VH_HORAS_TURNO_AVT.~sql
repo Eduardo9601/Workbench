@@ -13,8 +13,8 @@ BASE AS (
                  A.COD_TURNO,
                  A.DATA_INICIO,
                  A.DATA_FIM,
-
-                 -- horas base (histÛricas, vindas da vigÍncia de E que cobre o perÌodo de A)
+                 
+                 -- horas base (hist√≥ricas, vindas da vig√™ncia de E que cobre o per√≠odo de A)
                  LTRIM(RTRIM(TRIM(TRAILING '.' FROM
                                   TRIM(TRAILING '0' FROM
                                        TO_CHAR(F.QTD_HORBAS_MES,
@@ -27,7 +27,7 @@ BASE AS (
                                   TRIM(TRAILING '0' FROM
                                        TO_CHAR(F.QTD_HORBAS_DIA,
                                                '9999999990.99'))))) AS HR_BASE_DIA,
-
+                 
                  B.HORARIO_1_ENT,
                  B.HORARIO_1_SAI,
                  B.HORARIO_2_ENT,
@@ -36,13 +36,13 @@ BASE AS (
                  B.HORARIO_3_SAI,
                  B.HORARIO_4_ENT,
                  B.HORARIO_4_SAI,
-
+                 
                  C.COD_HORARIO_1,
                  C.DIA_ESOCIAL,
                  D.COD_HORARIO,
                  D.NOME_HORARIO,
-
-                 -- S·bado usa 3/4?
+                 
+                 -- S√°bado usa 3/4?
                  CASE
                    WHEN C.DIA_ESOCIAL = 7 AND
                         (NVL(B.HORARIO_3_ENT, 0) + NVL(B.HORARIO_3_SAI, 0) +
@@ -51,34 +51,34 @@ BASE AS (
                    ELSE
                     0
                  END AS SAB_USA_34,
-
-                 -- desempate: se mais de uma linha de E cobrir o perÌodo de A,
+                 
+                 -- desempate: se mais de uma linha de E cobrir o per√≠odo de A,
                  -- fica com a de maior DATA_INICIO (ou DATA_FIM mais recente)
-                 ROW_NUMBER() OVER(PARTITION BY A.COD_CONTRATO,
-                                                A.COD_TURNO,
-                                                A.DATA_INICIO,
-                                                A.DATA_FIM,
-                                                C.DIA_ESOCIAL,
-                                                D.COD_HORARIO
+                 ROW_NUMBER() OVER(PARTITION BY A.COD_CONTRATO, 
+                                                A.COD_TURNO, 
+                                                A.DATA_INICIO, 
+                                                A.DATA_FIM, 
+                                                C.DIA_ESOCIAL, 
+                                                D.COD_HORARIO 
                                    ORDER BY NVL(E.DATA_INICIO, DATE '0001-01-01') DESC, NVL(E.DATA_FIM, DATE '2999-12-31') DESC) AS RN
             FROM RHAF1119 A
             JOIN RHAF1145 B ON B.COD_TURNO = A.COD_TURNO
             LEFT JOIN RHAF1120 C ON C.COD_TURNO = B.COD_TURNO
             LEFT JOIN RHAF1113 D ON D.COD_HORARIO = C.COD_HORARIO_1
-
-          /* *** AQUI EST¡ O PONTO: join por VIG NCIA (sobreposiÁ„o de perÌodos) *** */
+          
+          /* *** AQUI EST√Å O PONTO: join por VIG√äNCIA (sobreposi√ß√£o de per√≠odos) *** */
             LEFT JOIN RHFP0307 E ON E.COD_CONTRATO = A.COD_CONTRATO
                                 AND NVL(E.DATA_INICIO, DATE '0001-01-01') <=
                                     A.DATA_FIM
                                 AND NVL(E.DATA_FIM, DATE '2999-12-31') >=
                                     A.DATA_INICIO
-
+          
             LEFT JOIN F_UNICO F ON F.COD_HORAS_BASE = E.COD_HORAS_BASE
-
-          -- opcional: filtre um contrato, mas o join acima preserva o histÛrico
+          
+          -- opcional: filtre um contrato, mas o join acima preserva o hist√≥rico
           -- WHERE A.COD_CONTRATO = 389622
           ) X
-   WHERE X.RN = 1 -- mantÈm 1 ˙nica linha de E por registro de A
+   WHERE X.RN = 1 -- mant√©m 1 √∫nica linha de E por registro de A
 )
 
 SELECT COD_CONTRATO,
@@ -90,7 +90,7 @@ SELECT COD_CONTRATO,
        HR_BASE_DIA,
        COD_HORARIO,
        NOME_HORARIO,
-
+       
        CASE
          WHEN COD_HORARIO = 1 THEN
           'DSR'
@@ -99,7 +99,7 @@ SELECT COD_CONTRATO,
          ELSE
           TO_CHAR(DIA_ESOCIAL)
        END AS COD_DIA,
-
+       
        CASE
          WHEN COD_HORARIO_1 = 1 THEN
           'DOM'
@@ -118,8 +118,8 @@ SELECT COD_CONTRATO,
          ELSE
           TO_CHAR(DIA_ESOCIAL)
        END AS DIA,
-
-       /* 1∫ perÌodo */
+       
+       /* 1¬∫ per√≠odo */
        CASE
          WHEN COD_HORARIO IN (1, 2) THEN
           NULL
@@ -136,8 +136,8 @@ SELECT COD_CONTRATO,
          ELSE
           LPAD(RHYF0118(RHYF0117(HORARIO_1_SAI), 'S'), 5, '0')
        END AS HOR_1_SAI,
-
-       /* 2∫ perÌodo */
+       
+       /* 2¬∫ per√≠odo */
        CASE
          WHEN COD_HORARIO IN (1, 2) THEN
           NULL
@@ -153,8 +153,8 @@ SELECT COD_CONTRATO,
           LPAD(RHYF0118(RHYF0117(HORARIO_4_SAI), 'S'), 5, '0')
          ELSE
           LPAD(RHYF0118(RHYF0117(HORARIO_2_SAI), 'S'), 5, '0')
-       END AS HOR_2_SAI
-
+       END AS HOR_2_SAI      
+       
   FROM BASE
   --WHERE COD_CONTRATO = 389622
  ORDER BY
@@ -172,5 +172,4 @@ SELECT COD_CONTRATO,
     WHEN DIA = 'SAB' THEN 7
     ELSE 99
   END,
-  COD_HORARIO
-
+  COD_HORARIO;
