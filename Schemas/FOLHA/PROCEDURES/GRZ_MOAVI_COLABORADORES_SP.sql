@@ -55,7 +55,7 @@ BEGIN
   
     nome_arq := 'FUNCIONARIOS_' || TO_CHAR(SYSDATE, 'RRRRMMDDHH24MISS') || '.txt';
   
-    -- Abre o arquivo e escreva o cabeçalho antes de abrir o cursor
+    -- Abre o arquivo e escreva o cabeÃ§alho antes de abrir o cursor
     file_handle1 := UTL_FILE.FOPEN('/mnt/nlgestao/nlcomum/Moavi/Funcionarios',
                                    nome_arq,
                                    'W');
@@ -78,7 +78,7 @@ BEGIN
         wFIM_FERIAS    := TO_CHAR(r_moavi.FIM_FERIAS);
         wGENERO        := TO_CHAR(r_moavi.GENERO);
       
-        -- Concatenação para a montagem do arquivo
+        -- ConcatenaÃ§Ã£o para a montagem do arquivo
         IF r_moavi.INI_FERIAS IS NULL THEN
           UTL_FILE.PUT_LINE(file_handle1,
                             wPIS || ';' || wMATRICULA || ';' || wNOME || ';' ||
@@ -104,4 +104,3 @@ BEGIN
       NULL;
   END;
 END GRZ_MOAVI_COLABORADORES_SP;
-/

@@ -1,0 +1,119 @@
+CREATE OR REPLACE PROCEDURE GRZ_MOAVI_FILIAIS_SP IS
+BEGIN
+  DECLARE
+
+    wFILIAL_COD VARCHAR2(10);
+    wFILIAL     VARCHAR2(150);
+    wINICIO     VARCHAR2(50);
+    wUF         VARCHAR2(5);
+    wCIDADE     VARCHAR2(150);
+    wCNPJ       VARCHAR2(20);
+    wREGIONAL   VARCHAR2(10);
+    wEMAIL      VARCHAR2(100);
+	  wCELULAR    VARCHAR2(15);
+    wABERT_SEM  VARCHAR2(10);
+    wFECH_SEM   VARCHAR2(10);
+    wABERT_SAB  VARCHAR2(10);
+    wFECH_SAB   VARCHAR2(10);
+    wABERT_DOM  VARCHAR2(10);
+    wFECH_DOM   VARCHAR2(10);
+
+    SAIDA EXCEPTION;
+
+    CURSOR c_moavi IS
+      SELECT A.COD_UNIDADE AS FILIAL_COD,
+             A.DES_UNIDADE AS FILIAL,
+             TO_CHAR(B.DATA_INICIO, 'YYYY-MM-DD') AS INICIO,
+             A.COD_UF AS UF,
+             A.DES_CIDADE AS CIDADE,
+             A.NUM_CNPJ AS CNPJ,
+             A.COD_REGIAO AS REGIONAL,
+             A.EMAIL_LOJA AS EMAIL,
+             A.CELULAR AS CELULAR,
+             MIN(DECODE(B.COD_SEQ_JORNADA, 7, NULL, B.HORA_ENT)) AS ABERT_SEM,
+             MAX(DECODE(B.COD_SEQ_JORNADA, 7, NULL, B.HORA_SAI)) AS FECH_SEM,
+             MIN(DECODE(B.COD_SEQ_JORNADA, 7, B.HORA_ENT, NULL)) AS ABERT_SAB,
+             MAX(DECODE(B.COD_SEQ_JORNADA, 7, B.HORA_SAI, NULL)) AS FECH_SAB,
+             MIN(DECODE(B.COD_SEQ_JORNADA, 8, B.HORA_ENT, NULL)) AS ABERT_DOM,
+             MAX(DECODE(B.COD_SEQ_JORNADA, 8, B.HORA_SAI, NULL)) AS FECH_DOM
+        FROM V_DADOS_LOJAS_AVT A
+         LEFT JOIN V_DADOS_FILIAIS B ON A.COD_UNIDADE = B.FILIAL
+       --WHERE A.COD_UNIDADE = B.FILIAL
+       GROUP BY A.COD_UNIDADE,
+                A.DES_UNIDADE,
+                B.DATA_INICIO,
+                A.COD_UF,
+                A.DES_CIDADE,
+                A.NUM_CNPJ,
+                A.COD_REGIAO,
+                A.EMAIL_LOJA,
+                A.CELULAR
+       ORDER BY A.COD_UNIDADE;
+
+	   r_moavi c_moavi%ROWTYPE;
+
+    file_handle1 UTL_FILE.FILE_TYPE;
+
+    nome_arq  VARCHAR2(50);
+    cabecalho VARCHAR2(300);
+
+  BEGIN
+
+    cabecalho := 'filial_cod;filial;inicio;uf;cidade;cnpj;regional;email;celular;abert_sem;fech_sem;abert_sab;fech_sab;abert_dom;fech_dom';
+
+    nome_arq     := 'FILIAIS_' || TO_CHAR(SYSDATE, 'RRRRMMDDHH24MISS') ||'.txt';
+    file_handle1 := UTL_FILE.FOPEN('/mnt/nlgestao/nlcomum/Moavi/Filiais',nome_arq,'W');
+    UTL_FILE.PUT_LINE(file_handle1, cabecalho);
+
+    OPEN c_moavi;
+    FETCH c_moavi
+      INTO r_moavi;
+    WHILE c_moavi%FOUND LOOP
+
+      BEGIN
+        wFILIAL_COD := to_char(r_moavi.FILIAL_COD);
+        wFILIAL     := to_char(r_moavi.FILIAL);
+        wINICIO     := to_char(r_moavi.INICIO);
+        wUF         := to_char(r_moavi.UF);
+        wCIDADE     := to_char(r_moavi.CIDADE);
+        wCNPJ       := to_char(r_moavi.CNPJ);
+        wREGIONAL   := to_char(r_moavi.REGIONAL);
+        wEMAIL      := to_char(r_moavi.EMAIL);
+		    wCELULAR    := to_char(r_moavi.CELULAR);
+        wABERT_SEM  := to_char(r_moavi.ABERT_SEM);
+        wFECH_SEM   := to_char(r_moavi.FECH_SEM);
+        wABERT_SAB  := to_char(r_moavi.ABERT_SAB);
+        wFECH_SAB   := to_char(r_moavi.FECH_SAB);
+        wABERT_DOM  := to_char(r_moavi.ABERT_DOM);
+        wFECH_DOM   := to_char(r_moavi.FECH_DOM);
+
+        -- Use concatenação condicional para o campo "CARGO"
+        IF r_moavi.ABERT_DOM IS NULL THEN
+          UTL_FILE.PUT_LINE(file_handle1,
+                            wFILIAL_COD || ';' || wFILIAL || ';' || wINICIO || ';' || wUF || ';' ||
+                            wCIDADE || ';' || wCNPJ || ';' || wREGIONAL || ';' ||
+                            wEMAIL || ';' || wCELULAR || ';' || wABERT_SEM || ';' || wFECH_SEM || ';' ||
+                            wABERT_SAB || ';' || wFECH_SAB);
+        ELSE
+          UTL_FILE.PUT_LINE(file_handle1,
+                            wFILIAL_COD || ';' || wFILIAL || ';' || wINICIO || ';' || wUF || ';' ||
+                            wCIDADE || ';' || wCNPJ || ';' || wREGIONAL || ';' ||
+                            wEMAIL || ';' || wCELULAR || ';' || wABERT_SEM || ';' || wFECH_SEM || ';' ||
+                            wABERT_SAB || ';' || wFECH_SAB || ';' ||
+                            wABERT_DOM || ';' || wFECH_DOM);
+        END IF;
+      END;
+      FETCH c_moavi
+        INTO r_moavi;
+    END LOOP;
+    CLOSE c_moavi;
+
+    UTL_FILE.FCLOSE(file_handle1);
+
+  EXCEPTION
+    WHEN SAIDA THEN
+      NULL;
+  END;
+END GRZ_MOAVI_FILIAIS_SP;
+
+
