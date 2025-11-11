@@ -1,35 +1,73 @@
 CREATE OR REPLACE VIEW VH_HORAS_MES_AVT AS
 WITH HORAS_MES AS (
-SELECT COD_CONTRATO,
-       DES_PESSOA,
-       COD_UNIDADE,
-       DES_UNIDADE,
+SELECT A.COD_CONTRATO,
+       B.DES_PESSOA,
+       B.COD_UNIDADE,
+       B.DES_UNIDADE,
 
-       /* data de competência para ordenar/filtrar */
-       TRUNC(COMPETENCIA, 'MM') AS COMPETENCIA,
+       /* mês/ano da competência */
+       TRUNC(A.DATA_OCORRENCIA, 'MM') AS COMPETENCIA,
+       LAST_DAY(A.DATA_OCORRENCIA) AS COMPETENCIA_FIM,
+       TO_CHAR(TRUNC(A.DATA_OCORRENCIA, 'MM'), 'MM/YYYY') AS MES,
 
-       /* rótulo para exibição */
-       TO_CHAR(TRUNC(COMPETENCIA, 'MM'), 'MM/YYYY') AS MES,
+       /* totais mensais (decimais em horas) */
+       SUM(CASE
+             WHEN A.COD_OCORRENCIA = 2 THEN
+              A.NUM_HORAS
+             ELSE
+              0
+           END) AS TOTAL_HORAS,
 
-       /* somatórios brutos */
-       SUM(NUM_HORAS) AS TOTAL_HORAS,
-       SUM(NUM_FALTAS) AS TOTAL_FALTAS,
-       SUM(NUM_COMPENSAR) AS TOTAL_COMPENSAR,
+       SUM(CASE
+             WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%FALTA%' THEN
+              A.NUM_HORAS
+             ELSE
+              0
+           END) AS TOTAL_FALTAS,
 
-       --SUM(NUM_ATRASOS)    AS TOTAL_ATRASOS_BRUTO,
-       --SUM(NUM_EXTRAS)     AS TOTAL_EXTRAS_BRUTO,
+       SUM(CASE
+             WHEN (UPPER(C.NOME_OCORRENCIA) LIKE '%ATRASO%' OR
+                  UPPER(C.NOME_OCORRENCIA) LIKE '%ACOMPANHAMENTO%') AND
+                  C.COD_VD IS NOT NULL THEN
+              A.NUM_HORAS
+             ELSE
+              0
+           END) AS TOTAL_ATRASOS,
 
-       /* sobras dentro do mês (extras abatem atrasos) */
-       GREATEST(0, SUM(NUM_ATRASOS) - SUM(NUM_EXTRAS)) AS TOTAL_ATRASOS,
-       GREATEST(0, SUM(NUM_EXTRAS) - SUM(NUM_ATRASOS) - SUM(NUM_COMPENSAR)) AS TOTAL_EXTRAS,
+       SUM(CASE
+             WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%FALTAS A COMPENSAR%' AND
+                  C.COD_VD IS NOT NULL THEN
+              A.NUM_HORAS
+             ELSE
+              0
+           END) AS TOTAL_COMPENSAR,
 
-       SUM(NUM_FERIAS) AS TOTAL_FERIAS
-  FROM VH_HORAS_DIA_AVT -- use a sua view diária com colunas NUM_*
- GROUP BY TRUNC(COMPETENCIA, 'MM'),
-          COD_CONTRATO,
-          DES_PESSOA,
-          COD_UNIDADE,
-          DES_UNIDADE
+       SUM(CASE
+             WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%EXTRAS%' AND
+                  C.COD_VD IS NOT NULL THEN
+              A.NUM_HORAS
+             ELSE
+              0
+           END) AS TOTAL_EXTRAS,
+
+       SUM(CASE
+             WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%FERIAS%' THEN
+              A.NUM_HORAS
+             ELSE
+              0
+           END) AS TOTAL_FERIAS
+  FROM RHAF1123 A
+  JOIN V_DADOS_PESSOA B ON B.COD_CONTRATO = A.COD_CONTRATO
+  JOIN RHAF1129 C ON C.COD_OCORRENCIA = A.COD_OCORRENCIA
+ WHERE A.DATA_OCORRENCIA >= DATE '2020-01-01'
+   AND A.DATA_OCORRENCIA < TRUNC(SYSDATE) + 1
+   --AND A.COD_CONTRATO = 389622
+ GROUP BY TRUNC(A.DATA_OCORRENCIA, 'MM'),
+          LAST_DAY(A.DATA_OCORRENCIA),
+          A.COD_CONTRATO,
+          B.DES_PESSOA,
+          B.COD_UNIDADE,
+          B.DES_UNIDADE
 
 )
 
@@ -38,6 +76,7 @@ SELECT COD_CONTRATO,
     COD_UNIDADE,
     DES_UNIDADE,
     COMPETENCIA,
+    COMPETENCIA_FIM,
     MES,
        CASE
          WHEN TOTAL_HORAS < 0 THEN
