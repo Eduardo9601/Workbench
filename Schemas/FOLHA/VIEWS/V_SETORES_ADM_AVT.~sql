@@ -1,12 +1,13 @@
 CREATE OR REPLACE VIEW V_SETORES_ADM_AVT AS
 SELECT DISTINCT C.COD_CUSTO_CONTABIL,
                 A.COD_ORGANOGRAMA,
-                A.EDICAO_ORG AS COD_SETOR,
-                A.EDICAO_ORG || ' - ' || B.NOME_ORGANOGRAMA AS DES_SETOR,
+                A.EDICAO_ORG AS COD_UNIDADE,
+                A.EDICAO_ORG || ' - ' || B.NOME_ORGANOGRAMA AS DES_UNIDADE,
                 A.DATA_INICIO,
                 A.DATA_FIM,
                 B.COD_NIVEL_ORG AS COD_NIVEL,
                 C.COD_CUSTO_SUB,
+                A.COD_ORGANOGRAMA_SUB,
                 CASE
                   WHEN A.EDICAO_NIVEL3 = '013' THEN
                    '013'
@@ -112,7 +113,7 @@ SELECT DISTINCT C.COD_CUSTO_CONTABIL,
                     '.' || A.EDICAO_NIVEL7
                   ELSE ''
                 END AS EDICAO_COMPLETA,
-                CASE 
+                CASE
                     WHEN B.COD_NIVEL_ORG = 4 THEN
                      B.COD_NIVEL_ORG
                     WHEN B.COD_NIVEL_ORG = 5 THEN
@@ -122,7 +123,7 @@ SELECT DISTINCT C.COD_CUSTO_CONTABIL,
                     ELSE
                      0
                 END AS NIVEL_ORG,
-                CASE 
+                CASE
                     WHEN B.COD_NIVEL_ORG = 4 THEN
                      'DIVISÃO'
                     WHEN B.COD_NIVEL_ORG = 5 THEN
@@ -144,3 +145,4 @@ SELECT DISTINCT C.COD_CUSTO_CONTABIL,
    AND A.EDICAO_ORG NOT IN
        ('531', '546', '561', '572', '582', '587', '760', '813', '818', '821', '828', '833', '838', '838', '848', '853', '858', '868')
  ORDER BY A.EDICAO_ORG, A.COD_ORGANOGRAMA
+

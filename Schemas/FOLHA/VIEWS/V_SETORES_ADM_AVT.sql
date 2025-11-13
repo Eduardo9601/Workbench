@@ -1,8 +1,8 @@
 CREATE OR REPLACE VIEW V_SETORES_ADM_AVT AS
 SELECT DISTINCT C.COD_CUSTO_CONTABIL,
                 A.COD_ORGANOGRAMA,
-                A.EDICAO_ORG AS COD_SETOR,
-                A.EDICAO_ORG || ' - ' || B.NOME_ORGANOGRAMA AS DES_SETOR,
+                A.EDICAO_ORG AS COD_UNIDADE,
+                A.EDICAO_ORG || ' - ' || B.NOME_ORGANOGRAMA AS DES_UNIDADE,
                 A.DATA_INICIO,
                 A.DATA_FIM,
                 B.COD_NIVEL_ORG AS COD_NIVEL,
@@ -49,7 +49,7 @@ SELECT DISTINCT C.COD_CUSTO_CONTABIL,
                    '008'
                   ELSE
                    NULL
-                END AS COD_EMPRESA,
+                END AS COD_EMP,
                 CASE
                   WHEN A.EDICAO_NIVEL2 = '008' THEN
                    'GRAZZIOTIN S/A'
