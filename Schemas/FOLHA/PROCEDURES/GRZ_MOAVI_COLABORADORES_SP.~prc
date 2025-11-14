@@ -1,63 +1,66 @@
 CREATE OR REPLACE PROCEDURE GRZ_MOAVI_COLABORADORES_SP IS
 BEGIN
   DECLARE
-    wPIS          VARCHAR2(14);
-    wMATRICULA    VARCHAR2(10);
-    wNOME         VARCHAR2(150);
-    wFILIAL       VARCHAR2(10);
-    wFILIAL_CNPJ  VARCHAR2(20);
-    wSTATUS       VARCHAR2(20);
-    wCPF          VARCHAR2(15);
-    wCARGO        VARCHAR2(150);
-    wINI_FERIAS   VARCHAR2(15);
-    wFIM_FERIAS   VARCHAR2(15);
-
+    wPIS             VARCHAR2(14);
+    wMATRICULA       VARCHAR2(10);
+    wNOME            VARCHAR2(150);
+    wFILIAL_COD      VARCHAR2(10);
+    wFILIAL_CNPJ     VARCHAR2(20);
+    wSTATUS          VARCHAR2(20);
+    wCPF             VARCHAR2(15);
+    wCARGO           VARCHAR2(150);
+    wINI_FERIAS      VARCHAR2(15);
+    wFIM_FERIAS      VARCHAR2(15);
+    wGENERO          VARCHAR2(2);
+  
     SAIDA EXCEPTION;
-
+  
     CURSOR c_moavi IS
-        SELECT A.NRO_PIS_PASEP AS PIS,
-               A.COD_CONTRATO AS MATRICULA,
-               A.DES_PESSOA AS NOME,
-               A.COD_UNIDADE AS FILIAL,
-               B.NUM_CNPJ AS FILIAL_CNPJ,
-               A.DESC_STATUS AS STATUS,
-               '0' AS CPF,
-               A.DES_FUNCAO AS CARGO,
-               CASE 
-                   WHEN A.COD_AFAST = 7 THEN
-                    TO_CHAR(A.DATA_INI_AFAST, 'YYYY-MM-DD')
-                   ELSE
-                    NULL
-               END AS INI_FERIAS,
-               CASE 
-                   WHEN A.COD_AFAST = 7 THEN
-                    TO_CHAR(A.DATA_FIM_AFAST, 'YYYY-MM-DD')
-                   ELSE
-                    NULL
-               END AS FIM_FERIAS
-        FROM V_DADOS_COLAB_AVT A
-        LEFT JOIN V_DADOS_LOJAS_AVT B ON A.COD_UNIDADE = B.COD_UNIDADE
-        WHERE STATUS = 0
-        AND A.COD_EMP = '008'
-        AND A.COD_TIPO = 1
-        ORDER BY A.COD_UNIDADE;
-
-    r_moavi c_moavi%ROWTYPE;
-
+    SELECT DISTINCT A.NRO_PIS_PASEP AS PIS,
+                    A.COD_CONTRATO AS MATRICULA,
+                    A.DES_PESSOA AS NOME,
+                    A.COD_UNIDADE AS FILIAL_COD,
+                    B.NUM_CNPJ AS FILIAL_CNPJ,
+                    A.DESC_STATUS AS STATUS,
+                    '0' AS CPF,
+                    A.DES_FUNCAO AS CARGO,
+                    CASE
+                      WHEN A.COD_AFAST = 7 THEN
+                       TO_CHAR(A.DATA_INI_AFAST, 'YYYY-MM-DD')
+                      ELSE
+                       NULL
+                    END AS INI_FERIAS,
+                    CASE
+                      WHEN A.COD_AFAST = 7 THEN
+                       TO_CHAR(A.DATA_FIM_AFAST, 'YYYY-MM-DD')
+                      ELSE
+                       NULL
+                    END AS FIM_FERIAS,
+                    A.SEXO AS GENERO
+      FROM V_DADOS_COLAB_AVT A
+      LEFT JOIN V_DADOS_LOJAS_AVT B ON A.COD_UNIDADE = B.COD_UNIDADE
+     WHERE STATUS = 0
+       AND A.COD_EMP = '008'
+       AND A.COD_TIPO = 1
+     ORDER BY A.COD_UNIDADE;
+    R_MOAVI C_MOAVI%ROWTYPE;
+  
     file_handle1 UTL_FILE.FILE_TYPE;
-
+  
     nome_arq  VARCHAR2(80);
     cabecalho VARCHAR2(200);
-
+  
   BEGIN
-    cabecalho := 'pis;matricula;nome;filial_cod;filial_cnpj;status;cpf;cargo;ini_ferias;fim_ferias';
-
-    nome_arq := 'FUNCIONARIOS_' || TO_CHAR(SYSDATE, 'RRRRMMDDHH24MISS') ||'.txt';
-
-    -- Abra o arquivo e escreva o cabeçalho antes de abrir o cursor
-    file_handle1 := UTL_FILE.FOPEN('/mnt/nlgestao/nlcomum/Moavi/Funcionarios',nome_arq,'W');
+    cabecalho := 'pis;matricula;nome;filial_cod;filial_cnpj;status;cpf;cargo;ini_ferias;fim_ferias;genero';
+  
+    nome_arq := 'FUNCIONARIOS_' || TO_CHAR(SYSDATE, 'RRRRMMDDHH24MISS') || '.txt';
+  
+    -- Abre o arquivo e escreva o cabeçalho antes de abrir o cursor
+    file_handle1 := UTL_FILE.FOPEN('/mnt/nlgestao/nlcomum/Moavi/Funcionarios',
+                                   nome_arq,
+                                   'W');
     UTL_FILE.PUT_LINE(file_handle1, cabecalho);
-
+  
     OPEN c_moavi;
     FETCH c_moavi
       INTO r_moavi;
@@ -66,35 +69,36 @@ BEGIN
         wPIS           := TO_CHAR(r_moavi.PIS);
         wMATRICULA     := TO_CHAR(r_moavi.MATRICULA);
         wNOME          := TO_CHAR(r_moavi.NOME);
-        wFILIAL        := TO_CHAR(r_moavi.FILIAL);
+        wFILIAL_COD    := TO_CHAR(r_moavi.FILIAL_COD);
         wFILIAL_CNPJ   := TO_CHAR(r_moavi.FILIAL_CNPJ);
         wSTATUS        := TO_CHAR(r_moavi.STATUS);
         wCPF           := TO_CHAR(r_moavi.CPF);
         wCARGO         := TO_CHAR(r_moavi.CARGO);
         wINI_FERIAS    := TO_CHAR(r_moavi.INI_FERIAS);
         wFIM_FERIAS    := TO_CHAR(r_moavi.FIM_FERIAS);
-
-        -- Use concatenação condicional para o campo "CARGO"
+        wGENERO        := TO_CHAR(r_moavi.GENERO);
+      
+        -- Concatenação para a montagem do arquivo
         IF r_moavi.INI_FERIAS IS NULL THEN
           UTL_FILE.PUT_LINE(file_handle1,
                             wPIS || ';' || wMATRICULA || ';' || wNOME || ';' ||
-                            wFILIAL || ';' || wFILIAL_CNPJ || ';' ||
-                            wSTATUS || ';' || wCPF || ';' || wCARGO);
+                            wFILIAL_COD || ';' || wFILIAL_CNPJ || ';' ||
+                            wSTATUS || ';' || wCPF || ';' || wCARGO || ';' || wGENERO);
         ELSE
           UTL_FILE.PUT_LINE(file_handle1,
                             wPIS || ';' || wMATRICULA || ';' || wNOME || ';' ||
-                            wFILIAL || ';' || wFILIAL_CNPJ || ';' || wSTATUS || ';' || wCPF || ';' ||
-                            wCARGO || ';' || wINI_FERIAS || ';' ||
-                            wFIM_FERIAS);
+                            wFILIAL_COD || ';' || wFILIAL_CNPJ || ';' ||
+                            wSTATUS || ';' || wCPF || ';' || wCARGO || ';' ||
+                            wINI_FERIAS || ';' || wFIM_FERIAS || ';' || wGENERO);
         END IF;
       END;
       FETCH c_moavi
         INTO r_moavi;
     END LOOP;
     CLOSE c_moavi;
-
+  
     UTL_FILE.FCLOSE(file_handle1);
-
+  
   EXCEPTION
     WHEN SAIDA THEN
       NULL;

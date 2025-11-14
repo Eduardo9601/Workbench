@@ -83,7 +83,7 @@ BEGIN
           UTL_FILE.PUT_LINE(file_handle1,
                             wPIS || ';' || wMATRICULA || ';' || wNOME || ';' ||
                             wFILIAL_COD || ';' || wFILIAL_CNPJ || ';' ||
-                            wSTATUS || ';' || wCPF || ';' || wCARGO || ';' || wGENERO);
+                            wSTATUS || ';' || wCPF || ';' || wCARGO || ';' || ';' || ';' || wGENERO);
         ELSE
           UTL_FILE.PUT_LINE(file_handle1,
                             wPIS || ';' || wMATRICULA || ';' || wNOME || ';' ||
