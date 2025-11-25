@@ -1,0 +1,12 @@
+PL/SQL Developer Test script 3.0
+4
+begin
+  -- Call the procedure
+  grz_kpi_avaliacao_plr_sp(p_dta_ref => :p_dta_ref);
+end;
+1
+p_dta_ref
+1
+01/10/2025
+5
+0

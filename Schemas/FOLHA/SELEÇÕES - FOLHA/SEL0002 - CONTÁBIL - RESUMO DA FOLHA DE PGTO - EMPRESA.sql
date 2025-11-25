@@ -32,7 +32,7 @@ Base_V AS (
                                          1740, 2147,2148,2149,2150,2151)
           AND NV.COD_ORGANOGRAMA_SUB NOT IN (344)
           AND B.TIPO_VD = 'V'
-          AND A.COD_VD NOT IN (292,4033)
+          --AND A.COD_VD NOT IN (292,4033)
           AND A.VALOR_VD <> 0
         GROUP BY
           E.EDICAO_NIVEL2,
@@ -82,7 +82,7 @@ Base_V AS (
               --AND A.COD_VD NOT IN (292,4033)
             )
             AND A.VALOR_VD <> 0
-            AND A.COD_VD NOT IN (292,4033)
+            --AND A.COD_VD NOT IN (292,4033)
             AND CT.COD_VINCULO_EMPREG <> 99
 
           GROUP BY
@@ -131,7 +131,7 @@ Base_V AS (
                        1910, 1924, 1934, 1935, 1941, 2222, 2232, 2601,
                        2602, 2605, 2611, 2612, 2615, 2616, 2617, 2701,
                        2705, 2706, 2711, 2712, 2713, 2714, 2715, 2716, 2717)
-      AND A.COD_VD NOT IN (292,4033)
+      --AND A.COD_VD NOT IN (292,4033)
       AND A.VALOR_VD <> 0
     GROUP BY
       E.EDICAO_NIVEL2,

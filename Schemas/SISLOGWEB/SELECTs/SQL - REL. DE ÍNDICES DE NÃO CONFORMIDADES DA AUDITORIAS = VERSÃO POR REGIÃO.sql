@@ -1,5 +1,5 @@
 /* =====================================================================================
-   ==== RELATÓRIO DE ÍNDICES DE NÃO CONFORMIDADES DA AUDITORIAS = VERSÃO POR REGIÃO ====
+   ==== VERSÃO DE TESTES = RELATÓRIO DE ÍNDICES DE NÃO CONFORMIDADES DA AUDITORIAS = VERSÃO POR REGIÃO ====
    ===================================================================================== */
 --REGIAO
 SELECT A.COD_EMP, 
@@ -68,3 +68,4 @@ SELECT A.COD_EMP,
           B.COD_REGIAO, 
           A.TIPO_UNIDADE, 
           RANK DESC;
+

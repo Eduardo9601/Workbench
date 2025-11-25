@@ -34,8 +34,8 @@ UNION ALL
 -- Selecionando dados dos Setores
 SELECT
     S.COD_ORGANOGRAMA,
-    TO_NUMBER(S.COD_SETOR) AS COD_SETOR,
-    S.DES_SETOR,
+    TO_NUMBER(S.COD_UNIDADE) AS COD_UNIDADE,
+    S.DES_UNIDADE,
     S.DATA_INICIO,
     S.DATA_FIM,
     S.COD_NIVEL,
@@ -43,7 +43,7 @@ SELECT
     S.DES_REDE,
     S.COD_REGIAO,
     S.DES_REGIAO,
-    S.COD_EMPRESA,
+    S.COD_EMP,
     S.DES_EMPRESA,
     S.COD_TIPO, -- Garantindo que COD_TIPO também seja string, como no primeiro SELECT
     S.DES_TIPO,
