@@ -31,7 +31,7 @@ SELECT COD_CONTRATO,
             'Não Contém Informação'
        END AS PAI,
        CASE
-           WHEN DES_PAI IS NOT NULL THEN
+           WHEN DES_MAE IS NOT NULL THEN
             DES_MAE
            ELSE
             'Não Contém Informação'
