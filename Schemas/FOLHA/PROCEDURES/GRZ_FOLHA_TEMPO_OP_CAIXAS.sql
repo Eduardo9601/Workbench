@@ -3,17 +3,17 @@ BEGIN
 
   /******************************************/
   /******************************************/
-  /****   VERS√O: 3.1                    ****/
-  /****   CRIADO POR: ¬NDERSON           ****/
+  /****   VERS√ÉO: 3.1                    ****/
+  /****   CRIADO POR: √ÇNDERSON           ****/
   /******************************************/
   /****   ANTERADO POR: EDUARDO          ****/
-  /****   DATA DA ALTERA«√O: 12/06/2025  ****/
+  /****   DATA DA ALTERA√á√ÉO: 12/06/2025  ****/
   /******************************************/
   /******************************************/
 
   DECLARE
   
-    -- DECLARA«√O DE VARIAVEIS --
+    -- DECLARA√á√ÉO DE VARIAVEIS --
     wCodEvento  NUMBER;
     wTempoLogin NUMBER(15, 2);
     wDataMov    DATE;
@@ -40,7 +40,7 @@ BEGIN
                                               'mm/yyyy'),
                              'dd/mm/yyyy')
                  AND TO_DATE(SUBSTR(HORA_INICIAL, 1, 10)) <=
-                     to_date('15/' || to_char(TRUNC(SYSDATE), 'mm/yyyy')) -- PERÕODO ENTRE DIA 15 DO MES PASSADO AO DIA 15 DO MES ATUAL
+                     to_date('15/' || to_char(TRUNC(SYSDATE), 'mm/yyyy')) -- PER√çODO ENTRE DIA 15 DO MES PASSADO AO DIA 15 DO MES ATUAL
                  AND CARGO.COD_CONTRATO = A.COD_USUARIO
                  AND G.COD_CONTRATO = A.COD_USUARIO
                  AND K.COD_HORAS_BASE = G.COD_HORAS_BASE
@@ -56,7 +56,7 @@ BEGIN
                          AND (Y.DES_GRUPO LIKE '%FRANCO GIORGI%' OR
                              Y.COD_UNIDADE IN
                              ('205', '289', '567', '016', '392'))
-                         AND Y.COD_CONTRATO = A.COD_USUARIO) -- N√O IMPORTA HORAS OPERADAS DE VENDEDOR DE MODA MASCULINA DAS FILIAIS FRANCO GIORGI E DAS LOJAS COM SINDICATO (63, 159)
+                         AND Y.COD_CONTRATO = A.COD_USUARIO) -- N√ÉO IMPORTA HORAS OPERADAS DE VENDEDOR DE MODA MASCULINA DAS FILIAIS FRANCO GIORGI E DAS LOJAS COM SINDICATO (63, 159)
                GROUP BY A.COD_USUARIO, K.QTD_HORBAS_MES, NMCLH.NOME_CLH) TEMPO,
              RHFP0300 CT
        WHERE CT.COD_CONTRATO = TEMPO.COD_USUARIO
@@ -67,7 +67,7 @@ BEGIN
                  AND (DATA_MOV = TO_CHAR((LAST_DAY(SYSDATE)), 'DD/MM/YYYY') OR
                      DATA_MOV = DATA_FIM)
                  AND COD_VD = 838
-                 AND COD_EVENTO IN (1, 17)) -- VALIDA/IMPEDE INSER«√O CASO J¡ INFORMADO O VD838
+                 AND COD_EVENTO IN (1, 17)) -- VALIDA/IMPEDE INSER√á√ÉO CASO J√Å INFORMADO O VD838
       --AND TEMPO.COD_USUARIO IN (383058,379928,337196,387898)
        GROUP BY TEMPO.COD_USUARIO,
                 CT.DATA_FIM,
@@ -80,7 +80,7 @@ BEGIN
   
     FOR R1 IN C1 LOOP
     
-      -- VALIDA EVENTO MENSAL/RESCIS√O E DATA DE MOVIMENTO --
+      -- VALIDA EVENTO MENSAL/RESCIS√ÉO E DATA DE MOVIMENTO --
       IF (r1.DATA_FIM IS NULL) OR (r1.DATA_FIM > TRUNC(SYSDATE)) THEN
         wCodEvento := 1;
         wDataMov   := r1.DATA_REFERENCIA;
@@ -89,7 +89,7 @@ BEGIN
         wDataMov   := r1.DATA_FIM;
       END IF;
     
-      -- VALIDA TEMPO OPERADO ACIMA DA CARGA HOR¡RIA DO USU¡RIO --
+      -- VALIDA TEMPO OPERADO ACIMA DA CARGA HOR√ÅRIA DO USU√ÅRIO --
       IF (r1.TEMPO_LOGIN > r1.QTD_HORBAS_MES) THEN
         wTempoLogin := r1.QTD_HORBAS_MES;
       ELSE
@@ -128,4 +128,3 @@ BEGIN
   END;
 
 END GRZ_FOLHA_TEMPO_OP_CAIXAS;
-/

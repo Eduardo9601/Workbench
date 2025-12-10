@@ -30,7 +30,7 @@ BEGIN
                      K.QTD_HORBAS_MES,
                      SUM(ROUND((A.TEMPO_LOGIN / 60), 2)) AS TEMPO_LOGIN,
                      NMCLH.NOME_CLH
-                FROM SISLOGWEB.GER_TEMPO_LOGIN@NLGRZ A,
+                FROM GRAZZ.GER_TEMPO_LOGIN@NLGRZ A,
                      RHFP0340                        CARGO,
                      RHFP0500                        NMCLH,
                      RHFP0307                        G,
