@@ -18,12 +18,64 @@ SELECT CASE
        END AS DES_STATUS,
        A.COD_CONTRATO,
        B.NOME_PESSOA AS DES_PESSOA,
+       SUBSTR(
+        CASE
+          WHEN TRIM(
+                 REGEXP_REPLACE(
+                   REGEXP_REPLACE(                 -- remove part?culas dos nomes do meio
+                     TRIM(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(B.NOME_PESSOA, '\s+', ' '), '^\S+|\S+$', ''),' +',' ')),
+                     '\b(da|de|do|das|dos|e)\b','',1,0,'i'
+                   ),
+                   ' +',' '
+                 )
+               ) IS NULL
+          THEN
+            -- sem nomes do meio ??teis?: apenas Primeiro + ?ltimo
+            INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+'))
+            || ' ' ||
+            INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '\S+$'))
+          ELSE
+            -- com nomes do meio: Primeiro + iniciais + ?ltimo
+            INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+'))
+            || ' ' ||
+            TRIM(
+              REGEXP_REPLACE(
+                UPPER(
+                  TRIM(
+                    REGEXP_REPLACE(
+                      REGEXP_REPLACE(
+                        TRIM(REGEXP_REPLACE(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+|\S+$','')),
+                        '\b(da|de|do|das|dos|e)\b','',1,0,'i'  -- remove part?culas
+                      ),
+                      ' +',' '
+                    )
+                  )
+                ),
+                '(^| )([[:alpha:]])[[:alpha:]]*', '\1\2.'      -- transforma em iniciais com ponto
+              )
+            )
+            || ' ' ||
+            INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '\S+$'))
+        END
+       , 1, 40) AS DES_PESSOA_ABREV,
+       INITCAP(REGEXP_SUBSTR(B.NOME_PESSOA, '^\S+')) AS PRIMEIRO_NOME,
+       INITCAP(REGEXP_SUBSTR(B.NOME_PESSOA, ' (.+) ')) AS SEGUNDO_NOME,
+       INITCAP(REGEXP_SUBSTR(B.NOME_PESSOA, '\S+$')) AS SOBRENOME,
        A.DATA_INICIO AS DATA_ADMISSAO,
        A.DATA_FIM AS DATA_DEMISSAO,
        A.COD_CAUSA_DEMISSAO AS COD_DEMISSAO,
        H.NOME_CAUSA_DEMISSAO AS DES_DEMISSAO,
        A.DATA_AVANCO,
+       A.DATA_REINTEGRACAO,
+       A.COD_TIPO_ADMISSAO,
+       L.NOME_TIPO_ADMISSAO AS DES_TIPO_ADMISSAO,
        A.COD_VINCULO_EMPREG,
+       A.COD_CATEGORIA_TRAB,
+       I.NUM_FICHA_REGISTRO,
+       I.DATA_INICIO AS DATA_INI_FICHA,
+       I.DATA_FIM AS DATA_FIM_FICHA,
+       I.COD_MOTIVO,
+       J.NOME_MOTIVO AS DES_MOTIVO,
        B.CPF,
        C.NRO_IDENTIDADE,
        B.DT_NASC AS DATA_NASCIMENTO,
@@ -57,5 +109,9 @@ SELECT CASE
   LEFT JOIN RHFP0130 F ON C.COD_RACA_COR = F.COD_RACA_COR
   LEFT JOIN RHFP0132 G ON C.COD_DEFICIENCIA = G.COD_DEFICIENCIA
   LEFT JOIN RHFP0102 H ON A.COD_CAUSA_DEMISSAO = H.COD_CAUSA_DEMISSAO
+  LEFT JOIN RHFP0344 I ON I.COD_CONTRATO = A.COD_CONTRATO
+  LEFT JOIN RHFP0323 J ON J.COD_MOTIVO = I.COD_MOTIVO
+  LEFT JOIN RHFP0304 K ON K.COD_CONTRATO = A.COD_CONTRATO
+  LEFT JOIN RHFP0114 L ON L.COD_TIPO_ADMISSAO = A.COD_TIPO_ADMISSAO
  --WHERE A.COD_CONTRATO = 389622
-
+;

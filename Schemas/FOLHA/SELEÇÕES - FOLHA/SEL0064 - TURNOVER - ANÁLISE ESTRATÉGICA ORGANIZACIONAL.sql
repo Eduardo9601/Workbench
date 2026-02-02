@@ -359,6 +359,7 @@ SELECT A.COD_ORGANOGRAMA,
   WHERE (A.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
     AND (A.COD_REDE = :REDE OR :REDE = 0)
     AND (A.COD_TIPO = :TIPO OR :TIPO = 0)
+    AND A.COD_EMP = 8
   ORDER BY A.COD_UNIDADE
 
 ),
@@ -1140,7 +1141,12 @@ SELECT --LOJAS/SETORES
        'De ' || :DATA_INICIO || ' até ' || :DATA_FIM AS PERIODO,
 
        'TIPO: ' || :TIPO || ' | ' || 'UNIDADE: ' || :UNIDADE ||
-       ' | ' || 'REDE: ' || :REDE AS PARAMETROS
+       ' | ' || 'REDE: ' || :REDE AS PARAMETROS,
+ 
+       'Efetivo Médio = Efetivo Inicial + Efetivo Final' AS FORMULA_EFT_MEDIO,
+       'Turnover = Demitidos * 100 / Efetivo Médio' AS FORMULA_TURNOVER,
+
+       'Aprendiz | Estagiário | Temporários' AS CARGOS_NAO_CONTEM
 
   FROM TURNOVER_UNIDADE U
   FULL OUTER JOIN TURNOVER_REDE     R ON U.RN = R.RN

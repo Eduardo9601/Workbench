@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW V_DADOS_COLAB_AVT AS
+CREATE OR REPLACE VIEW V_DADOS_COLAB_AVT2 AS
 WITH
 CONTRATOS AS (
 SELECT CASE
@@ -10,11 +10,10 @@ SELECT CASE
        CASE
          WHEN A.DATA_FIM IS NOT NULL AND A.DATA_FIM < TRUNC(SYSDATE) THEN
           'INATIVO'
-         WHEN A.DATA_INICIO <= TRUNC(SYSDATE) /*OR CT.DATA_FIM = SYSDATE AND TO_CHAR(SYSDATE, 'HH24:MI:SS') = '23:59:59'*/
+         WHEN A.DATA_INICIO <= TRUNC(SYSDATE)
           THEN
           'ATIVO'
          WHEN A.DATA_INICIO > TRUNC(SYSDATE)
-         /*AND CT.DATA_AVANCO > SYSDATE*/
           THEN
           'ADMISSAO FUTURA'
        END AS DESC_STATUS,
@@ -22,12 +21,12 @@ SELECT CASE
        B.COD_PESSOA,
        A.COD_CONTRATO,
        INITCAP(B.NOME_PESSOA) AS DES_PESSOA,
-       -- Nome curto com iniciais dos nomes do meio, ignorando da/de/do/das/dos/e, máx. 40 chars
+
       SUBSTR(
         CASE
           WHEN TRIM(
                  REGEXP_REPLACE(
-                   REGEXP_REPLACE(                 -- remove partículas dos nomes do meio
+                   REGEXP_REPLACE(
                      TRIM(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(B.NOME_PESSOA, '\s+', ' '), '^\S+|\S+$', ''),' +',' ')),
                      '\b(da|de|do|das|dos|e)\b','',1,0,'i'
                    ),
@@ -35,12 +34,10 @@ SELECT CASE
                  )
                ) IS NULL
           THEN
-            -- sem nomes do meio ¿úteis¿: apenas Primeiro + Último
             INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+'))
             || ' ' ||
             INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '\S+$'))
           ELSE
-            -- com nomes do meio: Primeiro + iniciais + Último
             INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+'))
             || ' ' ||
             TRIM(
@@ -50,13 +47,13 @@ SELECT CASE
                     REGEXP_REPLACE(
                       REGEXP_REPLACE(
                         TRIM(REGEXP_REPLACE(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+|\S+$','')),
-                        '\b(da|de|do|das|dos|e)\b','',1,0,'i'  -- remove partículas
+                        '\b(da|de|do|das|dos|e)\b','',1,0,'i'
                       ),
                       ' +',' '
                     )
                   )
                 ),
-                '(^| )([[:alpha:]])[[:alpha:]]*', '\1\2.'      -- transforma em iniciais com ponto
+                '(^| )([[:alpha:]])[[:alpha:]]*', '\1\2.'
               )
             )
             || ' ' ||
@@ -106,16 +103,13 @@ SELECT CASE
        TRUNC(SYSDATE) BETWEEN A.DATA_INICIO AND
        NVL(A.DATA_FIM, TO_DATE('31/12/2999', 'DD/MM/YYYY'))) OR
        (
-       -- Mantém contratos ativos se a data de demissão for hoje, mas antes das 23:59:59
         A.DATA_FIM = TRUNC(SYSDATE) AND A.DATA_FIM < TRUNC(SYSDATE) + 1
-
        ) OR (
-       -- Mantém contratos ativos se a data de demissão for no futuro
-        A.DATA_FIM > TRUNC(SYSDATE)) OR
+        A.DATA_FIM > TRUNC(SYSDATE)
+       ) OR
        (
-       -- Mantém contratos ativos por 1250 dias após a demissão (caso necessário)
-        A.DATA_FIM >= TRUNC(SYSDATE) - 35550))
-
+        A.DATA_FIM >= TRUNC(SYSDATE) - 35550
+       ))
 ),
 
 DADOS_PESSOAIS AS (
@@ -220,12 +214,7 @@ SELECT A.COD_FUNC,
   LEFT JOIN MUNIBGE J1 ON J1.COD_MUNIC = I.COD_MUNIC
   LEFT JOIN MUNIBGE J2 ON J2.COD_MUNIC = A.COD_MUNIC_NASCIMENTO
   LEFT JOIN PESSOA_JURIDICA C1 ON C1.COD_PESSOA = A.COD_ORGAO_HAB
- --RHFP0298 --contra partida da RHFP0200 só que histórica
---WHERE A.COD_FUNC = 91735
-
-
 ),
-
 
 FUNCAO AS (
 SELECT A.COD_CONTRATO,
@@ -239,10 +228,7 @@ SELECT A.COD_CONTRATO,
  WHERE (SYSDATE BETWEEN A.DATA_INICIO AND
        NVL(A.DATA_FIM, TO_DATE('31/12/2999', 'DD/MM/YYYY')) OR
        A.DATA_INICIO >= SYSDATE)
-       --AND A.COD_CONTRATO = 397436
-
 ),
-
 
 TURNO AS (
 SELECT A.COD_CONTRATO,
@@ -254,9 +240,6 @@ SELECT A.COD_CONTRATO,
        END AS IND_BATE_PONTO,
        A.COD_TURNO,
        B.NOME_TURNO AS DES_TURNO,
-       /*HR.QTD_HORBAS_MES AS HR_BASE_MES,
-         HR.QTD_HORBAS_SEM AS HR_BASE_SEM,
-         HR.QTD_HORBAS_DIA AS HR_BASE_DIA,*/
        LTRIM(RTRIM(TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM TO_CHAR(C.QTD_HORBAS_MES, '9999999990.99'))))) AS HR_BASE_MES,
        LTRIM(RTRIM(TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM TO_CHAR(C.QTD_HORBAS_SEM, '9999999990.99'))))) AS HR_BASE_SEM,
        LTRIM(RTRIM(TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM TO_CHAR(C.QTD_HORBAS_DIA, '9999999990.99'))))) AS HR_BASE_DIA,
@@ -266,8 +249,6 @@ SELECT A.COD_CONTRATO,
   LEFT JOIN RHAF1145 B ON A.COD_TURNO = B.COD_TURNO
   LEFT JOIN V_HORAS_COLAB_AVT C ON A.COD_CONTRATO = C.COD_CONTRATO
  WHERE NVL(A.DATA_FIM, TO_DATE('31/12/2999','DD/MM/YYYY')) >= TRUNC(SYSDATE)
- --AND A.COD_CONTRATO = 397436
-
 ),
 
 HORARIOS AS (
@@ -316,10 +297,7 @@ SELECT A.COD_CONTRATO,
    AND B.COD_TIPO_MOTIVO = C.COD_TIPO_MOTIVO(+)
    AND A.COD_TURNO = D.COD_TURNO(+)
    AND D.COD_CLASSE_TURNO = F.COD_CLASSE_TURNO(+)
-   --AND TRUNC(SYSDATE) BETWEEN A.DATA_INICIO AND A.DATA_FIM
    AND NVL(A.DATA_FIM, TO_DATE('31/12/2999','DD/MM/YYYY')) >= TRUNC(SYSDATE)
-   --AND A.COD_CONTRATO = 397436
-
 ),
 
 SINDICATO AS (
@@ -332,23 +310,52 @@ SINDICATO AS (
   )
   WHERE RN = 1
 ),
-ORGANOGRAMA AS (
-  SELECT *
-  FROM (
-    SELECT ORG.*,
-           ROW_NUMBER() OVER (PARTITION BY ORG.COD_CONTRATO ORDER BY ORG.DATA_INI_ORG DESC) AS RN
-    FROM VH_EST_ORG_CONTRATO_AVT ORG
-    -- (ideal: reintroduzir filtro de vigência por data)
-  )
-  WHERE RN = 1
 
+/* =========================
+   ORGANOGRAMA (AJUSTADO)
+   - Remove RN=1 (para retornar histórico empresa 1 e 2)
+   - Calcula fim quando DATA_FIM_ORG for NULL com LEAD(DATA_INI_ORG)-1
+   - Classifica STATUS_ORG (ATIVO/INATIVO)
+   ========================= */
+ORGANOGRAMA AS (
+  SELECT
+      ORG.*,
+
+      NVL(
+  ORG.DATA_FIM_ORG,
+  NVL(
+    LEAD(ORG.DATA_INI_ORG) OVER (PARTITION BY ORG.COD_CONTRATO ORDER BY ORG.DATA_INI_ORG) - 1,
+    TO_DATE('31/12/2999','DD/MM/YYYY')
+  )
+) AS DATA_FIM_ORG_CALC,
+
+
+     CASE
+  WHEN TRUNC(SYSDATE) BETWEEN ORG.DATA_INI_ORG AND
+       COALESCE(
+         ORG.DATA_FIM_ORG,
+         LEAD(ORG.DATA_INI_ORG) OVER (
+           PARTITION BY ORG.COD_CONTRATO
+           ORDER BY ORG.DATA_INI_ORG
+         ) - 1,
+         TO_DATE('31/12/2999','DD/MM/YYYY')
+       )
+  THEN 'ATIVO'
+  ELSE 'INATIVO'
+END AS STATUS_ORG,
+
+      ROW_NUMBER() OVER (
+        PARTITION BY ORG.COD_CONTRATO
+        ORDER BY ORG.DATA_INI_ORG DESC
+      ) AS RN_ATUAL
+
+  FROM VH_EST_ORG_CONTRATO_AVT ORG
 ),
 
 RESPONSAVEL AS (
 SELECT COD_CONTRATO,
        IND_RESP_UNI
 FROM V_SUPERIOR_IMEDIATO_AVT
-
 ),
 
 LOTACAO AS (
@@ -386,8 +393,6 @@ LOTACAO AS (
    WHERE RN = 1
 ),
 
-
-
 AFASTAMENTOS AS (
   SELECT COD_CONTRATO,
          COD_AFAST,
@@ -420,8 +425,8 @@ AFASTAMENTOS AS (
                    WHEN AFAST.COD_CAUSA_AFAST <> 0 AND
                         AFAST.COD_CAUSA_AFAST <> 4 AND
                         AFAST.COD_CAUSA_AFAST <> 21 AND
-                        AFAST.COD_CAUSA_AFAST <> 60 AND AFAST.DATA_FIM = DATE
-                    '2999-12-31' THEN
+                        AFAST.COD_CAUSA_AFAST <> 60 AND
+                        AFAST.DATA_FIM = DATE '2999-12-31' THEN
                     'AFASTADO'
                    WHEN AFAST.COD_CAUSA_AFAST IN (21, 60) THEN
                     'ATIVO, SEM RETORNO'
@@ -429,8 +434,7 @@ AFASTAMENTOS AS (
                     'EM FÉRIAS'
                    WHEN AFAST.COD_CAUSA_AFAST IN (3, 6) THEN
                     'AFASTADO TEMP'
-                   WHEN AFAST.COD_CAUSA_AFAST = 4 AND AFAST.DATA_FIM = DATE
-                    '2999-12-31' THEN
+                   WHEN AFAST.COD_CAUSA_AFAST = 4 AND AFAST.DATA_FIM = DATE '2999-12-31' THEN
                     'PODERÁ RETORNAR'
                    ELSE
                     'EM ATIVIDADE'
@@ -442,7 +446,6 @@ AFASTAMENTOS AS (
    WHERE RN = 1
 ),
 
-
 FERIAS AS (
 SELECT COD_CONTRATO,
        DATA_PREVISTA_FERIAS,
@@ -450,11 +453,8 @@ SELECT COD_CONTRATO,
        DATA_RETORNO
   FROM VH_PROGRAMACAO_FERIAS_AVT
  WHERE IND_FERIAS = 0
-
 ),
 
-
-/*DADOS ANTERIORES AO ATUAL DO CONTRATO*/
 CARGO_ANT AS (
   SELECT COD_CONTRATO,
          COD_CLH_ANT,
@@ -471,7 +471,6 @@ CARGO_ANT AS (
    WHERE RN = 1
 ),
 
-
 ORGANOGRAMA_ANT AS (
   SELECT COD_CONTRATO,
          EDICAO_ORG_ANT,
@@ -487,8 +486,6 @@ ORGANOGRAMA_ANT AS (
             FROM V_ORGANOGRAMA_CONTRATO_AVT CO)
    WHERE RN = 1
 )
-
-
 
 SELECT /*DADOS DO CONTRATO*/
        CT.COD_PESSOA,
@@ -554,13 +551,13 @@ SELECT /*DADOS DO CONTRATO*/
        ORG.COD_UNIDADE,
        ORG.DES_UNIDADE,
        ORG.DATA_INI_ORG,
-       ORG.DATA_FIM_ORG,
+       ORG.DATA_FIM_ORG_CALC AS DATA_FIM_ORG,   -- << ajuste
+       ORG.STATUS_ORG,                          -- << ajuste
+       ORG.RN_ATUAL,                            -- << ajuste
        RESP.IND_RESP_UNI,
        ORG.COD_REDE AS COD_REDE_LOCAL,
        ORG.DES_REDE AS DES_REDE_LOCAL,
        ORG.COD_UF AS COD_UF_ORG,
-       --ORG.COD_REGIAO,
-       --ORG.DES_REGIAO,
        ORG.COD_ORG_1 AS COD_GRUPO_EMP,
        ORG.EDICAO_ORG_1 AS EDICAO_GRUPO_EMP,
        ORG.NOME1 AS DES_GRUPO_EMP,
@@ -693,13 +690,11 @@ SELECT /*DADOS DO CONTRATO*/
 
        /*DADOS DE CARGO E ORGANOGRAMAS ANTERIORES DO CONTRATO - O ÚLTIMO ANTES DO ATUAL*/
        'DADOS ANTERIORES DO CONTRATO =>' AS ESPACO,
-       --CARGO ANT
        CC.COD_CLH_ANT AS COD_FUNCAO_ANT,
        CC.DES_CLH_ANT AS DES_FUNCAO_ANT,
        CC.DATA_INICIO_ANT,
        CC.DATA_FIM_ANT,
 
-       --ORG ANT
        CO.EDICAO_ORG_ANT AS COD_UNIDADE_ANT,
        CO.DES_ORGANOGRAMA_ANT AS DES_UNIDADE_ANT,
        CO.DATA_INICIO_ORG_ANT,
@@ -711,17 +706,11 @@ SELECT /*DADOS DO CONTRATO*/
   LEFT JOIN HORARIOS HR ON CT.COD_CONTRATO = HR.COD_CONTRATO
   LEFT JOIN SINDICATO SI ON CT.COD_CONTRATO = SI.COD_CONTRATO
  INNER JOIN ORGANOGRAMA ORG ON CT.COD_CONTRATO = ORG.COD_CONTRATO
-                           --AND ORG.RN = 1
   LEFT JOIN RESPONSAVEL RESP ON CT.COD_CONTRATO = RESP.COD_CONTRATO
   LEFT JOIN LOTACAO LOT ON CT.COD_CONTRATO = LOT.COD_CONTRATO
-                       --AND LOT.RN = 1
   LEFT JOIN AFASTAMENTOS AF ON CT.COD_CONTRATO = AF.COD_CONTRATO
-                           --AND AF.RN = 1
   LEFT JOIN FERIAS FER ON CT.COD_CONTRATO = FER.COD_CONTRATO
   LEFT JOIN CARGO_ANT CC ON CT.COD_CONTRATO = CC.COD_CONTRATO
-                        --AND CC.RN = 1
   LEFT JOIN ORGANOGRAMA_ANT CO ON CT.COD_CONTRATO = CO.COD_CONTRATO
-                             -- AND CO.RN = 1
---WHERE CT.STATUS = 0
  ORDER BY CT.STATUS ASC, CT.DATA_ADMISSAO, CT.DESC_STATUS DESC
 ;
