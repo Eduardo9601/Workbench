@@ -26,11 +26,11 @@ BEGIN
   ------------------------------------------------------------------------------
   -- Remove carga anterior do mesmo mês (caso haja necessidade)
   ------------------------------------------------------------------------------
-/* 
+
   DELETE FROM GRZ_INDICE_PERMANENCIA_TB T
    WHERE T.DTA_REFERENCIA >= v_dta_ref
      AND T.DTA_REFERENCIA <  ADD_MONTHS(v_dta_ref, 1);
-*/
+
   ------------------------------------------------------------------------------
   -- Carga (Inserção dos dados na tabela de PERMANENCIA)
   ------------------------------------------------------------------------------

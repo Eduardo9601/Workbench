@@ -128,17 +128,37 @@ CONTRATOS AS (
          )
 ),
 
+/*SELECT * FROM CONTRATOS
+WHERE COD_CONTRATO IN (299685, 375780, 386492)*/
+
 /* =========================
    1.1) CONTRATOS_FILTRADO
    1 CONTRATO POR PESSOA
    ========================= */
+ORG_FILT AS (
+  SELECT COD_CONTRATO,
+         COD_ORG_2
+  FROM (
+    SELECT ORG.COD_CONTRATO,
+           ORG.COD_ORG_2,
+           ROW_NUMBER() OVER(
+             PARTITION BY ORG.COD_CONTRATO
+             ORDER BY ORG.DATA_INI_ORG DESC
+           ) RN
+    FROM VH_EST_ORG_CONTRATO_AVT ORG
+  )
+  WHERE RN = 1
+),
+   
+
 CONTRATOS_FILTRADO AS (
   SELECT *
   FROM (
     SELECT
       CT.*,
+      ORG.COD_ORG_2 AS COD_EMP_FILT,
       ROW_NUMBER() OVER (
-        PARTITION BY CT.COD_PESSOA
+        PARTITION BY CT.COD_PESSOA, ORG.COD_ORG_2
         ORDER BY
           CASE CT.DESC_STATUS
             WHEN 'ATIVO' THEN 3
@@ -148,11 +168,14 @@ CONTRATOS_FILTRADO AS (
           NVL(CT.DATA_DEMISSAO, DATE '2999-12-31') DESC,
           CT.DATA_ADMISSAO DESC,
           CT.COD_CONTRATO DESC
-      ) RN_PESSOA
+      ) RN_PESSOA_EMP
     FROM CONTRATOS CT
+    INNER JOIN ORG_FILT ORG
+      ON ORG.COD_CONTRATO = CT.COD_CONTRATO
   )
-  WHERE RN_PESSOA = 1
+  WHERE RN_PESSOA_EMP = 1
 ),
+
 
 /* =========================
    2) DADOS_PESSOAIS
@@ -273,6 +296,7 @@ DADOS_PESSOAIS AS (
       ON J2.COD_MUNIC = A.COD_MUNIC_NASCIMENTO
     LEFT JOIN PESSOA_JURIDICA C1
       ON C1.COD_PESSOA = A.COD_ORGAO_HAB
+
 ),
 
 /* =========================
@@ -301,6 +325,7 @@ FUNCAO AS (
            OR A.DATA_INICIO >= SYSDATE)
   )
   WHERE RN = 1
+
 ),
 
 
@@ -326,6 +351,7 @@ TURNO_BASE AS (
     WHERE NVL(A.DATA_FIM, DATE '2999-12-31') >= TRUNC(SYSDATE)
   )
   WHERE RN = 1
+
 ),
 
 HORAS_BASE AS (
@@ -335,6 +361,7 @@ HORAS_BASE AS (
                  ROW_NUMBER() OVER(PARTITION BY H.COD_CONTRATO ORDER BY H.DATA_INICIO DESC, NVL(H.DATA_FIM, DATE '2999-12-31') DESC) RN
             FROM V_HORAS_COLAB_AVT H)
    WHERE RN = 1
+
 ),
 
 TURNO AS (
@@ -363,6 +390,7 @@ TURNO AS (
       ON B.COD_TURNO = TB.COD_TURNO
     LEFT JOIN HORAS_BASE HB
       ON HB.COD_CONTRATO = TB.COD_CONTRATO
+
 ),
 
 HORARIOS AS (
@@ -433,6 +461,7 @@ SINDICATO AS (
                  ROW_NUMBER() OVER(PARTITION BY COD_CONTRATO ORDER BY DATA_INICIO DESC) RN
             FROM V_SINDICATOS_CONTRATOS_AVT)
    WHERE RN = 1
+
 ),
 
 ORGANOGRAMA AS (
@@ -441,6 +470,7 @@ ORGANOGRAMA AS (
                  ROW_NUMBER() OVER(PARTITION BY ORG.COD_CONTRATO ORDER BY ORG.DATA_INI_ORG DESC) RN
             FROM VH_EST_ORG_CONTRATO_AVT ORG)
    WHERE RN = 1
+
 ),
 
 RESPONSAVEL AS (
@@ -485,6 +515,7 @@ LOTACAO AS (
             LEFT JOIN RHFP0509 B
               ON A.COD_LOTACAO = B.COD_LOTACAO)
    WHERE RN = 1
+
 ),
 
 /* =========================
@@ -540,6 +571,7 @@ AFASTAMENTOS AS (
             JOIN RHFP0300 CT
               ON AFAST.COD_CONTRATO = CT.COD_CONTRATO)
    WHERE RN = 1
+
 ),
 
 /* =========================
@@ -555,6 +587,7 @@ FERIAS AS (
             FROM VH_PROGRAMACAO_FERIAS_AVT
            WHERE IND_FERIAS = 0)
    WHERE RN = 1
+
 ),
 
 /* =========================
@@ -574,6 +607,7 @@ CARGO_ANT AS (
                  ROW_NUMBER() OVER(PARTITION BY CC.COD_CONTRATO ORDER BY CC.DATA_INICIO_ANT DESC) RN
             FROM V_CARGO_CONTRATO_AVT CC)
    WHERE RN = 1
+   
 ),
 
 ORGANOGRAMA_ANT AS (
@@ -590,6 +624,7 @@ ORGANOGRAMA_ANT AS (
                  ROW_NUMBER() OVER(PARTITION BY CO.COD_CONTRATO ORDER BY CO.DATA_INICIO_ORG_ANT DESC) RN
             FROM V_ORGANOGRAMA_CONTRATO_AVT CO)
    WHERE RN = 1
+   
 )
 
 /* =========================
@@ -623,17 +658,17 @@ SELECT
        CT.DES_MOTIVO,
        CT.STATUS,
        CT.DESC_STATUS,
-       
+
        FU.COD_FUNCAO,
        FU.NOME_CLH,
        FU.DES_FUNCAO,
        FU.DATA_INICIO_CLH,
        FU.DATA_FIM_CLH,
-       
+
        CT.COD_VINCULO_EMPREG,
        CT.COD_CATEGORIA_TRAB,
        CT.COD_ESOCIAL,
-       
+
        TU.IND_BATE_PONTO,
        TU.COD_TURNO,
        TU.DES_TURNO,
@@ -642,7 +677,7 @@ SELECT
        TU.HR_BASE_DIA,
        TU.DATA_INICIO_HR,
        TU.DATA_FIM_HR,
-       
+
        HR.DATA_INICIO_HOR,
        HR.DATA_FIM_HOR,
        HR.HOR_1_ENT,
@@ -653,13 +688,13 @@ SELECT
        HR.HOR_3_SAI,
        HR.HOR_4_ENT,
        HR.HOR_4_SAI,
-       
+
        SI.COD_SINDICATO,
        SI.DES_SINDICATO,
        SI.IND_CONT_SINDICAL,
        SI.DATA_INI_SIND,
        SI.DATA_FIM_SIND,
-       
+
        /* DADOS DO ORGANOGRAMA */
        ORG.COD_ORGANOGRAMA,
        ORG.COD_UNIDADE,
@@ -670,7 +705,7 @@ SELECT
        ORG.COD_REDE        AS COD_REDE_LOCAL,
        ORG.DES_REDE        AS DES_REDE_LOCAL,
        ORG.COD_UF          AS COD_UF_ORG,
-       
+
        ORG.COD_ORG_1    AS COD_GRUPO_EMP,
        ORG.EDICAO_ORG_1 AS EDICAO_GRUPO_EMP,
        ORG.NOME1        AS DES_GRUPO_EMP,
@@ -697,14 +732,14 @@ SELECT
        ORG.NOME8        AS DES_UNI,
        ORG.COD_TIPO,
        ORG.DES_TIPO,
-       
+
        /* LOTAÇÃO */
        LOT.COD_LOTACAO,
        LOT.DES_LOTACAO,
        LOT.UNI_LOTACAO,
        LOT.DTA_INICIO_LOT,
        LOT.DTA_FIM_LOT,
-       
+
        /* DADOS PESSOAIS */
        DP.DATA_NASCIMENTO,
        DP.IDADE,
@@ -784,7 +819,7 @@ SELECT
        DP.DES_CIDADE,
        DP.COD_UF,
        DP.COD_IBGE,
-       
+
        /* AFASTAMENTOS / FERIAS */
        AF.COD_AFAST,
        AF.DES_AFAST,
@@ -797,19 +832,19 @@ SELECT
          ELSE
           AF.STATUS_AFAST
        END AS STATUS_AFAST,
-       
+
        FER.DATA_PREVISTA_FERIAS,
        FER.DATA_FERIAS,
        FER.DATA_RETORNO,
-       
+
        /* ANTERIORES */
        'DADOS ANTERIORES DO CONTRATO =>' AS ESPACO,
-       
+
        CC.COD_CLH_ANT     AS COD_FUNCAO_ANT,
        CC.DES_CLH_ANT     AS DES_FUNCAO_ANT,
        CC.DATA_INICIO_ANT,
        CC.DATA_FIM_ANT,
-       
+
        CO.EDICAO_ORG_ANT      AS COD_UNIDADE_ANT,
        CO.DES_ORGANOGRAMA_ANT AS DES_UNIDADE_ANT,
        CO.DATA_INICIO_ORG_ANT,
@@ -840,4 +875,4 @@ SELECT
           ON CT.COD_CONTRATO = CC.COD_CONTRATO
         LEFT JOIN ORGANOGRAMA_ANT CO
           ON CT.COD_CONTRATO = CO.COD_CONTRATO
-;
+      --WHERE CT.COD_CONTRATO IN (299685, 375780, 386492)

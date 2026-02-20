@@ -14,14 +14,14 @@ WITH
   FROM DUAL
 CONNECT BY LEVEL <=
            MONTHS_BETWEEN(TO_DATE('31/07/2025', 'DD/MM/YYYY'),
-                          TO_DATE('01/07/2025', 'DD/MM/YYYY')) + 1*/
+                          TO_DATE('01/07/2025', 'DD/MM/YYYY')) + 1
 
 
 
 
 
 /*OFICIAL*/
-/*SELECT :DATA_INICIO AS MONTH_START,
+SELECT :DATA_INICIO AS MONTH_START,
        LAST_DAY(:DATA_FIM) AS MONTH_END,
 
        --ex: 07/2025  (se for um único mês)  ou  07/2025 - 08/2025 (se cruzar mês)
@@ -53,7 +53,7 @@ CONNECT BY LEVEL <=
 
   FROM DUAL
 
-),
+),*/
 */
 
 PARAMS AS (

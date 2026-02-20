@@ -1,7 +1,9 @@
-CREATE OR REPLACE PROCEDURE GRZ_GERA_INDICE_PERMANENCIA_SP
+CREATE OR REPLACE PROCEDURE GRZ_GERA_INDICE_PERMANENCIA_SP (
+  p_dta_ref IN DATE DEFAULT NULL
+)
 IS
-  -- mês de referência = mês anterior ao SYSDATE (1º dia)
-  v_dta_ref DATE := TRUNC(ADD_MONTHS(SYSDATE, -1), 'MM');
+  -- mês de referência = parâmetro (se vier) OU mês anterior ao SYSDATE (1º dia)
+  v_dta_ref DATE := NVL(TRUNC(p_dta_ref, 'MM'), TRUNC(ADD_MONTHS(SYSDATE, -1), 'MM'));
   v_dummy   NUMBER;
 BEGIN
   ------------------------------------------------------------------------------
@@ -26,7 +28,6 @@ BEGIN
   ------------------------------------------------------------------------------
   -- Remove carga anterior do mesmo mês (caso haja necessidade)
   ------------------------------------------------------------------------------
-
   DELETE FROM GRZ_INDICE_PERMANENCIA_TB T
    WHERE T.DTA_REFERENCIA >= v_dta_ref
      AND T.DTA_REFERENCIA <  ADD_MONTHS(v_dta_ref, 1);
@@ -83,7 +84,6 @@ BEGIN
          SUM(NVL(A.VLR_ESTOQUE_ANT, 0))   AS VLR_ESTOQUE_ANT,
          SUM(NVL(A.VLR_MEDIO_EMP, 0))     AS VLR_MEDIO_EMP,
          SUM(NVL(A.VLR_ESTMEDIO_PERM, 0)) AS VLR_ESTMEDIO_PERM,
-         -- cálculo original com tratamento de divisão por zero (mantido)
          ROUND(
            360 / CASE
                    WHEN (SUM(A.VLR_CUSTO) /
