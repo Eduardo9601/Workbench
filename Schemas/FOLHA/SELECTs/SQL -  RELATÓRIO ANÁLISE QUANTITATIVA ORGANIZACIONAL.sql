@@ -16,7 +16,7 @@ PARAMS_BASE AS (
 /*modo PL/SQL com entrada de data*/
 /*SELECT
   TO_DATE('&REFERENCIA','DD/MM/YYYY')                  AS DT_REF_ATUAL,
-  ADD_MONTHS(TO_DATE('&DT_REF_ATUAL','DD/MM/YYYY'),-12)  AS DT_REF_ANT,
+  ADD_MONTHS(TO_DATE('&REFERENCIA','DD/MM/YYYY'),-12)  AS DT_REF_ANT,
   TO_NUMBER('&EMPRESA')                                 AS COD_EMP,
   TO_NUMBER('&EMPRESA')                         AS COD_ORGANOGRAMA
 FROM DUAL*/
@@ -24,7 +24,7 @@ FROM DUAL*/
 /*modo pra usar em outros SGBS ou pelo sistema da folha*/
 SELECT
   :REFERENCIA                   AS DT_REF_ATUAL,
-  ADD_MONTHS(:DT_REF_ATUAL,-12) AS DT_REF_ANT,
+  ADD_MONTHS(:REFERENCIA,-12) AS DT_REF_ANT,
   :EMPRESA                      AS COD_EMP,
   :EMPRESA                      AS COD_ORGANOGRAMA
 FROM DUAL

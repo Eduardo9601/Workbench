@@ -687,9 +687,9 @@ BEGIN
             M.DTA_FIM,
             
             /*COUNT(DISTINCT CASE
-                                                   WHEN A.DATA_DEMISSAO IS NULL OR A.DATA_DEMISSAO > M.DTA_FIM THEN
-                                                    A.COD_CONTRATO
-                                                 END) AS ATIVOS_ATUAIS,*/
+                                 WHEN A.DATA_DEMISSAO IS NULL OR A.DATA_DEMISSAO > M.DTA_FIM THEN
+                                  A.COD_CONTRATO
+                             END) AS ATIVOS_ATUAIS,*/
             COUNT(DISTINCT A.COD_CONTRATO) AS ATIVOS_ATUAIS,
             
             COUNT(DISTINCT CASE

@@ -1,12 +1,4 @@
 CREATE OR REPLACE PROCEDURE GRZ_EXPORT_EVENTOS_ANO_CSV (
-
-    /*=======================================================================================
-    === ROTINA CRIADA COM INTUITO DE GERAR A BASE DE DADOS FINANCEIROS DOS COLABORADORES, ===
-    === PARA FINS DE MIGRAÇÃO DO SISTEMA DA FOLHA PARA O HCM DA SÊNIOR                    ===
-    === CRIADO POR: Jaisson                                                               ===
-    === ATUALIZADO POR: Eduardo                                                           ===
-    ========================================================================================= */
-
     p_dt_ini   IN DATE,
     p_dt_fim   IN DATE,
     p_prefix   IN VARCHAR2 DEFAULT 'export_eventos'
@@ -18,7 +10,7 @@ CREATE OR REPLACE PROCEDURE GRZ_EXPORT_EVENTOS_ANO_CSV (
     v_filename    VARCHAR2(4000);
 
     v_header      VARCHAR2(4000) :=
-      'codigo_empresa;tipo_colaborador;cadastro_colaborador;codigo_calculo;tabela_evento;codigo_evento;referencia_evento;valor_evento;codigo_rubrica;fator_rubrica;origem_evento';
+      'codigo_empresa;tipo_colaborador;cadastro_colaborador;codigo_calculo;tabela_evento;codigo_evento;referencia_evento;valor_evento;tipo_calculo;referencia;data_pagamento';
 
     v_cnt         NUMBER;
 
@@ -34,20 +26,14 @@ SELECT q."codigo_empresa",
        q."codigo_evento",
        q."referencia_evento",
        q."valor_evento",
-       q."codigo_rubrica",
-       q."fator_rubrica",
-       q."origem_evento"
+       q."tipo_calculo",
+       q."referencia",
+       q."data_pagamento"
   FROM (SELECT DISTINCT org.cod_nivel2 AS "codigo_empresa",
                         a.cod_contrato AS "cadastro_colaborador",
                         a1.cod_mestre_evento AS "codigo_calculo",
-                        EV.COD_EVENTO AS "codigo_evento",                  
-                        0 AS "referencia_evento",
-                        NVL(a.valor_vd, 0) AS "valor_evento",
-                        null as "codigo_rubrica",
-                        null as "fator_rubrica",
-                        null as "origem_evento",
-                        /*colunas removidas do arquivo por orientação da Sênior, mantidas por backp de precaução*/
-                        /*CASE
+                        EV.COD_EVENTO AS "codigo_evento",
+                        CASE
                           WHEN b.cod_evento = 1 THEN
                            11
                           WHEN b.cod_evento = 2 THEN
@@ -76,9 +62,12 @@ SELECT q."codigo_empresa",
                           ELSE
                            93
                         END AS "tipo_calculo",
+
+                        0 AS "referencia_evento",
+                        NVL(a.valor_vd, 0) AS "valor_evento",
+
                         TO_CHAR(a1.data_referencia, 'MM/YYYY') AS "referencia",
-                        TO_CHAR(a1.data_pagamento, 'DD/MM/YYYY') AS "data_pagamento",*/
-                        
+                        TO_CHAR(a1.data_pagamento, 'DD/MM/YYYY') AS "data_pagamento",
 
                         /* Técnicas para ordenação */
                         TRUNC(a1.data_referencia, 'MM') AS ord_mes,
@@ -285,18 +274,13 @@ BEGIN
                     '1' || ';' ||
                     NVL(r."cadastro_colaborador",'') || ';' ||
                     NVL(r."codigo_calculo",'') || ';' ||
-                    '1' || ';' ||
+                    '0' || ';' ||
                     NVL(r."codigo_evento",'') || ';' ||
                     NVL(r."referencia_evento",'') || ';' ||
                     REPLACE(TO_CHAR(NVL(r."valor_evento",0), 'FM9999999990D00', 'NLS_NUMERIC_CHARACTERS=,.'), '.', ',') || ';' ||
-                    NVL(r."codigo_rubrica",'') || ';' ||
-                    NVL(r."fator_rubrica",'') || ';' ||
-                    NVL(r."origem_evento",'')
-                    
-                    /*backp colunas caso precise*/
-                    /*NVL(r."tipo_calculo",'') || ';' ||
+                    NVL(r."tipo_calculo",'') || ';' ||
                     NVL(r."referencia",'') || ';' ||
-                    NVL(r."data_pagamento",'')*/
+                    NVL(r."data_pagamento",'')
                 );
             END LOOP;
 

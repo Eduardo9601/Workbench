@@ -1,102 +1,101 @@
-CREATE OR REPLACE PROCEDURE GRZ_KPI_AVALIACAO_PLR_SP(p_dta_ref IN VARCHAR2) IS
-  v_ref   DATE; -- 1º dia do mês de referência
-  v_d_ini DATE; -- início do período (1º dia)
-  v_d_fim DATE; -- fim do período (LAST_DAY)
-  v_ok    NUMBER;
+CREATE OR REPLACE PROCEDURE GRZ_KPI_AVALIACAO_PLR_SP(P_DTA_REF IN VARCHAR2) IS
+  V_REF   DATE; -- 1º DIA DO MÊS DE REFERÊNCIA
+  V_D_INI DATE; -- INÍCIO DO PERÍODO (1º DIA)
+  V_D_FIM DATE; -- FIM DO PERÍODO (LAST_DAY)
+  V_OK    NUMBER;
 BEGIN
   --------------------------------------------------------------------
-  -- 1) Normaliza a data de referência (sempre o 1º dia do mês)
+  -- 1) NORMALIZA A DATA DE REFERÊNCIA (SEMPRE O 1º DIA DO MÊS)
   --------------------------------------------------------------------
-  IF p_dta_ref IS NULL THEN
+  IF P_DTA_REF IS NULL THEN
     RAISE_APPLICATION_ERROR(-20000,
-                            'Informe p_dta_ref no formato DD/MM/YYYY.');
+                            'INFORME P_DTA_REF NO FORMATO DD/MM/YYYY.');
   END IF;
 
-  v_ref   := TRUNC(TO_DATE(p_dta_ref, 'DD/MM/YYYY'), 'MM');
-  v_d_ini := v_ref;
-  v_d_fim := LAST_DAY(v_ref);
+  V_REF   := TRUNC(TO_DATE(P_DTA_REF, 'DD/MM/YYYY'), 'MM');
+  V_D_INI := V_REF;
+  V_D_FIM := LAST_DAY(V_REF);
 
   --------------------------------------------------------------------
-  -- 2) GATE de fechamento do ORÇADO (fecha no mês atual, porém irregular)
-  --    Critério simples e robusto: só roda se JÁ EXISTIR dadoS pós-fechamento
-  --    em NL.GRZ_DRE_CENTRO_CUSTOS para DTA_ORCAMENTO = v_ref.
+  -- 2) GATE DE FECHAMENTO DO ORÇADO (FECHA NO MÊS ATUAL, PORÉM IRREGULAR)
+  --    CRITÉRIO SIMPLES E ROBUSTO: SÓ RODA SE JÁ EXISTIR DADOS PÓS-FECHAMENTO
+  --    EM NL.GRZ_DRE_CENTRO_CUSTOS PARA DTA_ORCAMENTO = V_REF.
   --------------------------------------------------------------------
   BEGIN
     SELECT 1
-      INTO v_ok
+      INTO V_OK
       FROM NL.GRZ_DRE_CENTRO_CUSTOS@NLGRZ
-     WHERE DTA_ORCAMENTO = v_ref
+     WHERE DTA_ORCAMENTO = V_REF
        AND ROWNUM = 1;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
-      -- Soft gate: fechamento do orçado ainda não disponível ? sai silenciosamente.
-      -- Se preferir falhar, troque por: RAISE_APPLICATION_ERROR(-20001, 'Fechamento do ORÇADO ainda não disponível.');
+      -- SOFT GATE: FECHAMENTO DO ORÇADO AINDA NÃO DISPONÍVEL ? SAI SILENCIOSAMENTE.
+      -- SE PREFERIR FALHAR, TROQUE POR: RAISE_APPLICATION_ERROR(-20001, 'FECHAMENTO DO ORÇADO AINDA NÃO DISPONÍVEL.');
       RETURN;
   END;
 
-  /* -- ALTERNATIVA: usar LOG do orçado (trocar NOME_TABELA_LOG e coluna conforme seu ambiente)
+  /* -- ALTERNATIVA: USAR LOG DO ORÇADO (TROCAR NOME_TABELA_LOG E COLUNA CONFORME SEU AMBIENTE)
   BEGIN
     SELECT 1
-      INTO v_ok
+      INTO V_OK
       FROM NL.NOME_TABELA_LOG_ORCADO L
-     WHERE TRUNC(L.DTA_SISTEMA, 'MM') = TRUNC(ADD_MONTHS(v_ref, 1), 'MM')
+     WHERE TRUNC(L.DTA_SISTEMA, 'MM') = TRUNC(ADD_MONTHS(V_REF, 1), 'MM')
        AND ROWNUM = 1;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
-      RETURN; -- ou RAISE_APPLICATION_ERROR(...)
+      RETURN; -- OU RAISE_APPLICATION_ERROR(...)
   END;
   */
 
   --------------------------------------------------------------------
-  -- 3) Idempotência: remove carga anterior do mesmo período
+  -- 3) IDEMPOTÊNCIA: REMOVE CARGA ANTERIOR DO MESMO PERÍODO
   --------------------------------------------------------------------
-  /*DELETE FROM GRZ_KPI_AVALIACAO_PLR_TB t
-  WHERE t.DTA_INI = v_d_ini
-    AND t.DTA_FIM = v_d_fim;*/
+  /*DELETE FROM GRZ_KPI_AVALIACAO_PLR_TB T
+  WHERE T.DTA_INI = V_D_INI
+    AND T.DTA_FIM = V_D_FIM;*/
 
   --------------------------------------------------------------------
 
-INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
-  (COD_UNIDADE,
-   DES_UNIDADE,
-   REDE,
-   REGIAO,
-   VLR_ORCADO_VENDAS,
-   VLR_REALIZADO,
-   VLR_VENDA_LIQUIDA,
-   VLR_LUCRO,
-   LUCRATIVIDADE,
-   VLR_MARGEM_ORC,
-   VLR_MARGEM_REAL,
-   MARGEM,
-   VLR_FALTA_INVENTARIO,
-   INVENTARIO,
-   VLR_PREVENTIVA,
-   QTD_MESES_PREV,
-   PREVENTIVA,
-   VLR_CUSTO_PERM,
-   VLR_ESTOQUE_ANT_PERM,
-   VLR_MEDIO_EMP_PERM,
-   VLR_ESTMEDIO_PERM,
-   PERMANENCIA,
-   VLR_CUSTO_FOLHA,
-   FOLHA,
-   VLR_VENDA_LOJA,
-   VLR_VDA_DOMINGO,
-   TOTAL_HRS,
-   PRODUTIVIDADE,
-   EFETIVO_INICIAL,
-   EFETIVO_FINAL,
-   EFETIVO_MEDIO,
-   TURNOVER,
-   ATIVOS_PERIODO,
-   ADMITIDOS,
-   DEMITIDOS,
-   DTA_INI,
-   DTA_FIM,
-   QTD_MESES_REF)
-
-
+  INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
+    (COD_UNIDADE,
+     DES_UNIDADE,
+     REDE,
+     REGIAO,
+     VLR_ORCADO_VENDAS,
+     VLR_REALIZADO,
+     VLR_VENDA_LIQUIDA,
+     VLR_LUCRO,
+     LUCRATIVIDADE,
+     VLR_MARGEM_ORC,
+     VLR_MARGEM_REAL,
+     MARGEM,
+     VLR_FALTA_INVENTARIO,
+     INVENTARIO,
+     VLR_PREVENTIVA,
+     QTD_MESES_PREV,
+     PREVENTIVA,
+     VLR_CUSTO_PERM,
+     VLR_ESTOQUE_ANT_PERM,
+     VLR_MEDIO_EMP_PERM,
+     VLR_ESTMEDIO_PERM,
+     PERMANENCIA,
+     VLR_CUSTO_FOLHA,
+     FOLHA,
+     VLR_VENDA_LOJA,
+     VLR_VDA_DOMINGO,
+     TOTAL_HRS,
+     PRODUTIVIDADE,
+     EFETIVO_INICIAL,
+     EFETIVO_FINAL,
+     EFETIVO_MEDIO,
+     TURNOVER,
+     ATIVOS_PERIODO,
+     ADMITIDOS,
+     DEMITIDOS,
+     DTA_INI,
+     DTA_FIM,
+     QTD_MESES_REF)
+  
   WITH
   /* MAPEIA AS UNIDADES ATIVAS E SEUS GRUPOS E REGIOES */
   GRUPOS AS
@@ -114,24 +113,24 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
       WHERE A.COD_UNIDADE NOT IN (7549, 900)
      --AND A.COD_UNIDADE = 4
      ),
-
+  
   /* BLOCO PARA ENTRADA DE PARÂMETROS (DINÂMICO POR PERÍODO) */
   PARAMS AS
     (
-
+     
      /*VERSÃO PARA USAR NO PL/SQL*/
      /*SELECT TO_DATE('&DATA_INICIO', 'DD/MM/YYYY') AS D_INI,
-                 TO_DATE('&DATA_FIM', 'DD/MM/YYYY') AS D_FIM
-            FROM DUAL*/
-
-     SELECT v_d_ini AS D_INI, v_d_fim AS D_FIM
+                      TO_DATE('&DATA_FIM', 'DD/MM/YYYY') AS D_FIM
+                 FROM DUAL*/
+     
+     SELECT V_D_INI AS D_INI, V_D_FIM AS D_FIM
        FROM DUAL
-
+     
      /*VERSÃO PARA USAR NO SAPINHO E DENTRO DA FOLHA*/
      /*SELECT :DATA_INICIO AS D_INI, :DATA_FIM AS D_FIM FROM DUAL*/
-
+     
      ),
-
+  
   /*CALENDÁRIO MENSAL DINÂMICO A PARTIR DOS PARÂMTROS ACIMA (PARAMS)*/
   DATAS_REF AS
     (SELECT
@@ -147,17 +146,17 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
        FROM PARAMS P
      CONNECT BY LEVEL <= MONTHS_BETWEEN(ADD_MONTHS(TRUNC(P.D_FIM, 'MM'), 1),
                                         TRUNC(P.D_INI, 'MM'))
-
+     
      ),
-
+  
   /* ===========================================================================
-       ==== INÍCIO DO BLOCO DA RELAÇÃO DOS KPIs MAIS RELEVANTES - POR UNIDADE ====
-       =========================================================================== */
-
+         ==== INÍCIO DO BLOCO DA RELAÇÃO DOS KPIS MAIS RELEVANTES - POR UNIDADE ====
+         =========================================================================== */
+  
   /* =================================================================================================
-       === 1) KPI 1 - VENDAS/ORÇADO (VALORES) = ORÇADO/REALIZADO/LUCRO/MARGEM/INVENTÁRIO/CUSTO FOLHA ===
-       ================================================================================================= */
-
+         === 1) KPI 1 - VENDAS/ORÇADO (VALORES) = ORÇADO/REALIZADO/LUCRO/MARGEM/INVENTÁRIO/CUSTO FOLHA ===
+         ================================================================================================= */
+  
   ORCADO AS
     (SELECT A.COD_UNIDADE,
             SUM(DECODE(A.DES_CHAVE,
@@ -219,7 +218,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
         AND A.DTA_ORCAMENTO >= P.D_INI
         AND A.DTA_ORCAMENTO <= P.D_FIM
            /*AND A.DTA_ORCAMENTO >= '01/01/' || SUBSTR(PI_DATA_REF, 7, 4)
-                                 AND A.DTA_ORCAMENTO <= '01/' || SUBSTR(PI_DATA_REF, 4, 7)*/
+                                            AND A.DTA_ORCAMENTO <= '01/' || SUBSTR(PI_DATA_REF, 4, 7)*/
            --AND A.COD_UNIDADE BETWEEN 4 AND 4
         AND A.COD_UNIDADE NOT IN (818, 848, 858, 838)
         AND (A.DES_CHAVE = '01#01001' OR A.DES_CHAVE = '01#01003' OR
@@ -243,15 +242,15 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
                        0)) > 0
       GROUP BY A.COD_UNIDADE
       ORDER BY A.COD_UNIDADE
-
+     
      ),
-
+  
   KPI_ORCADO AS
     (SELECT O.COD_UNIDADE,
             O.VLR_VENDA_ORC,
             O.VLR_VENDA_REAL,
             O.VLR_VENDA_LIQUIDA,
-
+            
             /*KPI MARGEM*/
             O.VLR_MARGEM_ORC,
             O.VLR_MARGEM_REAL,
@@ -261,7 +260,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
               ELSE
                0
             END AS MARGEM,
-
+            
             /*KPI INVENTÁRIO*/
             O.VLR_FALTA_INVENTARIO,
             CASE
@@ -270,7 +269,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
               ELSE
                0
             END AS INVENTARIO,
-
+            
             /*KPI LUCRATIVIDADE*/
             O.VLR_LUCRO,
             CASE
@@ -279,7 +278,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
               ELSE
                0
             END AS LUCRATIVIDADE,
-
+            
             /*KPI FOLHA*/
             O.CUSTO_FOLHA,
             CASE
@@ -289,10 +288,10 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
                0
             END AS FOLHA
        FROM ORCADO O
-
+     
      ),
-
-  /* MAPEIA OS CONTRATOS POR LOJA PARA: TURNOVER, PRODUTIVIDADE E ABSENTEÍSMO(esse último ainda decidindo se irá ter ou não) */
+  
+  /* MAPEIA OS CONTRATOS POR LOJA PARA: TURNOVER, PRODUTIVIDADE E ABSENTEÍSMO(ESSE ÚLTIMO AINDA DECIDINDO SE IRÁ TER OU NÃO) */
   CONTRATOS AS
     (SELECT DISTINCT CT.STATUS,
                      CT.COD_CONTRATO,
@@ -364,13 +363,13 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
       CT.DATA_ADMISSAO <= M.DTA_FIM
   AND NVL(CT.DATA_DEMISSAO, DATE '2999-12-31') >= M.DTA_INI
      /*VERSÕES ALTERNATIVAS DE FILTRAR POR DATA
-          (('31/03/2025' BETWEEN CT.DATA_ADMISSAO AND CT.DATA_DEMISSAO) OR
-                  (CT.DATA_ADMISSAO <= '31/03/2025' AND CT.DATA_DEMISSAO IS NULL))
-          AND (CT.DATA_ADMISSAO <= TO_DATE('31/07/2025','DD/MM/YYYY'))
-             AND (CT.DATA_DEMISSAO IS NULL OR CT.DATA_DEMISSAO >= TO_DATE('01/07/2025','DD/MM/YYYY'))
-          AND (CT.DATA_DEMISSAO IS NULL OR
-                 CT.DATA_DEMISSAO >= '01/07/2025')*/
-
+               (('31/03/2025' BETWEEN CT.DATA_ADMISSAO AND CT.DATA_DEMISSAO) OR
+                       (CT.DATA_ADMISSAO <= '31/03/2025' AND CT.DATA_DEMISSAO IS NULL))
+               AND (CT.DATA_ADMISSAO <= TO_DATE('31/07/2025','DD/MM/YYYY'))
+                  AND (CT.DATA_DEMISSAO IS NULL OR CT.DATA_DEMISSAO >= TO_DATE('01/07/2025','DD/MM/YYYY'))
+               AND (CT.DATA_DEMISSAO IS NULL OR
+                      CT.DATA_DEMISSAO >= '01/07/2025')*/
+     
   AND P.D_FIM BETWEEN ORG.DATA_INI_ORG AND ORG.DATA_FIM_ORG
   AND P.D_FIM BETWEEN FN.DATA_INI_CLH AND FN.DATA_FIM_CLH
   AND P.D_FIM BETWEEN HR.DATA_INI_HR AND HR.DATA_FIM_HR
@@ -380,7 +379,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
      --AND ORG.COD_UNIDADE NOT IN (014, 050, 615, 7586, 7608)
      --AND ORG.COD_UNIDADE = 004
       ORDER BY CT.COD_CONTRATO),
-
+  
   /*MAPEIA TODOS OS COLABORADORES MAS TAMBÉM COM INFO DE AFASTAMENTO*/
   STATUS_AFASTADOS AS
     (SELECT DISTINCT ORG.COD_EMP,
@@ -402,7 +401,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
         AND CT.DATA_INICIO <= M.DTA_FIM
         AND NVL(CT.DATA_FIM, DATE '2999-12-31') >= M.DTA_INI
            /* AND (CT.DATA_INICIO <= '31/03/2025')
-                               AND (CT.DATA_INICIO IS NULL OR CT.DATA_FIM >= '01/01/2025')*/
+                                          AND (CT.DATA_INICIO IS NULL OR CT.DATA_FIM >= '01/01/2025')*/
         AND P.D_FIM BETWEEN AF.DATA_INICIO(+) AND AF.DATA_FIM(+)
         AND P.D_FIM BETWEEN ORG.DATA_INI_ORG(+) AND ORG.DATA_FIM_ORG(+)
         AND P.D_FIM BETWEEN AF.DATA_INICIO(+) AND
@@ -410,109 +409,169 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
         AND ORG.COD_EMP = 8
         AND ORG.COD_TIPO = 1
      --AND ORG.COD_UNIDADE NOT IN (014, 050, 615, 7586, 7608)
-
+     
      ),
-
+  
   /* ======================================================
-       === 2) KPI 2 - PRODUTIVIDADE =========================
-       ====================================================== */
-
+         === 2) KPI 2 - PRODUTIVIDADE =========================
+         ====================================================== */
+  
   VENDAS AS
     (SELECT GE.COD_QUEBRA REGIAO,
-       DECODE(A.COD_UNIDADE,
-              7022, 22,
-              7047, 47,
-              7065, 65,
-              7138, 138,
-              7140, 140,
-              7183, 183,
-              7244, 244,
-              7353, 353,
-              7386, 386,
-              7412, 412,
-              7430, 430,
-              7442, 442,
-              7461, 461,
-              7466, 466,
-              7491, 491,
-              7543, 543,
-              7555, 555,
-              7570, 570,
-              7577, 653,
-              7587, 587,
-              7588, 588,
-              7592, 592,
-              7597, 597,
-              7601, 601,
-              7602, 608,
-              7620, 620,
-              7500, 651,
-              7051, 652,
-              7066, 654,
-              A.COD_UNIDADE) COD_UNIDADE,
-       GE.COD_GRUPO,
-       MIN(D.DES_FANTASIA) DES_FANTASIA, -- USA MIN PARA "UNIFICAR"
-       MIN(D.DTA_CADASTRO) DTA_CADASTRO, -- IDEM
-       MIN(A.DTA_EMISSAO) DTA_ATUALIZACAO,
-       SUM(OPER.VLR_OPERACAO) VALOR_VENDA_LOJA,
-       SUM(CASE
-             WHEN TO_CHAR(A.DTA_EMISSAO, 'D') = 1 THEN
-              NVL(OPER.VLR_OPERACAO, 0)
-             ELSE
-              0
-           END) VDA_DOMINGO
-  FROM NL.NS_NOTAS@NLGRZ A
-  JOIN NL.NS_NOTAS_OPERACOES@NLGRZ OPER ON A.NUM_SEQ = OPER.NUM_SEQ
-                                       AND A.COD_MAQUINA = OPER.COD_MAQUINA
-  JOIN NL.GE_GRUPOS_UNIDADES@NLGRZ GE ON A.COD_UNIDADE = GE.COD_UNIDADE
-  JOIN NL.PS_PESSOAS@NLGRZ D ON A.COD_UNIDADE = D.COD_PESSOA
-  CROSS JOIN DATAS_REF M
- WHERE A.DTA_EMISSAO BETWEEN M.DTA_INI AND M.DTA_FIM
-   AND GE.COD_GRUPO = 999
-   AND GE.COD_EMP = 1
-   --AND (A.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
-      --AND A.COD_UNIDADE >= 0
-      --AND A.COD_UNIDADE <= 999
-   AND A.IND_STATUS = 1
-   AND A.TIP_NOTA = 4
-   AND D.IND_INATIVO = 0
- GROUP BY GE.COD_QUEBRA,
-          DECODE(A.COD_UNIDADE,
-                 7022, 22,
-                 7047, 47,
-                 7065, 65,
-                 7138, 138,
-                 7140, 140,
-                 7183, 183,
-                 7244, 244,
-                 7353, 353,
-                 7386, 386,
-                 7412, 412,
-                 7430, 430,
-                 7442, 442,
-                 7461, 461,
-                 7466, 466,
-                 7491, 491,
-                 7543, 543,
-                 7555, 555,
-                 7570, 570,
-                 7577, 653,
-                 7587, 587,
-                 7588, 588,
-                 7592, 592,
-                 7597, 597,
-                 7601, 601,
-                 7602, 608,
-                 7620, 620,
-                 7500, 651,
-                 7051, 652,
-                 7066, 654,
-                 A.COD_UNIDADE),
-          GE.COD_GRUPO
- ORDER BY GE.COD_QUEBRA, COD_UNIDADE, DES_FANTASIA
-
+            DECODE(A.COD_UNIDADE,
+                   7022,
+                   22,
+                   7047,
+                   47,
+                   7065,
+                   65,
+                   7138,
+                   138,
+                   7140,
+                   140,
+                   7183,
+                   183,
+                   7244,
+                   244,
+                   7353,
+                   353,
+                   7386,
+                   386,
+                   7412,
+                   412,
+                   7430,
+                   430,
+                   7442,
+                   442,
+                   7461,
+                   461,
+                   7466,
+                   466,
+                   7491,
+                   491,
+                   7543,
+                   543,
+                   7555,
+                   555,
+                   7570,
+                   570,
+                   7577,
+                   653,
+                   7587,
+                   587,
+                   7588,
+                   588,
+                   7592,
+                   592,
+                   7597,
+                   597,
+                   7601,
+                   601,
+                   7602,
+                   608,
+                   7620,
+                   620,
+                   7500,
+                   651,
+                   7051,
+                   652,
+                   7066,
+                   654,
+                   A.COD_UNIDADE) COD_UNIDADE,
+            GE.COD_GRUPO,
+            MIN(D.DES_FANTASIA) DES_FANTASIA, -- USA MIN PARA "UNIFICAR"
+            MIN(D.DTA_CADASTRO) DTA_CADASTRO, -- IDEM
+            MIN(A.DTA_EMISSAO) DTA_ATUALIZACAO,
+            SUM(OPER.VLR_OPERACAO) VALOR_VENDA_LOJA,
+            SUM(CASE
+                  WHEN TO_CHAR(A.DTA_EMISSAO, 'D') = 1 THEN
+                   NVL(OPER.VLR_OPERACAO, 0)
+                  ELSE
+                   0
+                END) VDA_DOMINGO
+       FROM NL.NS_NOTAS@NLGRZ A
+       JOIN NL.NS_NOTAS_OPERACOES@NLGRZ OPER ON A.NUM_SEQ = OPER.NUM_SEQ
+                                            AND A.COD_MAQUINA =
+                                                OPER.COD_MAQUINA
+       JOIN NL.GE_GRUPOS_UNIDADES@NLGRZ GE ON A.COD_UNIDADE =
+                                              GE.COD_UNIDADE
+       JOIN NL.PS_PESSOAS@NLGRZ D ON A.COD_UNIDADE = D.COD_PESSOA
+      CROSS JOIN DATAS_REF M
+      WHERE A.DTA_EMISSAO BETWEEN M.DTA_INI AND M.DTA_FIM
+        AND GE.COD_GRUPO = 999
+        AND GE.COD_EMP = 1
+           --AND (A.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
+           --AND A.COD_UNIDADE >= 0
+           --AND A.COD_UNIDADE <= 999
+        AND A.IND_STATUS = 1
+        AND A.TIP_NOTA = 4
+        AND D.IND_INATIVO = 0
+      GROUP BY GE.COD_QUEBRA,
+               DECODE(A.COD_UNIDADE,
+                      7022,
+                      22,
+                      7047,
+                      47,
+                      7065,
+                      65,
+                      7138,
+                      138,
+                      7140,
+                      140,
+                      7183,
+                      183,
+                      7244,
+                      244,
+                      7353,
+                      353,
+                      7386,
+                      386,
+                      7412,
+                      412,
+                      7430,
+                      430,
+                      7442,
+                      442,
+                      7461,
+                      461,
+                      7466,
+                      466,
+                      7491,
+                      491,
+                      7543,
+                      543,
+                      7555,
+                      555,
+                      7570,
+                      570,
+                      7577,
+                      653,
+                      7587,
+                      587,
+                      7588,
+                      588,
+                      7592,
+                      592,
+                      7597,
+                      597,
+                      7601,
+                      601,
+                      7602,
+                      608,
+                      7620,
+                      620,
+                      7500,
+                      651,
+                      7051,
+                      652,
+                      7066,
+                      654,
+                      A.COD_UNIDADE),
+               GE.COD_GRUPO
+      ORDER BY GE.COD_QUEBRA, COD_UNIDADE, DES_FANTASIA
+     
      ),
-
+  
   TOTAL_HORAS AS
     (SELECT A.COD_ORGANOGRAMA,
             A.COD_UNIDADE,
@@ -536,13 +595,13 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
         AND P.D_FIM BETWEEN A.DATA_INI_CLH AND A.DATA_FIM_CLH
         AND P.D_FIM BETWEEN A.DATA_INI_HR AND A.DATA_FIM_HR
       GROUP BY A.COD_ORGANOGRAMA, A.COD_UNIDADE, A.COD_TIPO),
-
+  
   PRODUTIVIDADE AS
     (SELECT A.COD_UNIDADE,
             TT.COD_TIPO,
             MIN(A.DES_FANTASIA) AS DES_FANTASIA,
             A.VALOR_VENDA_LOJA AS VLR_VENDA_LOJA,
-            A.VDA_DOMINGO AS VLR_VDA_DOMINGO, --PODE SER COLOCADO NA TABELA DOS KPIs
+            A.VDA_DOMINGO AS VLR_VDA_DOMINGO, --PODE SER COLOCADO NA TABELA DOS KPIS
             TT.TOTAL_HRS,
             TRUNC(A.VALOR_VENDA_LOJA / NULLIF(TT.TOTAL_HRS, 0)) AS PRODUTIVIDADE
        FROM VENDAS A
@@ -552,13 +611,13 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
                A.VDA_DOMINGO,
                TT.TOTAL_HRS,
                TT.COD_TIPO
-
+     
      ),
-
+  
   /* ======================================================
-       === 3) KPI 3 - TURNOVER ==============================
-       ====================================================== */
-
+         === 3) KPI 3 - TURNOVER ==============================
+         ====================================================== */
+  
   EFETIVO_INICIAL_TUR AS
     (SELECT CTR.COD_ORGANOGRAMA,
             CTR.COD_UNIDADE,
@@ -574,7 +633,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
         AND (UPPER(CTR.DES_FUNCAO) NOT LIKE '%ESTAGIARIO%' AND
             UPPER(CTR.DES_FUNCAO) NOT LIKE '%APRENDIZ%' AND
             UPPER(CTR.DES_FUNCAO) NOT LIKE '%TEMPORARIO%')
-
+     
       GROUP BY CTR.COD_ORGANOGRAMA, CTR.COD_UNIDADE, P.D_INI, CTR.COD_TIPO), EFETIVO_FINAL_TUR AS
     (SELECT CTR.COD_ORGANOGRAMA,
             CTR.COD_UNIDADE,
@@ -591,7 +650,7 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
              UPPER(CTR.DES_FUNCAO) NOT LIKE '%APRENDIZ%' AND
              UPPER(CTR.DES_FUNCAO) NOT LIKE '%TEMPORARIO%')
       GROUP BY CTR.COD_ORGANOGRAMA, CTR.COD_UNIDADE, P.D_FIM, CTR.COD_TIPO),
-
+  
   DEMITIDOS_TUR AS
     (SELECT A.COD_ORGANOGRAMA,
             A.COD_UNIDADE,
@@ -614,9 +673,9 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
                A.COD_TIPO,
                P.D_INI,
                P.D_FIM
-
+     
      ),
-
+  
   DATAMETRICS AS
     (SELECT A.COD_ORGANOGRAMA,
             A.COD_UNIDADE,
@@ -626,19 +685,19 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
             A.COD_TIPO,
             M.DTA_INI,
             M.DTA_FIM,
-
+            
             /*COUNT(DISTINCT CASE
-                                       WHEN A.DATA_DEMISSAO IS NULL OR A.DATA_DEMISSAO > M.DTA_FIM THEN
-                                        A.COD_CONTRATO
-                                     END) AS ATIVOS_ATUAIS,*/
+                                                   WHEN A.DATA_DEMISSAO IS NULL OR A.DATA_DEMISSAO > M.DTA_FIM THEN
+                                                    A.COD_CONTRATO
+                                                 END) AS ATIVOS_ATUAIS,*/
             COUNT(DISTINCT A.COD_CONTRATO) AS ATIVOS_ATUAIS,
-
+            
             COUNT(DISTINCT CASE
                     WHEN A.DATA_ADMISSAO <= M.DTA_FIM AND
                          (A.DATA_DEMISSAO IS NULL OR A.DATA_DEMISSAO >= M.DTA_FIM) THEN
                      A.COD_CONTRATO
                   END) AS ATIVOS_PERIODO,
-
+            
             COUNT(DISTINCT CASE
                     WHEN B.DATA_INI_AFAST <= M.DTA_FIM AND
                          (B.DATA_FIM_AFAST IS NULL OR
@@ -647,17 +706,17 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
                          B.STATUS_AFAST <> 7 THEN
                      A.COD_CONTRATO
                   END) AS AFAST_PERIODO,
-
+            
             COUNT(DISTINCT CASE
                     WHEN A.DATA_ADMISSAO BETWEEN M.DTA_INI AND M.DTA_FIM THEN
                      A.COD_CONTRATO
                   END) AS ADMITIDOS,
-
+            
             COUNT(DISTINCT CASE
                     WHEN A.DATA_DEMISSAO BETWEEN M.DTA_INI AND M.DTA_FIM THEN
                      A.COD_CONTRATO
                   END) AS DEMITIDOS
-
+     
        FROM CONTRATOS A
        LEFT JOIN STATUS_AFASTADOS B ON A.COD_CONTRATO = B.COD_CONTRATO
       CROSS JOIN DATAS_REF M
@@ -673,9 +732,9 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
                M.DTA_INI,
                M.DTA_FIM
       ORDER BY A.COD_UNIDADE
-
+     
      ),
-
+  
   CALC_TURNOVER AS
     (SELECT A.COD_ORGANOGRAMA,
             A.COD_UNIDADE,
@@ -708,11 +767,11 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
                                          EF.COD_ORGANOGRAMA
        LEFT JOIN DEMITIDOS_TUR DM ON A.COD_ORGANOGRAMA = DM.COD_ORGANOGRAMA
      /*WHERE (A.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
-              AND (A.COD_REDE = :REDE OR :REDE = 0)*/
+                   AND (A.COD_REDE = :REDE OR :REDE = 0)*/
      --AND (A.COD_TIPO = :TIPO OR :TIPO = 0)
-
+     
      ),
-
+  
   TURNOVER AS
     (SELECT B.COD_ORGANOGRAMA,
             A.COD_UNIDADE,
@@ -725,13 +784,13 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
             B.TURNOVER
        FROM DATAMETRICS A
        JOIN CALC_TURNOVER B ON A.COD_ORGANOGRAMA = B.COD_ORGANOGRAMA
-
+     
      ),
-
+  
   /* ======================================================
-       === 4) KPI 3 - PREVENTIVA ============================
-       ====================================================== */
-
+         === 4) KPI 3 - PREVENTIVA ============================
+         ====================================================== */
+  
   DADOS_PREVENTIVA AS
     (SELECT LAST_DAY(MES) AS DTA_MOVIMENTO, -- OU TRUNC(MES,'MM') SE PREFERIR 01/MM
             COD_UNIDADE,
@@ -768,9 +827,9 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
         AND REDE IS NOT NULL
       GROUP BY MES, COD_UNIDADE, VLR_PREV_MES
       ORDER BY COD_UNIDADE, MES
-
+     
      ),
-
+  
   CALC_PREVENTIVA AS
     (SELECT A.COD_UNIDADE,
             A.REGIAO,
@@ -780,9 +839,9 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
        FROM DADOS_PREVENTIVA A
        JOIN GRUPOS B ON B.COD_UNIDADE = A.COD_UNIDADE
       GROUP BY A.COD_UNIDADE, A.QTD_MESES, A.REGIAO, A.REDE
-
+     
      ),
-
+  
   KPI_PREVENTIVA AS
     (SELECT COD_UNIDADE,
             VLR_PREVENTIVA,
@@ -797,15 +856,15 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
      --WHERE REGIAO = 8708
      --AND REDE = 10
       ORDER BY COD_UNIDADE
-
+     
      ),
-
+  
   /* ======================================================
-       === 5) KPI 5 - PERMANENCIA ===========================
-       ====================================================== */
-
+         === 5) KPI 5 - PERMANENCIA ===========================
+         ====================================================== */
+  
   --(AJUSTANDO A LÓGICA POIS AINDA NÃO SEI SE ESTÁ CORRETO E TAMBÉM MUITO PESADO A EXECUÇÃO)
-
+  
   DADOS_PERMANENCIA AS
     (SELECT A.COD_UNIDADE,
             A.DES_UNIDADE,
@@ -822,9 +881,9 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
       CROSS JOIN DATAS_REF M
       WHERE A.DTA_REFERENCIA BETWEEN M.DTA_INI AND M.DTA_FIM
       ORDER BY A.COD_UNIDADE, A.DTA_REFERENCIA
-
+     
      ),
-
+  
   KPI_PERMANENCIA AS
     (SELECT COD_UNIDADE,
             VLR_CUSTO_PERM,
@@ -833,13 +892,13 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
             VLR_ESTMEDIO_PERM,
             PERMANENCIA
        FROM DADOS_PERMANENCIA
-
+     
      ),
-
+  
   /* ===========================================================
-       ====== VISÃO GERAL CONSOLIDADA DOS KPIS POR UNIDADE =======
-       =========================================================== */
-
+         ====== VISÃO GERAL CONSOLIDADA DOS KPIS POR UNIDADE =======
+         =========================================================== */
+  
   KPIS AS
     (SELECT G.COD_UNIDADE,
             G.DES_UNIDADE,
@@ -893,12 +952,12 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
        LEFT JOIN TURNOVER TU ON TU.COD_ORGANOGRAMA = A.COD_ORGANOGRAMA
        LEFT JOIN KPI_PERMANENCIA PE ON PE.COD_UNIDADE = G.COD_UNIDADE
       CROSS JOIN DATAS_REF M
-
+     
      )
-
+  
   /* ================================================================
-       ====================== RESULTADO FINAL =========================
-       ================================================================ */
+         ====================== RESULTADO FINAL =========================
+         ================================================================ */
     SELECT COD_UNIDADE,
            DES_UNIDADE,
            REDE,
@@ -987,10 +1046,10 @@ INSERT INTO GRZ_KPI_AVALIACAO_PLR_TB
               FROM KPIS
             --WHERE COD_UNIDADE = 4
             )
-
+    
      ORDER BY COD_UNIDADE;
 
-              COMMIT;
+  COMMIT;
 
 EXCEPTION
   WHEN OTHERS THEN
