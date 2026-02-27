@@ -4,12 +4,12 @@ SELECT A.COD_CONTRATO,
        B.DES_PESSOA,
        B.COD_UNIDADE,
        B.DES_UNIDADE,
-       
-       /* mês/ano da competência */
-       TRUNC(A.DATA_OCORRENCIA, 'MM') AS COMPETENCIA_INI,
-       LAST_DAY(A.DATA_OCORRENCIA) AS COMPETENCIA_FIM,
-       TO_CHAR(TRUNC(A.DATA_OCORRENCIA, 'MM'), 'MM/YYYY') AS MES,
-       
+
+       /* mï¿½s/ano da competï¿½ncia */
+       TRUNC(A.DATA_OCORRENCIA, 'MM') AS COMPETENCIA, --formato de data Ã© DD/MM/YYYY ex: 01/02/2026
+       LAST_DAY(A.DATA_OCORRENCIA) AS COMPETENCIA_FIM, --formato de data Ã© DD/MM/YYYY ex: 28/02/2026
+       TO_CHAR(TRUNC(A.DATA_OCORRENCIA, 'MM'), 'MM/YYYY') AS MES,  --formato de data Ã© MM/YYYY ex: 02/2026
+
        /* totais mensais (decimais em horas) */
        SUM(CASE
              WHEN A.COD_OCORRENCIA = 2 THEN
@@ -17,14 +17,14 @@ SELECT A.COD_CONTRATO,
              ELSE
               0
            END) AS TOTAL_HORAS,
-       
+
        SUM(CASE
              WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%FALTA%' THEN
               A.NUM_HORAS
              ELSE
               0
            END) AS TOTAL_FALTAS,
-       
+
        SUM(CASE
              WHEN (UPPER(C.NOME_OCORRENCIA) LIKE '%ATRASO%' OR
                   UPPER(C.NOME_OCORRENCIA) LIKE '%ACOMPANHAMENTO%') AND
@@ -33,7 +33,7 @@ SELECT A.COD_CONTRATO,
              ELSE
               0
            END) AS TOTAL_ATRASOS,
-       
+
        SUM(CASE
              WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%FALTAS A COMPENSAR%' AND
                   C.COD_VD IS NOT NULL THEN
@@ -41,7 +41,7 @@ SELECT A.COD_CONTRATO,
              ELSE
               0
            END) AS TOTAL_COMPENSAR,
-       
+
        SUM(CASE
              WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%EXTRAS%' AND
                   C.COD_VD IS NOT NULL THEN
@@ -49,7 +49,7 @@ SELECT A.COD_CONTRATO,
              ELSE
               0
            END) AS TOTAL_EXTRAS,
-       
+
        SUM(CASE
              WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%FERIAS%' THEN
               A.NUM_HORAS
@@ -60,7 +60,10 @@ SELECT A.COD_CONTRATO,
   JOIN V_DADOS_PESSOA B ON B.COD_CONTRATO = A.COD_CONTRATO
   JOIN RHAF1129 C ON C.COD_OCORRENCIA = A.COD_OCORRENCIA
  WHERE A.DATA_OCORRENCIA >= DATE '2020-01-01'
-   AND A.DATA_OCORRENCIA < TRUNC(SYSDATE) + 1
+   AND A.DATA_OCORRENCIA <= (SELECT NVL(MAX(X.DATA_OCORRENCIA), TRUNC(SYSDATE)-1)
+                             FROM RHAF1123 X 
+                             WHERE X.COD_CONTRATO = A.COD_CONTRATO
+                             AND X.COD_OCORRENCIA = 2)-- < TRUNC(SYSDATE) + 1
    --AND A.COD_CONTRATO = 389622
  GROUP BY TRUNC(A.DATA_OCORRENCIA, 'MM'),
           LAST_DAY(A.DATA_OCORRENCIA),
@@ -75,7 +78,7 @@ SELECT COD_CONTRATO,
     DES_PESSOA,
     COD_UNIDADE,
     DES_UNIDADE,
-    COMPETENCIA_INI,
+    COMPETENCIA,
     COMPETENCIA_FIM,
     MES,
        CASE
@@ -126,4 +129,4 @@ SELECT COD_CONTRATO,
           TRUNC(TOTAL_FERIAS) || ':' || LPAD(ROUND(MOD(TOTAL_FERIAS, 1) * 60), 2, '0')
        END AS FERIAS
 FROM HORAS_MES
-
+;

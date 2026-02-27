@@ -4,9 +4,9 @@ WITH DIA AS (
          B.DES_PESSOA,
          B.COD_UNIDADE,
          B.DES_UNIDADE,
-         TRUNC(A.DATA_OCORRENCIA) AS DATA_DIA,
+         TRUNC(A.DATA_OCORRENCIA) AS DATA_DIA, --formato de data Ã© DD/MM/YYYY ex: 01/02/2026
 
-         /* Dia da semana (texto) e número ISO (segunda=1) */
+         /* Dia da semana (texto) e nï¿½mero ISO (segunda=1) */
          TO_CHAR(TRUNC(A.DATA_OCORRENCIA),
                  'FMDAY',
                  'NLS_DATE_LANGUAGE=Portuguese') AS DIA_SEMANA,
@@ -28,6 +28,15 @@ WITH DIA AS (
                ELSE
                 0
              END) AS FALTAS,
+           /*uma possivel opï¿½ï¿½o*/  
+         /*SUM(CASE
+               -- Sï¿½ soma a falta se a ocorrï¿½ncia for falta E o dia jï¿½ tiver passado
+               WHEN UPPER(C.NOME_OCORRENCIA) LIKE '%FALTA%' 
+                AND TRUNC(A.DATA_OCORRENCIA) < TRUNC(SYSDATE) THEN
+                A.NUM_HORAS
+               ELSE
+                0
+             END) AS FALTAS,*/
 
          SUM(CASE
                WHEN (UPPER(C.NOME_OCORRENCIA) LIKE '%ATRASO%' OR
@@ -62,8 +71,11 @@ WITH DIA AS (
     FROM RHAF1123 A
     JOIN V_DADOS_PESSOA B ON B.COD_CONTRATO = A.COD_CONTRATO
     JOIN RHAF1129 C ON C.COD_OCORRENCIA = A.COD_OCORRENCIA
-   WHERE A.DATA_OCORRENCIA >= DATE '2020-01-01'
-     AND A.DATA_OCORRENCIA < TRUNC(SYSDATE) + 1
+   WHERE A.DATA_OCORRENCIA >= DATE '2023-01-01'
+     AND A.DATA_OCORRENCIA <= (SELECT MAX(X.DATA_OCORRENCIA) 
+                               FROM RHAF1123 X 
+                               WHERE X.COD_CONTRATO = A.COD_CONTRATO
+                               AND X.COD_OCORRENCIA = 2)-- < TRUNC(SYSDATE) + 1
      --AND A.COD_CONTRATO = 389622
    GROUP BY A.COD_CONTRATO,
             B.DES_PESSOA,
@@ -81,7 +93,7 @@ SELECT COD_CONTRATO,
        DIA_SEMANA_ABREV,
        --DIA_SEMANA_NUM,
 
-       /* formatações HH:MM (mesma lógica que você já usa) */
+       /* formataï¿½ï¿½es HH:MM (mesma lï¿½gica que vocï¿½ jï¿½ usa) */
        HORAS AS NUM_HORAS,
        CASE
          WHEN HORAS < 0 THEN
@@ -153,4 +165,4 @@ SELECT COD_CONTRATO,
        END AS TOTAL_EXTRAS*/
   FROM DIA
  ORDER BY COMPETENCIA, DES_PESSOA
-
+;
