@@ -27,14 +27,9 @@ CONTRATOS AS (
                     REGEXP_REPLACE(
                       REGEXP_REPLACE(
                         TRIM(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(B.NOME_PESSOA, '\s+', ' '),
-                                                           '^\S+|\S+$', ''),
-                                           ' +', ' ')),
-                        '\b(da|de|do|das|dos|e)\b', '', 1, 0, 'i'
-                      ),
-                      ' +', ' '
-                    )
-                  ) IS NULL
-             THEN
+                                                           '^\S+|\S+$', ''),  ' +', ' ')),
+                                                            '\b(da|de|do|das|dos|e)\b', '', 1, 0, 'i'),
+                                                            ' +', ' ')) IS NULL THEN
                INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+'))
                || ' ' ||
                INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '\S+$'))
@@ -126,10 +121,14 @@ CONTRATOS AS (
         OR (A.DATA_FIM > TRUNC(SYSDATE))
         OR (A.DATA_FIM >= TRUNC(SYSDATE) - 35550)
          )
+
 ),
 
 /*SELECT * FROM CONTRATOS
-WHERE COD_CONTRATO IN (299685, 375780, 386492)*/
+WHERE cod_contrato in (394792, 394796, 394937, 395028, 395032, 395080, 395106,
+395110, 395129, 395242, 395292, 395316, 395345, 395590,
+395671, 395672, 395767, 395803, 395806, 396078, 396163,
+396191, 396258)*/
 
 /* =========================
    1.1) CONTRATOS_FILTRADO
@@ -149,7 +148,13 @@ ORG_FILT AS (
   )
   WHERE RN = 1
 ),
-   
+
+/*SELECT * FROM ORG_FILT
+WHERE cod_contrato in (394792, 394796, 394937, 395028, 395032, 395080, 395106,
+395110, 395129, 395242, 395292, 395316, 395345, 395590,
+395671, 395672, 395767, 395803, 395806, 396078, 396163,
+396191, 396258)*/
+
 
 CONTRATOS_FILTRADO AS (
   SELECT *
@@ -173,7 +178,7 @@ CONTRATOS_FILTRADO AS (
     INNER JOIN ORG_FILT ORG
       ON ORG.COD_CONTRATO = CT.COD_CONTRATO
   )
-  WHERE RN_PESSOA_EMP = 1
+  --WHERE RN_PESSOA_EMP = 1
 ),
 
 
@@ -195,6 +200,64 @@ DADOS_PESSOAIS AS (
                   A.COD_DEFICIENCIA,
                   F.NOME_DEFICIENCIA AS DES_DEFICIENCIA,
                   CASE
+                      WHEN TRIM(I.EMAIL) IS NOT NULL THEN TRIM(I.EMAIL)
+                      ELSE NULL
+                    END AS DES_EMAIL,
+
+                    CASE
+                      WHEN TRIM(I.EMAIL) IS NULL THEN
+                        3
+                      WHEN REGEXP_LIKE(
+                             LOWER(TRIM(I.EMAIL)),
+                             '@(grazziotin\.com\.br|grupograzziotin\.com\.br|tottal\.com\.br|pormenos\.com\.br|gztstore\.com\.br|francogiorgi\.com\.br)$'
+                           ) THEN
+                        1
+                      ELSE
+                        2
+                    END AS TIPO_EMAIL,
+
+                    CASE
+                      WHEN TRIM(I.EMAIL) IS NULL THEN
+                        'N/A'
+                      WHEN REGEXP_LIKE(
+                             LOWER(TRIM(I.EMAIL)),
+                             '@(grazziotin\.com\.br|grupograzziotin\.com\.br|tottal\.com\.br|pormenos\.com\.br|gztstore\.com\.br|francogiorgi\.com\.br)$'
+                           ) THEN
+                        'Profissional'
+                      ELSE
+                        'Pessoal'
+                    END AS DES_TIPO_EMAIL,
+
+                    CASE
+                      WHEN TRIM(I.EMAIL_ALTER) IS NOT NULL THEN TRIM(I.EMAIL_ALTER)
+                      ELSE NULL
+                    END AS DES_EMAIL_ALTER,
+
+                    CASE
+                      WHEN TRIM(I.EMAIL_ALTER) IS NULL THEN
+                        3
+                      WHEN REGEXP_LIKE(
+                             LOWER(TRIM(I.EMAIL_ALTER)),
+                             '@(grazziotin\.com\.br|grupograzziotin\.com\.br|tottal\.com\.br|pormenos\.com\.br|gztstore\.com\.br|francogiorgi\.com\.br)$'
+                           ) THEN
+                        1
+                      ELSE
+                        2
+                    END AS TIPO_EMAIL_ALTER,
+
+                    CASE
+                      WHEN TRIM(I.EMAIL_ALTER) IS NULL THEN
+                        'N/A'
+                      WHEN REGEXP_LIKE(
+                             LOWER(TRIM(I.EMAIL_ALTER)),
+                             '@(grazziotin\.com\.br|grupograzziotin\.com\.br|tottal\.com\.br|pormenos\.com\.br|gztstore\.com\.br|francogiorgi\.com\.br)$'
+                           ) THEN
+                        'Profissional'
+                      ELSE
+                        'Pessoal'
+                    END AS DES_TIPO_EMAIL_ALTER,
+                    /*backup*/
+                  /*CASE
                     WHEN I.EMAIL LIKE '%grazziotin.com.br%' OR
                          I.EMAIL LIKE '%grupograzziotin.com.br%' OR
                          I.EMAIL LIKE '%tottal.com.br%' OR
@@ -205,7 +268,69 @@ DADOS_PESSOAIS AS (
                     ELSE
                      NULL
                   END AS DES_EMAIL,
-                  I.EMAIL_ALTER AS DES_EMAIL_ALTER,
+                  CASE
+                    WHEN I.EMAIL LIKE '%grazziotin.com.br%' OR
+                         I.EMAIL LIKE '%grupograzziotin.com.br%' OR
+                         I.EMAIL LIKE '%tottal.com.br%' OR
+                         I.EMAIL LIKE '%pormenos.com.br%' OR
+                         I.EMAIL LIKE '%gztstore.com.br%' OR
+                         I.EMAIL LIKE '%francogiorgi.com.br%' THEN
+                      1
+                    WHEN I.EMAIL IS NOT NULL THEN
+                      2
+                    ELSE
+                      3
+                  END AS TIPO_EMAIL,
+                  CASE
+                    WHEN I.EMAIL LIKE '%grazziotin.com.br%' OR
+                         I.EMAIL LIKE '%grupograzziotin.com.br%' OR
+                         I.EMAIL LIKE '%tottal.com.br%' OR
+                         I.EMAIL LIKE '%pormenos.com.br%' OR
+                         I.EMAIL LIKE '%gztstore.com.br%' OR
+                         I.EMAIL LIKE '%francogiorgi.com.br%' THEN
+                      'Profissional'
+                    WHEN I.EMAIL IS NOT NULL THEN
+                      'Pessoal'
+                    ELSE
+                      'N/A'
+                  END AS DES_TIPO_EMAIL,
+                  CASE
+                    WHEN I.EMAIL_ALTER LIKE '%grazziotin.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%grupograzziotin.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%tottal.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%pormenos.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%gztstore.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%francogiorgi.com.br%' THEN
+                     I.EMAIL_ALTER
+                    ELSE
+                     NULL
+                  END AS DES_EMAIL_ALTER,
+                  CASE
+                    WHEN I.EMAIL_ALTER LIKE '%grazziotin.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%grupograzziotin.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%tottal.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%pormenos.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%gztstore.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%francogiorgi.com.br%' THEN
+                      1
+                    WHEN I.EMAIL_ALTER IS NOT NULL THEN
+                      2
+                    ELSE
+                      3
+                  END AS TIPO_EMAIL_ALTER,
+                  CASE
+                    WHEN I.EMAIL_ALTER LIKE '%grazziotin.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%grupograzziotin.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%tottal.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%pormenos.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%gztstore.com.br%' OR
+                         I.EMAIL_ALTER LIKE '%francogiorgi.com.br%' THEN
+                      'Profissional'
+                    WHEN I.EMAIL_ALTER IS NOT NULL THEN
+                      'Pessoal'
+                    ELSE
+                      'N/A'
+                  END AS DES_TIPO_EMAIL_ALTER,*/
                   I.DDD_FONE_CEL AS COD_DDD,
                   I.FONE_CEL,
                   I.CPF,
@@ -607,7 +732,7 @@ CARGO_ANT AS (
                  ROW_NUMBER() OVER(PARTITION BY CC.COD_CONTRATO ORDER BY CC.DATA_INICIO_ANT DESC) RN
             FROM V_CARGO_CONTRATO_AVT CC)
    WHERE RN = 1
-   
+
 ),
 
 ORGANOGRAMA_ANT AS (
@@ -624,255 +749,265 @@ ORGANOGRAMA_ANT AS (
                  ROW_NUMBER() OVER(PARTITION BY CO.COD_CONTRATO ORDER BY CO.DATA_INICIO_ORG_ANT DESC) RN
             FROM V_ORGANOGRAMA_CONTRATO_AVT CO)
    WHERE RN = 1
-   
+
 )
 
-/* =========================
-   SELECT FINAL
-   ========================= */
+/* ========================
+   ===== SELECT FINAL =====
+   ======================== */
 SELECT
-      /* DADOS DO CONTRATO */
-       CT.COD_PESSOA,
-       CT.COD_CONTRATO,
-       CT.DES_PESSOA,
-       CT.DES_PESSOA_ABREV,
-       CT.PRIMEIRO_NOME,
-       CT.SEGUNDO_NOME,
-       CT.SOBRENOME,
-       CT.DATA_AVANCO,
-       CT.DATA_ADMISSAO,
-       CT.DATA_DEMISSAO,
-       CT.COD_DEMISSAO,
-       CT.DES_DEMISSAO,
-       CT.NRO_CONTA_PGTO,
-       CT.COD_AGE_PGTO,
-       CT.CONTA_BANCARIA,
-       CT.COD_BANCO,
-       CT.DES_BANCO,
-       CT.COD_BCO_FGTD,
-       CT.COD_AGE_FGTS,
-       CT.NRO_CONTA_FGTS,
-       CT.DATA_OPCAO_FGTS,
-       CT.NUM_FICHA_REGISTRO,
-       CT.COD_MOTIVO,
-       CT.DES_MOTIVO,
-       CT.STATUS,
-       CT.DESC_STATUS,
+/* DADOS DO CONTRATO */
+ CT.STATUS,
+ CT.DESC_STATUS,
+ CT.COD_PESSOA,
+ CT.COD_CONTRATO,
+ CT.DES_PESSOA,
+ CT.DES_PESSOA_ABREV,
+ CT.PRIMEIRO_NOME,
+ CT.SEGUNDO_NOME,
+ CT.SOBRENOME,
+ CT.DATA_AVANCO,
+ CT.DATA_ADMISSAO,
+ CT.DATA_DEMISSAO,
+ CT.COD_DEMISSAO,
+ CT.DES_DEMISSAO,
+ CT.NRO_CONTA_PGTO,
+ CT.COD_AGE_PGTO,
+ CT.CONTA_BANCARIA,
+ CT.COD_BANCO,
+ CT.DES_BANCO,
+ CT.COD_BCO_FGTD,
+ CT.COD_AGE_FGTS,
+ CT.NRO_CONTA_FGTS,
+ CT.DATA_OPCAO_FGTS,
+ CT.NUM_FICHA_REGISTRO,
+ CT.COD_MOTIVO,
+ CT.DES_MOTIVO, 
+ 
+ /*DADOS FUNÇÕES/CARGOS*/
+ FU.COD_FUNCAO,
+ FU.NOME_CLH,
+ FU.DES_FUNCAO,
+ FU.DATA_INICIO_CLH,
+ FU.DATA_FIM_CLH,
+ 
+ /*VINCULO DO EMPREGADO NA EMPRESA*/
+ CT.COD_VINCULO_EMPREG,
+ CT.COD_CATEGORIA_TRAB,
+ CT.COD_ESOCIAL,
+ 
+ /*TURNOS DE ESCALA DE TRABALHO*/
+ TU.IND_BATE_PONTO,
+ TU.COD_TURNO,
+ TU.DES_TURNO,
+ TU.HR_BASE_MES,
+ TU.HR_BASE_SEM,
+ TU.HR_BASE_DIA,
+ TU.DATA_INICIO_HR,
+ TU.DATA_FIM_HR,
+ 
+ /*HORÁRIOS DA ESCALA DE TRABALHO*/
+ HR.DATA_INICIO_HOR,
+ HR.DATA_FIM_HOR,
+ HR.HOR_1_ENT,
+ HR.HOR_1_SAI,
+ HR.HOR_2_ENT,
+ HR.HOR_2_SAI,
+ HR.HOR_3_ENT,
+ HR.HOR_3_SAI,
+ HR.HOR_4_ENT,
+ HR.HOR_4_SAI,
+ 
+ /*SINDICATO DO CONTRATO*/
+ SI.COD_SINDICATO,
+ SI.DES_SINDICATO,
+ SI.IND_CONT_SINDICAL,
+ SI.DATA_INI_SIND,
+ SI.DATA_FIM_SIND,
+ 
+ /* DADOS DO ORGANOGRAMA */
+ ORG.COD_ORGANOGRAMA,
+ ORG.COD_UNIDADE,
+ ORG.DES_UNIDADE,
+ ORG.DATA_INI_ORG,
+ ORG.DATA_FIM_ORG,
+ RESP.IND_RESP_UNI,
+ ORG.COD_REDE     AS COD_REDE_LOCAL,
+ ORG.DES_REDE     AS DES_REDE_LOCAL,
+ ORG.COD_UF       AS COD_UF_ORG, 
+ ORG.COD_ORG_1    AS COD_GRUPO_EMP,
+ ORG.EDICAO_ORG_1 AS EDICAO_GRUPO_EMP,
+ ORG.NOME1        AS DES_GRUPO_EMP,
+ ORG.COD_ORG_2    AS COD_EMP,
+ ORG.EDICAO_ORG_2 AS EDICAO_EMP,
+ ORG.NOME2        AS DES_EMPRESA,
+ ORG.COD_ORG_3    AS COD_ORG_FILIAL,
+ ORG.EDICAO_ORG_3 AS EDICAO_FILIAL,
+ ORG.NOME3        AS DES_FILIAL,
+ ORG.COD_ORG_4    AS COD_ORG_DIVISAO,
+ ORG.EDICAO_ORG_4 AS EDICAO_DIVISAO,
+ ORG.NOME4        AS DES_DIVISAO,
+ ORG.COD_ORG_5    AS COD_ORG_DEPART,
+ ORG.EDICAO_ORG_5 AS EDICAO_DEPART,
+ ORG.NOME5        AS DES_DEPART,
+ ORG.COD_ORG_6    AS COD_ORG_SETOR,
+ ORG.EDICAO_ORG_6 AS EDICAO_SETOR,
+ ORG.NOME6        AS DES_SETOR,
+ ORG.COD_ORG_7    AS COD_ORG_SECAO,
+ ORG.EDICAO_ORG_7 AS EDICAO_SECAO,
+ ORG.NOME7        AS DES_SECAO,
+ ORG.COD_ORG_8    AS COD_ORG_UNI,
+ ORG.EDICAO_ORG_8 AS EDICAO_UNI,
+ ORG.NOME8        AS DES_UNI,
+ ORG.COD_TIPO,
+ ORG.DES_TIPO,
+ 
+ /* LOTAÇÃO DO CONTRATO*/
+ LOT.COD_LOTACAO,
+ LOT.DES_LOTACAO,
+ LOT.UNI_LOTACAO,
+ LOT.DTA_INICIO_LOT,
+ LOT.DTA_FIM_LOT,
+ 
+ /* DADOS PESSOAIS */
+ DP.DATA_NASCIMENTO,
+ DP.IDADE,
+ DP.SEXO,
+ DP.COD_EST_CIVIL,
+ DP.DES_EST_CIVIL,
+ DP.COD_PESSOA_PAI,
+ DP.DES_PAI,
+ DP.COD_PESSOA_MAE,
+ DP.DES_MAE,
+ DP.IND_DEFICIENCIA,
+ DP.COD_DEFICIENCIA,
+ DP.DES_DEFICIENCIA,
+ DP.DES_EMAIL,
+ DP.TIPO_EMAIL,
+ DP.DES_TIPO_EMAIL,
+ DP.DES_EMAIL_ALTER,
+ DP.TIPO_EMAIL_ALTER,
+ DP.DES_TIPO_EMAIL_ALTER,
+ DP.COD_DDD,
+ DP.FONE_CEL,
+ DP.CPF,
+ DP.NRO_IDENTIDADE,
+ DP.EMISSOR_RG,
+ DP.UF_RG,
+ DP.EMISSOR,
+ DP.DATA_EMI_IDENTIDADE,
+ DP.NRO_PIS_PASEP,
+ DP.DATA_PIS_PASEP,
+ DP.NRO_CTPS,
+ DP.NRO_SERIE_CTPS,
+ DP.CTPS,
+ DP.DATA_EXP_CTPS,
+ DP.COD_UF_CTPS,
+ DP.COD_TIPO_APOSENT,
+ DP.NRO_BENEFICIO_INSS,
+ DP.DATA_APOSENTADORIA,
+ DP.NRO_TITULO,
+ DP.NRO_ZONA_TITULO,
+ DP.NRO_SECAO_TITULO,
+ DP.DATA_EMISSAO_TITULO,
+ DP.COD_UF_TITULO,
+ DP.COD_MUN_TITULO,
+ DP.NRO_HABILITACAO,
+ DP.DATA_EMISSAO_HAB,
+ DP.DATA_VALIDADE_HAB,
+ DP.COD_CATEGORIA_HAB,
+ DP.COD_ORGAO_HAB,
+ DP.DES_ORGAO_HAB,
+ DP.NRO_RESERVISTA,
+ DP.SERVICO_MILITAR,
+ DP.COD_INSTRUCAO,
+ DP.DES_INSTRUCAO,
+ DP.COD_NACIONALIDADE,
+ DP.NACIONALIDADE,
+ DP.DES_NACIONALIDADE,
+ DP.COD_RACA_COR,
+ DP.DES_RACA_COR,
+ DP.DATA_CHEG_BRASIL,
+ DP.DATA_NATURALIZACAO,
+ DP.NRO_CARTEIRA_ESTRANG,
+ DP.NRO_TIT_DECLARATORIO,
+ DP.CLASS_TRAB_ESTRANG,
+ DP.INFO_COTA,
+ DP.IDE_OC,
+ DP.COND_ING,
+ DP.COD_MUNIC_NASCIMENTO,
+ DP.COD_IBGE_NASCTO,
+ DP.COD_UF_NASCIMENTO,
+ DP.COD_PAIS_NASCTO,
+ DP.IND_REG_CONSELHO,
+ DP.COD_CEP,
+ DP.TIPO_LOGRA,
+ DP.COD_LOGRA,
+ DP.DES_LOGRA,
+ DP.NUMERO,
+ DP.COMPLEMENTO,
+ DP.COD_BAIRRO,
+ DP.DES_BAIRRO,
+ DP.COD_CIDADE,
+ DP.DES_CIDADE,
+ DP.COD_UF,
+ DP.COD_IBGE,
+ 
+ /* AFASTAMENTOS / FERIAS */
+ AF.COD_AFAST,
+ AF.DES_AFAST,
+ AF.DATA_INI_AFAST,
+ AF.DATA_FIM_AFAST,
+ AF.COD_STATUS_AFAST,
+ CASE
+   WHEN AF.STATUS_AFAST IS NULL THEN
+    'EM ATIVIDADE'
+   ELSE
+    AF.STATUS_AFAST
+ END AS STATUS_AFAST,
+ 
+ FER.DATA_PREVISTA_FERIAS,
+ FER.DATA_FERIAS,
+ FER.DATA_RETORNO,
+ 
+ /*DADOS ANTERIORES DO COLABORDOR - ÚLTIMO ANTES DO ATUAL NA REFERÊNCIA*/
+ 
+ /*FUNÇÃO ANTERIOR*/
+ CC.COD_CLH_ANT     AS COD_FUNCAO_ANT,
+ CC.DES_CLH_ANT     AS DES_FUNCAO_ANT,
+ CC.DATA_INICIO_ANT,
+ CC.DATA_FIM_ANT,
+ 
+ /*ORGANOGRAMA ANTERIOR*/
+ CO.EDICAO_ORG_ANT      AS COD_UNIDADE_ANT,
+ CO.DES_ORGANOGRAMA_ANT AS DES_UNIDADE_ANT,
+ CO.DATA_INICIO_ORG_ANT,
+ CO.DATA_FIM_ORG_ANT
 
-       FU.COD_FUNCAO,
-       FU.NOME_CLH,
-       FU.DES_FUNCAO,
-       FU.DATA_INICIO_CLH,
-       FU.DATA_FIM_CLH,
-
-       CT.COD_VINCULO_EMPREG,
-       CT.COD_CATEGORIA_TRAB,
-       CT.COD_ESOCIAL,
-
-       TU.IND_BATE_PONTO,
-       TU.COD_TURNO,
-       TU.DES_TURNO,
-       TU.HR_BASE_MES,
-       TU.HR_BASE_SEM,
-       TU.HR_BASE_DIA,
-       TU.DATA_INICIO_HR,
-       TU.DATA_FIM_HR,
-
-       HR.DATA_INICIO_HOR,
-       HR.DATA_FIM_HOR,
-       HR.HOR_1_ENT,
-       HR.HOR_1_SAI,
-       HR.HOR_2_ENT,
-       HR.HOR_2_SAI,
-       HR.HOR_3_ENT,
-       HR.HOR_3_SAI,
-       HR.HOR_4_ENT,
-       HR.HOR_4_SAI,
-
-       SI.COD_SINDICATO,
-       SI.DES_SINDICATO,
-       SI.IND_CONT_SINDICAL,
-       SI.DATA_INI_SIND,
-       SI.DATA_FIM_SIND,
-
-       /* DADOS DO ORGANOGRAMA */
-       ORG.COD_ORGANOGRAMA,
-       ORG.COD_UNIDADE,
-       ORG.DES_UNIDADE,
-       ORG.DATA_INI_ORG,
-       ORG.DATA_FIM_ORG,
-       RESP.IND_RESP_UNI,
-       ORG.COD_REDE        AS COD_REDE_LOCAL,
-       ORG.DES_REDE        AS DES_REDE_LOCAL,
-       ORG.COD_UF          AS COD_UF_ORG,
-
-       ORG.COD_ORG_1    AS COD_GRUPO_EMP,
-       ORG.EDICAO_ORG_1 AS EDICAO_GRUPO_EMP,
-       ORG.NOME1        AS DES_GRUPO_EMP,
-       ORG.COD_ORG_2    AS COD_EMP,
-       ORG.EDICAO_ORG_2 AS EDICAO_EMP,
-       ORG.NOME2        AS DES_EMPRESA,
-       ORG.COD_ORG_3    AS COD_ORG_FILIAL,
-       ORG.EDICAO_ORG_3 AS EDICAO_FILIAL,
-       ORG.NOME3        AS DES_FILIAL,
-       ORG.COD_ORG_4    AS COD_ORG_DIVISAO,
-       ORG.EDICAO_ORG_4 AS EDICAO_DIVISAO,
-       ORG.NOME4        AS DES_DIVISAO,
-       ORG.COD_ORG_5    AS COD_ORG_DEPART,
-       ORG.EDICAO_ORG_5 AS EDICAO_DEPART,
-       ORG.NOME5        AS DES_DEPART,
-       ORG.COD_ORG_6    AS COD_ORG_SETOR,
-       ORG.EDICAO_ORG_6 AS EDICAO_SETOR,
-       ORG.NOME6        AS DES_SETOR,
-       ORG.COD_ORG_7    AS COD_ORG_SECAO,
-       ORG.EDICAO_ORG_7 AS EDICAO_SECAO,
-       ORG.NOME7        AS DES_SECAO,
-       ORG.COD_ORG_8    AS COD_ORG_UNI,
-       ORG.EDICAO_ORG_8 AS EDICAO_UNI,
-       ORG.NOME8        AS DES_UNI,
-       ORG.COD_TIPO,
-       ORG.DES_TIPO,
-
-       /* LOTAÇÃO */
-       LOT.COD_LOTACAO,
-       LOT.DES_LOTACAO,
-       LOT.UNI_LOTACAO,
-       LOT.DTA_INICIO_LOT,
-       LOT.DTA_FIM_LOT,
-
-       /* DADOS PESSOAIS */
-       DP.DATA_NASCIMENTO,
-       DP.IDADE,
-       DP.SEXO,
-       DP.COD_EST_CIVIL,
-       DP.DES_EST_CIVIL,
-       DP.COD_PESSOA_PAI,
-       DP.DES_PAI,
-       DP.COD_PESSOA_MAE,
-       DP.DES_MAE,
-       DP.IND_DEFICIENCIA,
-       DP.COD_DEFICIENCIA,
-       DP.DES_DEFICIENCIA,
-       DP.DES_EMAIL,
-       DP.DES_EMAIL_ALTER,
-       DP.COD_DDD,
-       DP.FONE_CEL,
-       DP.CPF,
-       DP.NRO_IDENTIDADE,
-       DP.EMISSOR_RG,
-       DP.UF_RG,
-       DP.EMISSOR,
-       DP.DATA_EMI_IDENTIDADE,
-       DP.NRO_PIS_PASEP,
-       DP.DATA_PIS_PASEP,
-       DP.NRO_CTPS,
-       DP.NRO_SERIE_CTPS,
-       DP.CTPS,
-       DP.DATA_EXP_CTPS,
-       DP.COD_UF_CTPS,
-       DP.COD_TIPO_APOSENT,
-       DP.NRO_BENEFICIO_INSS,
-       DP.DATA_APOSENTADORIA,
-       DP.NRO_TITULO,
-       DP.NRO_ZONA_TITULO,
-       DP.NRO_SECAO_TITULO,
-       DP.DATA_EMISSAO_TITULO,
-       DP.COD_UF_TITULO,
-       DP.COD_MUN_TITULO,
-       DP.NRO_HABILITACAO,
-       DP.DATA_EMISSAO_HAB,
-       DP.DATA_VALIDADE_HAB,
-       DP.COD_CATEGORIA_HAB,
-       DP.COD_ORGAO_HAB,
-       DP.DES_ORGAO_HAB,
-       DP.NRO_RESERVISTA,
-       DP.SERVICO_MILITAR,
-       DP.COD_INSTRUCAO,
-       DP.DES_INSTRUCAO,
-       DP.COD_NACIONALIDADE,
-       DP.NACIONALIDADE,
-       DP.DES_NACIONALIDADE,
-       DP.COD_RACA_COR,
-       DP.DES_RACA_COR,
-       DP.DATA_CHEG_BRASIL,
-       DP.DATA_NATURALIZACAO,
-       DP.NRO_CARTEIRA_ESTRANG,
-       DP.NRO_TIT_DECLARATORIO,
-       DP.CLASS_TRAB_ESTRANG,
-       DP.INFO_COTA,
-       DP.IDE_OC,
-       DP.COND_ING,
-       DP.COD_MUNIC_NASCIMENTO,
-       DP.COD_IBGE_NASCTO,
-       DP.COD_UF_NASCIMENTO,
-       DP.COD_PAIS_NASCTO,
-       DP.IND_REG_CONSELHO,
-       DP.COD_CEP,
-       DP.TIPO_LOGRA,
-       DP.COD_LOGRA,
-       DP.DES_LOGRA,
-       DP.NUMERO,
-       DP.COMPLEMENTO,
-       DP.COD_BAIRRO,
-       DP.DES_BAIRRO,
-       DP.COD_CIDADE,
-       DP.DES_CIDADE,
-       DP.COD_UF,
-       DP.COD_IBGE,
-
-       /* AFASTAMENTOS / FERIAS */
-       AF.COD_AFAST,
-       AF.DES_AFAST,
-       AF.DATA_INI_AFAST,
-       AF.DATA_FIM_AFAST,
-       AF.COD_STATUS_AFAST,
-       CASE
-         WHEN AF.STATUS_AFAST IS NULL THEN
-          'EM ATIVIDADE'
-         ELSE
-          AF.STATUS_AFAST
-       END AS STATUS_AFAST,
-
-       FER.DATA_PREVISTA_FERIAS,
-       FER.DATA_FERIAS,
-       FER.DATA_RETORNO,
-
-       /* ANTERIORES */
-       'DADOS ANTERIORES DO CONTRATO =>' AS ESPACO,
-
-       CC.COD_CLH_ANT     AS COD_FUNCAO_ANT,
-       CC.DES_CLH_ANT     AS DES_FUNCAO_ANT,
-       CC.DATA_INICIO_ANT,
-       CC.DATA_FIM_ANT,
-
-       CO.EDICAO_ORG_ANT      AS COD_UNIDADE_ANT,
-       CO.DES_ORGANOGRAMA_ANT AS DES_UNIDADE_ANT,
-       CO.DATA_INICIO_ORG_ANT,
-       CO.DATA_FIM_ORG_ANT
-
-        FROM CONTRATOS_FILTRADO CT
-        LEFT JOIN DADOS_PESSOAIS DP
-          ON CT.COD_PESSOA = DP.COD_FUNC
-        LEFT JOIN FUNCAO FU
-          ON CT.COD_CONTRATO = FU.COD_CONTRATO
-        LEFT JOIN TURNO TU
-          ON CT.COD_CONTRATO = TU.COD_CONTRATO
-        LEFT JOIN HORARIOS HR
-          ON CT.COD_CONTRATO = HR.COD_CONTRATO
-        LEFT JOIN SINDICATO SI
-          ON CT.COD_CONTRATO = SI.COD_CONTRATO
-       INNER JOIN ORGANOGRAMA ORG
-          ON CT.COD_CONTRATO = ORG.COD_CONTRATO
-        LEFT JOIN RESPONSAVEL RESP
-          ON CT.COD_CONTRATO = RESP.COD_CONTRATO
-        LEFT JOIN LOTACAO LOT
-          ON CT.COD_CONTRATO = LOT.COD_CONTRATO
-        LEFT JOIN AFASTAMENTOS AF
-          ON CT.COD_CONTRATO = AF.COD_CONTRATO
-        LEFT JOIN FERIAS FER
-          ON CT.COD_CONTRATO = FER.COD_CONTRATO
-        LEFT JOIN CARGO_ANT CC
-          ON CT.COD_CONTRATO = CC.COD_CONTRATO
-        LEFT JOIN ORGANOGRAMA_ANT CO
-          ON CT.COD_CONTRATO = CO.COD_CONTRATO
-      --WHERE CT.COD_CONTRATO IN (299685, 375780, 386492)
+  FROM CONTRATOS_FILTRADO CT
+  LEFT JOIN DADOS_PESSOAIS DP
+    ON CT.COD_PESSOA = DP.COD_FUNC
+  LEFT JOIN FUNCAO FU
+    ON CT.COD_CONTRATO = FU.COD_CONTRATO
+  LEFT JOIN TURNO TU
+    ON CT.COD_CONTRATO = TU.COD_CONTRATO
+  LEFT JOIN HORARIOS HR
+    ON CT.COD_CONTRATO = HR.COD_CONTRATO
+  LEFT JOIN SINDICATO SI
+    ON CT.COD_CONTRATO = SI.COD_CONTRATO
+ INNER JOIN ORGANOGRAMA ORG
+    ON CT.COD_CONTRATO = ORG.COD_CONTRATO
+  LEFT JOIN RESPONSAVEL RESP
+    ON CT.COD_CONTRATO = RESP.COD_CONTRATO
+  LEFT JOIN LOTACAO LOT
+    ON CT.COD_CONTRATO = LOT.COD_CONTRATO
+  LEFT JOIN AFASTAMENTOS AF
+    ON CT.COD_CONTRATO = AF.COD_CONTRATO
+  LEFT JOIN FERIAS FER
+    ON CT.COD_CONTRATO = FER.COD_CONTRATO
+  LEFT JOIN CARGO_ANT CC
+    ON CT.COD_CONTRATO = CC.COD_CONTRATO
+  LEFT JOIN ORGANOGRAMA_ANT CO
+    ON CT.COD_CONTRATO = CO.COD_CONTRATO
+--WHERE CT.COD_CONTRATO IN (299685, 375780, 386492)
+  ORDER BY CT.COD_CONTRATO;

@@ -1,9 +1,9 @@
-ÔªøCREATE OR REPLACE VIEW V_DADOS_CONTRATO_AVT AS
+CREATE OR REPLACE VIEW V_DADOS_CONTRATO_AVT AS
 SELECT CASE
          WHEN A.DATA_INICIO > SYSDATE THEN
-          2 -- Admiss√£o futura
+          2 -- Admiss„o futura
          WHEN A.DATA_FIM IS NOT NULL AND A.DATA_FIM < TRUNC(SYSDATE) THEN
-          1 -- Inativo, pois o dia da demiss√£o j√° passou
+          1 -- Inativo, pois o dia da demiss„o j· passou
          ELSE
           0 -- Ainda ativo
        END AS STATUS,
@@ -22,7 +22,7 @@ SELECT CASE
         CASE
           WHEN TRIM(
                  REGEXP_REPLACE(
-                   REGEXP_REPLACE(                 -- remove partÔøΩculas dos nomes do meio
+                   REGEXP_REPLACE(                 -- remove part?culas dos nomes do meio
                      TRIM(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(B.NOME_PESSOA, '\s+', ' '), '^\S+|\S+$', ''),' +',' ')),
                      '\b(da|de|do|das|dos|e)\b','',1,0,'i'
                    ),
@@ -30,12 +30,12 @@ SELECT CASE
                  )
                ) IS NULL
           THEN
-            -- sem nomes do meio ÔøΩÔøΩteisÔøΩ: apenas Primeiro + ÔøΩltimo
+            -- sem nomes do meio ??teis?: apenas Primeiro + ?ltimo
             INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+'))
             || ' ' ||
             INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '\S+$'))
           ELSE
-            -- com nomes do meio: Primeiro + iniciais + ÔøΩltimo
+            -- com nomes do meio: Primeiro + iniciais + ?ltimo
             INITCAP(REGEXP_SUBSTR(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+'))
             || ' ' ||
             TRIM(
@@ -45,7 +45,7 @@ SELECT CASE
                     REGEXP_REPLACE(
                       REGEXP_REPLACE(
                         TRIM(REGEXP_REPLACE(REGEXP_REPLACE(B.NOME_PESSOA,'\s+',' '), '^\S+|\S+$','')),
-                        '\b(da|de|do|das|dos|e)\b','',1,0,'i'  -- remove partÔøΩculas
+                        '\b(da|de|do|das|dos|e)\b','',1,0,'i'  -- remove part?culas
                       ),
                       ' +',' '
                     )
@@ -113,8 +113,5 @@ SELECT CASE
   LEFT JOIN RHFP0323 J ON J.COD_MOTIVO = I.COD_MOTIVO
   LEFT JOIN RHFP0304 K ON K.COD_CONTRATO = A.COD_CONTRATO
   LEFT JOIN RHFP0114 L ON L.COD_TIPO_ADMISSAO = A.COD_TIPO_ADMISSAO
- WHERE A.COD_CONTRATO = 389622
+ --WHERE A.COD_CONTRATO = 389622
 ;
-
-
-
