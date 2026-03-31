@@ -81,6 +81,8 @@ BEGIN
      PERMANENCIA,
      VLR_CUSTO_FOLHA,
      FOLHA,
+     VLR_VALE_TRANS,
+     VT,
      VLR_VENDA_LOJA,
      VLR_VDA_DOMINGO,
      TOTAL_HRS,
@@ -244,6 +246,8 @@ BEGIN
       ORDER BY A.COD_UNIDADE
      
      ),
+     
+   
   
   KPI_ORCADO AS
     (SELECT O.COD_UNIDADE,
@@ -290,6 +294,35 @@ BEGIN
        FROM ORCADO O
      
      ),
+     
+  VALE_TRANSPORTE AS (
+    SELECT A.COD_UNIDADE,
+           NVL(ROUND(SUM(NVL(A.VLR_REALIZADO, 0)), 2), 0) AS VLR_VALE_TRANS
+      FROM NL.OR_VALORES@NLGRZ A
+      JOIN GRUPOS G
+        ON G.COD_UNIDADE = A.COD_UNIDADE
+      CROSS JOIN PARAMS P
+     WHERE A.COD_EMP = 1
+       AND A.COD_ORCAMENTO = 400
+       AND A.DTA_ORCAMENTO >= P.D_INI
+       AND A.DTA_ORCAMENTO <= P.D_FIM
+       AND A.DES_CHAVE IN ('15#15025', '15#15030')
+     GROUP BY A.COD_UNIDADE
+  ),
+  
+  KPI_VT AS(
+    SELECT O.COD_UNIDADE,
+           NVL(VT.VLR_VALE_TRANS, 0) AS VLR_VALE_TRANS,
+           CASE
+             WHEN NVL(O.VLR_VENDA_LIQUIDA, 0) <> 0 THEN
+              ROUND((NVL(VT.VLR_VALE_TRANS, 0) * 100) / O.VLR_VENDA_LIQUIDA, 2)
+             ELSE
+              0
+           END AS VT
+      FROM KPI_ORCADO O
+      LEFT JOIN VALE_TRANSPORTE VT
+        ON VT.COD_UNIDADE = O.COD_UNIDADE
+  ),
   
   /* MAPEIA OS CONTRATOS POR LOJA PARA: TURNOVER, PRODUTIVIDADE E ABSENTEÍSMO(ESSE ÚLTIMO AINDA DECIDINDO SE IRÁ TER OU NÃO) */
   CONTRATOS AS
@@ -687,9 +720,9 @@ BEGIN
             M.DTA_FIM,
             
             /*COUNT(DISTINCT CASE
-                                                   WHEN A.DATA_DEMISSAO IS NULL OR A.DATA_DEMISSAO > M.DTA_FIM THEN
-                                                    A.COD_CONTRATO
-                                                 END) AS ATIVOS_ATUAIS,*/
+                                 WHEN A.DATA_DEMISSAO IS NULL OR A.DATA_DEMISSAO > M.DTA_FIM THEN
+                                  A.COD_CONTRATO
+                             END) AS ATIVOS_ATUAIS,*/
             COUNT(DISTINCT A.COD_CONTRATO) AS ATIVOS_ATUAIS,
             
             COUNT(DISTINCT CASE
@@ -924,6 +957,8 @@ BEGIN
             PE.PERMANENCIA,
             O.CUSTO_FOLHA AS VLR_CUSTO_FOLHA,
             O.FOLHA,
+            KV.VLR_VALE_TRANS,
+            KV.VT,
             PD.VLR_VENDA_LOJA,
             PD.VLR_VDA_DOMINGO,
             PD.TOTAL_HRS,
@@ -951,6 +986,7 @@ BEGIN
        LEFT JOIN PRODUTIVIDADE PD ON PD.COD_UNIDADE = G.COD_UNIDADE
        LEFT JOIN TURNOVER TU ON TU.COD_ORGANOGRAMA = A.COD_ORGANOGRAMA
        LEFT JOIN KPI_PERMANENCIA PE ON PE.COD_UNIDADE = G.COD_UNIDADE
+       LEFT JOIN KPI_VT KV ON KV.COD_UNIDADE = G.COD_UNIDADE
       CROSS JOIN DATAS_REF M
      
      )
@@ -982,6 +1018,8 @@ BEGIN
            PERMANENCIA,
            VLR_CUSTO_FOLHA,
            FOLHA,
+           VLR_VALE_TRANS,
+           VT,
            VLR_VENDA_LOJA,
            VLR_VDA_DOMINGO,
            TOTAL_HRS,
@@ -1025,7 +1063,10 @@ BEGIN
                    NVL(PERMANENCIA, 0) AS PERMANENCIA,
                    /*CUSTO FOLHA*/
                    NVL(VLR_CUSTO_FOLHA, 0) AS VLR_CUSTO_FOLHA,
-                   NVL(FOLHA, 0) AS FOLHA,
+                   NVL(FOLHA, 0) AS FOLHA,                   
+                   /*VALE TRANSPORTE*/
+                   NVL(VLR_VALE_TRANS, 0) AS VLR_VALE_TRANS,
+                   NVL(VT, 0) AS VT,
                    /*PRODUTIVIDADE*/
                    NVL(VLR_VENDA_LOJA, 0) AS VLR_VENDA_LOJA,
                    NVL(VLR_VDA_DOMINGO, 0) AS VLR_VDA_DOMINGO,

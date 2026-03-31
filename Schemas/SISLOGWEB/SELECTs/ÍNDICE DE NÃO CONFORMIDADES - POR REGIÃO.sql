@@ -20,7 +20,7 @@ SELECT A.COD_EMP,
        --:DDATAMES1 || ' - ' || :DDATAMES3 AS PERIODO,
        
        SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),:DDATAMES1, A.CRES,0))CRES_MES1, 
-       SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'&DDATAMES2', A.CRES,0))CRES_MES2, 
+       SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),:DDATAMES2, A.CRES,0))CRES_MES2, 
        SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),:DDATAMES3, A.CRES,0))CRES_MES3,
        
        SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),:DDATAMES1, A.DEVOL,0))DEVOL_MES1, 
@@ -65,4 +65,161 @@ SELECT A.COD_EMP,
  ORDER BY A.COD_UNIDADE, 
           B.COD_REGIAO, 
           A.TIPO_UNIDADE, 
+          RANK DESC;
+
+
+
+
+/*VESÃO DO SISLOGWEB*/
+
+SELECT A.COD_EMP,                                                                             
+ A.COD_UNIDADE,                                                                               
+ CASE                                                                                         
+     WHEN A.COD_UNIDADE = 8730 THEN                                                           
+      'E-COMERCE'                                                                           
+     WHEN A.COD_UNIDADE = 9999 THEN                                                           
+      'GERAL'                                                                               
+     ELSE                                                                                     
+      A.COD_EMP ||' - '|| UPPER(GRZ_UTIL.BUSCA_DES_UNIDADE(A.COD_UNIDADE))                  
+ END AS DES_FANTASIA,                                                                         
+ CASE                                                                                         
+     WHEN B.COD_REGIAO IS NOT NULL THEN                                                       
+      B.COD_REGIAO                                                                            
+     ELSE                                                                                     
+      9999                                                                                    
+ END AS COD_REGIAO,                                                                           
+ A.INVENT_MAX,                                                                                
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', A.CRES,0))CRES_MES1,          
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', A.CRES,0))CRES_MES2,          
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.CRES,0))CRES_MES3,          
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', A.DEVOL,0))DEVOL_MES1,        
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', A.DEVOL,0))DEVOL_MES2,        
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.DEVOL,0))DEVOL_MES3,        
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', A.INVENT,0))INVENT_MES1,      
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', A.INVENT,0))INVENT_MES2,      
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.INVENT,0))INVENT_MES3,      
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', A.CUP_CANC,0))CUP_CANC_MES1,  
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', A.CUP_CANC,0))CUP_CANC_MES2,  
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.CUP_CANC,0))CUP_CANC_MES3,  
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', A.ITE_CANC,0))ITE_CANC_MES1,  
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', A.ITE_CANC,0))ITE_CANC_MES2,  
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.ITE_CANC,0))ITE_CANC_MES3,  
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', A.CREDIARIO,0))CREDIARIO_MES1,
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', A.CREDIARIO,0))CREDIARIO_MES2,
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.CREDIARIO,0))CREDIARIO_MES3,
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', A.F4,0))F4_MES1,              
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', A.F4,0))F4_MES2,              
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.F4,0))F4_MES3,              
+ SUM(DECODE(TO_CHAR(A.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', A.RANK,0))RANK,               
+ A.TIPO_UNIDADE                                                                               
+  FROM GRZ_NAO_CONFORMIDADES_INDICES A                                                        
+  LEFT JOIN V_REGIAO_UNIDADES_AVT B ON A.COD_UNIDADE = B.COD_UNIDADE                          
+ WHERE A.DTA_MOVIMENTO BETWEEN '01/11/2025'  AND '01/01/2026'                            
+ AND A.IND_REDE = 0                                         
+ AND B.COD_REGIAO BETWEEN 0 AND 99999             
+ GROUP BY A.COD_EMP,                                        
+          A.COD_UNIDADE,                                    
+          UPPER(GRZ_UTIL.BUSCA_DES_UNIDADE(A.COD_UNIDADE)), 
+          B.COD_REGIAO,                                     
+          A.INVENT_MAX,                                     
+          A.TIPO_UNIDADE                                    
+ ORDER BY A.COD_UNIDADE,                                    
+          B.COD_REGIAO,                                     
+          A.TIPO_UNIDADE,                                   
+          RANK DESC;     
+
+
+
+
+
+
+/*VERSÃO ALTERNATIVA COM TRATAMENTO NA REGIÃO, 
+PARA BUSCAR A CORRETA NO OMENTO DA MOVIMENTAÇÃO*/
+
+
+WITH BASE AS (
+    SELECT A.COD_EMP,
+           A.COD_UNIDADE,
+           A.DTA_MOVIMENTO,
+           CASE
+               WHEN A.DTA_MOVIMENTO = '01/01/2026'
+                    AND A.COD_EMP = 40
+               THEN 941
+               ELSE NVL(A.COD_REGIAO, B.COD_REGIAO)
+           END AS COD_REGIAO_AJUSTADA,
+           A.INVENT_MAX,
+           A.CRES,
+           A.DEVOL,
+           A.INVENT,
+           A.CUP_CANC,
+           A.ITE_CANC,
+           A.CREDIARIO,
+           A.F4,
+           A.RANK,
+           A.TIPO_UNIDADE
+      FROM GRZ_NAO_CONFORMIDADES_INDICES A
+      LEFT JOIN V_REGIAO_UNIDADES_AVT B
+        ON A.COD_UNIDADE = B.COD_UNIDADE
+     WHERE A.DTA_MOVIMENTO BETWEEN '01/11/2025' AND '01/01/2026'
+       AND A.IND_REDE = 0
+)
+SELECT BASE.COD_EMP,
+       BASE.COD_UNIDADE,
+       CASE
+           /*WHEN BASE.COD_UNIDADE BETWEEN 8701 AND 8711 THEN
+            UPPER(GRZ_UTIL.BUSCA_DES_UNIDADE(BASE.COD_UNIDADE))
+           WHEN BASE.COD_UNIDADE = 941 THEN
+            UPPER(GRZ_UTIL.BUSCA_DES_UNIDADE(BASE.COD_UNIDADE))*/
+           WHEN BASE.COD_UNIDADE = 8730 THEN
+            'E-COMERCE'
+           WHEN BASE.COD_UNIDADE = 9999 THEN
+            'GERAL'
+           ELSE
+            BASE.COD_EMP || ' - ' || UPPER(GRZ_UTIL.BUSCA_DES_UNIDADE(BASE.COD_UNIDADE))
+       END AS DES_FANTASIA,
+
+       MAX(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.COD_REGIAO_AJUSTADA, NULL)) AS COD_REGIAO_MES1,
+       MAX(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.COD_REGIAO_AJUSTADA, NULL)) AS COD_REGIAO_MES2,
+       MAX(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.COD_REGIAO_AJUSTADA, NULL)) AS COD_REGIAO_MES3,
+
+       BASE.INVENT_MAX,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.CRES,0)) AS CRES_MES1,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.CRES,0)) AS CRES_MES2,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.CRES,0)) AS CRES_MES3,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.DEVOL,0)) AS DEVOL_MES1,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.DEVOL,0)) AS DEVOL_MES2,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.DEVOL,0)) AS DEVOL_MES3,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.INVENT,0)) AS INVENT_MES1,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.INVENT,0)) AS INVENT_MES2,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.INVENT,0)) AS INVENT_MES3,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.CUP_CANC,0)) AS CUP_CANC_MES1,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.CUP_CANC,0)) AS CUP_CANC_MES2,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.CUP_CANC,0)) AS CUP_CANC_MES3,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.ITE_CANC,0)) AS ITE_CANC_MES1,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.ITE_CANC,0)) AS ITE_CANC_MES2,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.ITE_CANC,0)) AS ITE_CANC_MES3,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.CREDIARIO,0)) AS CREDIARIO_MES1,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.CREDIARIO,0)) AS CREDIARIO_MES2,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.CREDIARIO,0)) AS CREDIARIO_MES3,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/11/2025', BASE.F4,0)) AS F4_MES1,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/12/2025', BASE.F4,0)) AS F4_MES2,
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.F4,0)) AS F4_MES3,
+
+       SUM(DECODE(TO_CHAR(BASE.DTA_MOVIMENTO,'DD/MM/YYYY'),'01/01/2026', BASE.RANK,0)) AS RANK,
+
+       BASE.TIPO_UNIDADE
+  FROM BASE
+ GROUP BY BASE.COD_EMP,
+          BASE.COD_UNIDADE,
+          BASE.INVENT_MAX,
+          BASE.TIPO_UNIDADE
+ ORDER BY BASE.COD_UNIDADE,
+          BASE.TIPO_UNIDADE,
           RANK DESC;

@@ -29,6 +29,8 @@ BASE_CONTRATOS AS (
      AND A.IND_INATIVO = 0
      AND B.IND_INATIVO = 0
      AND B.COD_VALOR = 1
+     
+     /*==filtros de teste==*/
      --AND B.DTA_VALIDADE_DIF >= '01/01/2026'
      --AND A.COD_UNIDADE IN (412, 499, 625)
      
@@ -50,7 +52,7 @@ DESCONTOS AS (
          DTA_DESCTO_FIM,
          LAST_DAY(ADD_MONTHS(DTA_DESCTO_FIM, -1)) AS DESCONTO_ATE
     FROM BASE_CONTRATOS
-   WHERE DTA_DESCTO_FIM >= TO_DATE('03/2026', 'MM/YYYY') --DTA_DESCTO_FIM >= TRUNC(SYSDATE)
+   WHERE DTA_DESCTO_FIM >= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_DATE('03/2026', 'MM/YYYY')
 ),
 /* LOJAS QUE POSSUEM DIFERENÇAS */
 DIFERENCAS AS (
@@ -60,7 +62,7 @@ DIFERENCAS AS (
          LAST_DAY(ADD_MONTHS(DTA_VALIDADE_DIF, -1)) AS VALIDADE_DIF
         -- DTA_VALIDADE_DIF AS VALIDADE_DIF
     FROM BASE_CONTRATOS
-   WHERE DTA_VALIDADE_DIF >= TO_DATE('03/2026', 'MM/YYYY') -->= TRUNC(SYSDATE)
+   WHERE DTA_VALIDADE_DIF >= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_DATE('03/2026', 'MM/YYYY')
 ),
 /* LOJAS QUE POSSUEM EMPRÉSTIMOS (por unidade+contrato) */
 LOJAS_EMPRESTIMOS AS (
@@ -78,8 +80,8 @@ LOJAS_EMPRESTIMOS AS (
            WHERE SUB.COD_UNIDADE = A.COD_UNIDADE
              AND SUB.COD_CONTRATO = A.COD_CONTRATO
              AND SUB.VLR_ADIANTAMENTO <> 0
-             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <=
-                 TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
+             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
+                 
          )
      AND A.VLR_ADIANTAMENTO <> 0
    GROUP BY A.COD_UNIDADE, A.COD_CONTRATO
@@ -88,7 +90,7 @@ LOJAS_EMPRESTIMOS AS (
 LOJAS_RETENCAO AS (
   SELECT A.COD_UNIDADE,
          SUM(NVL(A.VLR_ADIANTAMENTO, 0)) AS VLR_RETENCAO,
-         LAST_DAY(TO_DATE('08/2032', 'MM/YYYY')) AS RETENCAO_ATE
+         LAST_DAY(TO_DATE('08/2032', 'MM/YYYY')) AS RETENCAO_ATE --aqui permanece fixo por enquanto, sem relação com a data que o usuário irá informar
     FROM GRAZZ.GRZ_LOC_MVTO A
     /* BUSCA O ÚLTIMO MÊS DISPONÍVEL ATÉ O PERÍODO INFORMADO */
    WHERE (A.ANO_REFERENCIA * 100 + A.MES_REFERENCIA) = (
@@ -96,8 +98,7 @@ LOJAS_RETENCAO AS (
             FROM GRAZZ.GRZ_LOC_MVTO SUB
            WHERE SUB.COD_UNIDADE = A.COD_UNIDADE
              AND SUB.VLR_ADIANTAMENTO <> 0
-             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <=
-                 TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
+             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
          )
      AND A.VLR_ADIANTAMENTO <> 0
      AND A.COD_UNIDADE = 284
@@ -187,7 +188,7 @@ SELECT CT.UNIDADE,
        CT.DTA_INICIO,
        CT.DTA_TERMINO,
        TO_CHAR(SUM(CASE
-                     WHEN CT.DTA_ALTERACAO IS NOT NULL AND CT.DTA_ALTERACAO >= TO_DATE('03/2026', 'MM/YYYY') THEN
+                     WHEN CT.DTA_ALTERACAO IS NOT NULL AND CT.DTA_ALTERACAO >= /*Aqui mesma coisa, onde o USUÁRIO irá informar Data exemplo: TO_DATE('03/2026', 'MM/YYYY') */ THEN
                       NVL(CT.VLR_ANTIGO_ALUGUEL, 0)                     
                      ELSE
                       NVL(NULLIF(CT.VLR_ALUGUEL_FIXO, 0), CT.VLR_NOVO_ALUGUEL)
@@ -216,6 +217,8 @@ SELECT CT.UNIDADE,
   FROM CONTRATOS CT
   /*LÓGICA ABAIXO APRESENTA MAIS DINAMISMO - DEIXAR UM DOS CAMPOS EM BRANCO NÃO ANULA O OUTRO
     PODENDO INFORMAR UMA UNIDADE ESPECÍFICA OU DEIXAR EM BRANCO PARA TODAS; MESMO CASO PARA REDE*/
+  
+  /*Aqui está comentando a clausula WHERE mas caso o usuário solicite alguma unidade e/ou rede específica, é só filtrar pela desejado pelo usuário*/
   /*WHERE (TRIM(:UNIDADE) IS NULL OR TO_CHAR(ct.UNIDADE) = TRIM(:UNIDADE))
     AND (TRIM(:REDE) IS NULL OR ct.REDE = TRIM(:REDE))*/
  GROUP BY CT.UNIDADE,
