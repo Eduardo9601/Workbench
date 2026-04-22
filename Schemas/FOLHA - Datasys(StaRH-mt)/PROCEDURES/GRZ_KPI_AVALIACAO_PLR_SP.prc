@@ -824,42 +824,47 @@ BEGIN
          === 4) KPI 3 - PREVENTIVA ============================
          ====================================================== */
   
-  DADOS_PREVENTIVA AS
-    (SELECT LAST_DAY(MES) AS DTA_MOVIMENTO, -- OU TRUNC(MES,'MM') SE PREFERIR 01/MM
-            COD_UNIDADE,
-            MAX(REGIAO) AS REGIAO, -- COLAPSA PARA UM VALOR POR MÊS
-            MAX(REDE) AS REDE, -- IDEM
-            VLR_PREV_MES AS VLR_PREVENTIVA,
-            SUM(CASE
-                  WHEN X.VLR_PREV_MES > 0 THEN
-                   1
-                  ELSE
-                   0
-                END) OVER(PARTITION BY X.COD_UNIDADE) AS QTD_MESES
-       FROM (SELECT TRUNC(A.DTA_MOVIMENTO, 'MM') AS MES,
-                    A.COD_UNIDADE,
-                    /* MESMAS REGRAS QUE VOCÊ USOU */
-                    CASE
-                      WHEN TO_CHAR(A.COD_GRUPO_UNI) LIKE '%8%' THEN
-                       A.COD_GRUPO_UNI
-                    END AS REGIAO,
-                    CASE
-                      WHEN TO_CHAR(A.COD_QUEBRA_UNI) NOT LIKE '%8%' THEN
-                       A.COD_QUEBRA_UNI
-                    END AS REDE,
-                    NVL(A.VLR_PREVENTIVO, 0) AS VLR_PREV_MES
-               FROM NL.ES_0124_CR_PROJECAO@NLGRZ A
-              CROSS JOIN DATAS_REF M
-              WHERE A.DTA_MOVIMENTO >= M.DTA_INI
-                AND A.DTA_MOVIMENTO <= M.DTA_FIM -- INCLUI TODO 31/03
-                AND A.COD_QUEBRA_LCTO = 1
-                AND A.COD_UNIDADE <> 0
-             --AND A.COD_UNIDADE = 592
-             ) X
-      WHERE REGIAO IS NOT NULL
-        AND REDE IS NOT NULL
-      GROUP BY MES, COD_UNIDADE, VLR_PREV_MES
-      ORDER BY COD_UNIDADE, MES
+  DADOS_PREVENTIVA AS(      
+   /*VERSÃO CORRIGINDO O VALOR DA PREVENTIVA DE GERAR 2 VALORES PARA A MESMA REFERENCIA*/
+    SELECT LAST_DAY(MES) AS DTA_MOVIMENTO,
+           COD_UNIDADE,
+           REGIAO,
+           REDE,
+           VLR_PREVENTIVA,
+           SUM(CASE
+                 WHEN VLR_PREVENTIVA > 0 THEN
+                  1
+                 ELSE
+                  0
+               END) OVER (PARTITION BY COD_UNIDADE) AS QTD_MESES
+      FROM (SELECT MES,
+                   COD_UNIDADE,
+                   MAX(REGIAO) AS REGIAO,
+                   MAX(REDE) AS REDE,
+                   SUM(VLR_PREV_MES) AS VLR_PREVENTIVA
+              FROM (SELECT TRUNC(A.DTA_MOVIMENTO, 'MM') AS MES,
+                           A.COD_UNIDADE,
+                           CASE
+                             WHEN TO_CHAR(A.COD_GRUPO_UNI) LIKE '%8%' THEN
+                              A.COD_GRUPO_UNI
+                           END AS REGIAO,
+                           CASE
+                             WHEN TO_CHAR(A.COD_QUEBRA_UNI) NOT LIKE '%8%' THEN
+                              A.COD_QUEBRA_UNI
+                           END AS REDE,
+                           NVL(A.VLR_PREVENTIVO, 0) AS VLR_PREV_MES
+                      FROM NL.ES_0124_CR_PROJECAO@NLGRZ A
+                     CROSS JOIN DATAS_REF M
+                     WHERE A.DTA_MOVIMENTO >= M.DTA_INI
+                       AND A.DTA_MOVIMENTO <= M.DTA_FIM
+                       AND A.COD_QUEBRA_LCTO = 1
+                       AND A.COD_UNIDADE <> 0
+                    --AND A.COD_UNIDADE = 568
+                    ) X
+             WHERE REGIAO IS NOT NULL
+               AND REDE IS NOT NULL
+             GROUP BY MES, COD_UNIDADE)
+     ORDER BY COD_UNIDADE, MES
      
      ),
   

@@ -2,54 +2,20 @@ WITH
 
 /* ===== Base mensal filtrada (TRUNC por mês — mantém a lógica) ===== */
 BASE AS (
-
-  /* VERSÃO FOLHA */
   SELECT T.*
   FROM GRZ_KPI_AVALIACAO_PLR_TB T
   WHERE TRUNC(T.DTA_INI, 'MM') BETWEEN :DATA_INICIO AND :DATA_FIM
-
-  /* VERSÃO PL/SQL
-  SELECT T.*
-  FROM GRZ_KPI_AVALIACAO_PLR_TB T
-  WHERE TRUNC(T.DTA_INI,'MM') BETWEEN '&DTA_INI' AND '&DTA_FIM'
-  */
 ),
 
 /* ===== Agregações por unidade ===== */
 DADOS_KPIS AS (
   SELECT
     DECODE(COD_UNIDADE,
-      7022, 22,
-      7047, 47,
-      7059, 59,
-      7065, 65,
-      7138, 138,
-      7140, 140,
-      7183, 183,
-      7244, 244,
-      7353, 353,
-      7386, 386,
-      7412, 412,
-      7430, 430,
-      7442, 442,
-      7461, 461,
-      7466, 466,
-      7491, 491,
-      7543, 543,
-      7555, 555,
-      7570, 570,
-      7577, 653,
-      7587, 587,
-      7588, 588,
-      7592, 592,
-      7597, 597,
-      7601, 601,
-      7602, 608,
-      7620, 620,
-      7500, 651,
-      7051, 652,
-      7066, 654,
-      7643, 643,
+      7022, 22, 7047, 47, 7059, 59, 7065, 65, 7138, 138, 7140, 140, 7183, 183,
+      7244, 244, 7353, 353, 7386, 386, 7412, 412, 7430, 430, 7442, 442, 7461, 461,
+      7466, 466, 7491, 491, 7543, 543, 7555, 555, 7570, 570, 7577, 653, 7587, 587,
+      7588, 588, 7592, 592, 7597, 597, 7601, 601, 7602, 608, 7620, 620, 7500, 651,
+      7051, 652, 7066, 654, 7643, 643,
       COD_UNIDADE
     ) AS COD_UNIDADE,
 
@@ -85,83 +51,30 @@ DADOS_KPIS AS (
     MAX(EFETIVO_INICIAL) KEEP (DENSE_RANK FIRST ORDER BY DTA_INI) AS EFETIVO_INICIAL_ANO,
     MAX(EFETIVO_FINAL)   KEEP (DENSE_RANK LAST  ORDER BY DTA_FIM) AS EFETIVO_FINAL_ANO,
 
+    /* AJUSTE AQUI: Pegamos a média da coluna que já vem calculada da sua tabela */
+    AVG(NVL(TURNOVER, 0)) AS MEDIA_TURNOVER_PERIODO,
+
     COUNT(DISTINCT TRUNC(DTA_INI,'MM')) AS MESES_COBERTOS
   FROM BASE
   GROUP BY DECODE(COD_UNIDADE,
-      7022, 22,
-      7047, 47,
-      7059, 59,
-      7065, 65,
-      7138, 138,
-      7140, 140,
-      7183, 183,
-      7244, 244,
-      7353, 353,
-      7386, 386,
-      7412, 412,
-      7430, 430,
-      7442, 442,
-      7461, 461,
-      7466, 466,
-      7491, 491,
-      7543, 543,
-      7555, 555,
-      7570, 570,
-      7577, 653,
-      7587, 587,
-      7588, 588,
-      7592, 592,
-      7597, 597,
-      7601, 601,
-      7602, 608,
-      7620, 620,
-      7500, 651,
-      7051, 652,
-      7066, 654,
-      7643, 643,
+      7022, 22, 7047, 47, 7059, 59, 7065, 65, 7138, 138, 7140, 140, 7183, 183,
+      7244, 244, 7353, 353, 7386, 386, 7412, 412, 7430, 430, 7442, 442, 7461, 461,
+      7466, 466, 7491, 491, 7543, 543, 7555, 555, 7570, 570, 7577, 653, 7587, 587,
+      7588, 588, 7592, 592, 7597, 597, 7601, 601, 7602, 608, 7620, 620, 7500, 651,
+      7051, 652, 7066, 654, 7643, 643,
       COD_UNIDADE
   )
 ),
 
-/* ===== Pontuação anual =====
-   AJUSTE CRÍTICO:
-   - MARGEM      = pontos da margem contra orçado
-   - MARGEM_PERC = pontos da margem percentual por rede
-*/
+/* ===== Pontuação anual ===== */
 PONTUACAO AS (
   SELECT
     DECODE(A.COD_UNIDADE,
-      7022, 22,
-      7047, 47,
-      7059, 59,
-      7065, 65,
-      7138, 138,
-      7140, 140,
-      7183, 183,
-      7244, 244,
-      7353, 353,
-      7386, 386,
-      7412, 412,
-      7430, 430,
-      7442, 442,
-      7461, 461,
-      7466, 466,
-      7491, 491,
-      7543, 543,
-      7555, 555,
-      7570, 570,
-      7577, 653,
-      7587, 587,
-      7588, 588,
-      7592, 592,
-      7597, 597,
-      7601, 601,
-      7602, 608,
-      7620, 620,
-      7500, 651,
-      7051, 652,
-      7066, 654,
-      7643, 643,
+      7022, 22, 7047, 47, 7059, 59, 7065, 65, 7138, 138, 7140, 140, 7183, 183,
+      7244, 244, 7353, 353, 7386, 386, 7412, 412, 7430, 430, 7442, 442, 7461, 461,
+      7466, 466, 7491, 491, 7543, 543, 7555, 555, 7570, 570, 7577, 653, 7587, 587,
+      7588, 588, 7592, 592, 7597, 597, 7601, 601, 7602, 608, 7620, 620, 7500, 651,
+      7051, 652, 7066, 654, 7643, 643,
       A.COD_UNIDADE
     ) AS COD_UNIDADE,
 
@@ -169,11 +82,8 @@ PONTUACAO AS (
 
     MAX(A.ORCADO)        AS PTS_ORCADO,
     MAX(A.LUCRO)         AS PTS_LUCRO,
-
-    /* separação correta */
     MAX(A.MARGEM)        AS PTS_MARGEM_ORC,
     MAX(A.MARGEM_PERC)   AS PTS_MARGEM_PERC,
-
     MAX(A.PERMANENCIA)   AS PTS_PERMANENCIA,
     MAX(A.INVENTARIO)    AS PTS_INVENTARIO,
     MAX(A.PREVENTIVA)    AS PTS_PREVENTIVA,
@@ -187,45 +97,17 @@ PONTUACAO AS (
   WHERE A.ANO = :ANO
   GROUP BY
     DECODE(A.COD_UNIDADE,
-      7022, 22,
-      7047, 47,
-      7059, 59,
-      7065, 65,
-      7138, 138,
-      7140, 140,
-      7183, 183,
-      7244, 244,
-      7353, 353,
-      7386, 386,
-      7412, 412,
-      7430, 430,
-      7442, 442,
-      7461, 461,
-      7466, 466,
-      7491, 491,
-      7543, 543,
-      7555, 555,
-      7570, 570,
-      7577, 653,
-      7587, 587,
-      7588, 588,
-      7592, 592,
-      7597, 597,
-      7601, 601,
-      7602, 608,
-      7620, 620,
-      7500, 651,
-      7051, 652,
-      7066, 654,
-      7643, 643,
+      7022, 22, 7047, 47, 7059, 59, 7065, 65, 7138, 138, 7140, 140, 7183, 183,
+      7244, 244, 7353, 353, 7386, 386, 7412, 412, 7430, 430, 7442, 442, 7461, 461,
+      7466, 466, 7491, 491, 7543, 543, 7555, 555, 7570, 570, 7577, 653, 7587, 587,
+      7588, 588, 7592, 592, 7597, 597, 7601, 601, 7602, 608, 7620, 620, 7500, 651,
+      7051, 652, 7066, 654, 7643, 643,
       A.COD_UNIDADE
     ),
     A.ANO
 ),
 
-/* ===== Cálculo auxiliar para exibir a margem pela mesma régua da rotina original =====
-   A rotina original usa ROUND(..., 1) para decidir MARGEM_PERC.
-*/
+/* ===== Cálculo auxiliar ===== */
 MARGEM_AUDITORIA AS (
   SELECT
     DK.COD_UNIDADE,
@@ -262,13 +144,8 @@ SELECT
   TO_CHAR(NVL(DK.VLR_CUSTO_FOLHA_ANO, 0), 'FM999G999G990D00')   AS VLR_CUSTO_FOLHA,
   TO_CHAR(NVL(DK.VLR_VALE_TRANS_ANO, 0), 'FM999G999G990D00')    AS VLR_VALE_TRANS,
 
-  /* INDICADOR DE MARGEM (%) */
   NVL(MA.MARGEM_2C, 0)       AS MARGEM,
-  --NVL(MA.MARGEM_REGRA_1C, 0) AS MARGEM_REGRA,
-
-  /* PONTOS CORRETOS, SEPARADOS */
   NVL(PT.PTS_MARGEM_PERC, 0) AS PTS_MARGEM,
-  NVL(PT.PTS_MARGEM_ORC, 0)  AS PTS_MARGEM_ORC,
 
   NVL(
     ROUND(
@@ -334,22 +211,13 @@ SELECT
   ) AS PRODUTIVIDADE,
   NVL(PT.PTS_PRODUTIVIDADE, 0) AS PTS_PRODUTIVIDADE,
 
-  ROUND(
-    CASE
-      WHEN (DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2 = 0 THEN
-        0
-      ELSE
-        DK.DEMITIDOS_ANO * 100 /
-        ((DK.EFETIVO_INICIAL_ANO + DK.EFETIVO_FINAL_ANO) / 2)
-    END,
-    2
-  ) AS TURNOVER,
+  /* AJUSTE AQUI: Agora ele puxa apenas o valor arredondado da média que calculamos no bloco DADOS_KPIS */
+  NVL(ROUND(DK.MEDIA_TURNOVER_PERIODO, 2), 0) AS TURNOVER,
   NVL(PT.PTS_TURNOVER, 0) AS PTS_TURNOVER,
 
   NVL(PT.PTS_TREINAMENTO, 0) AS PTS_TREINAMENTO,
   NVL(PT.PTS_TRAINEE, 0)     AS PTS_TRAINEE,
 
-  /* TOTAL alinhado com a margem percentual */
   (
     NVL(PT.PTS_ORCADO, 0) +
     NVL(PT.PTS_LUCRO, 0) +
@@ -364,22 +232,6 @@ SELECT
     NVL(PT.PTS_TREINAMENTO, 0) +
     NVL(PT.PTS_TRAINEE, 0)
   ) AS TOTAL_PTS,
-
-  /* TOTAL alternativo só para auditoria, se quiser enxergar a diferença */
-  /*(
-    NVL(PT.PTS_ORCADO, 0) +
-    NVL(PT.PTS_LUCRO, 0) +
-    NVL(PT.PTS_MARGEM_ORC, 0) +
-    NVL(PT.PTS_PERMANENCIA, 0) +
-    NVL(PT.PTS_INVENTARIO, 0) +
-    NVL(PT.PTS_PREVENTIVA, 0) +
-    NVL(PT.PTS_PRODUTIVIDADE, 0) +
-    NVL(PT.PTS_TURNOVER, 0) +
-    NVL(PT.PTS_FOLHA, 0) +
-    NVL(PT.PTS_VT, 0) +
-    NVL(PT.PTS_TREINAMENTO, 0) +
-    NVL(PT.PTS_TRAINEE, 0)
-  ) AS TOTAL_PTS_MARGEM_ORC,*/
 
   DK.ADMITIDOS_ANO AS ADMITIDOS,
   DK.DEMITIDOS_ANO AS DEMITIDOS

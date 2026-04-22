@@ -1,0 +1,60 @@
+create table GRZ_PONTUACAO_APR_ANO
+(
+  COD_UNIDADE NUMBER(5) not null,
+  G10         NUMBER(2),
+  TPD         NUMBER(2),
+  SEG_PESSOA  NUMBER(2),
+  TRAINEE     NUMBER(2),
+  ANO         NUMBER(4) not null
+);
+alter table GRZ_PONTUACAO_APR_ANO add constraint PK_APR primary key (COD_UNIDADE, ANO);
+
+create table GRZ_VALORES_REGIOES_APR_ANUAL
+(
+  COD_UNIDADE          NUMBER(5) not null,
+  VLR_VENDA_ORC        NUMBER(18,2),
+  VLR_VENDA_REAL       NUMBER(18,2),
+  VLR_MARGEM_ORC       NUMBER(18,2),
+  VLR_MARGEM_REAL      NUMBER(18,2),
+  VLR_VENDA_LIQUIDA    NUMBER(18,2),
+  VLR_FALTA_INVENTARIO NUMBER(18,2),
+  VLR_LUCRO            NUMBER(18,2),
+  VLR_CUSTO_PERM       NUMBER(18,2),
+  VLR_EST_MEDIO_PERM   NUMBER(18,2),
+  VLR_PREVENTIVA       NUMBER(18,2),
+  QTD_MESES            NUMBER(5),
+  ANO                  NUMBER(4) not null,
+  REGIAO               NUMBER(7),
+  VALE_TRANSP          NUMBER(18,2),
+  HORAS_TRAB           NUMBER(18,2),
+  FOLHA                NUMBER(18,2),
+  COD_REDE             NUMBER(2),
+  TURN_OVER            NUMBER(10,2),
+  DEMISSOES            NUMBER(5),
+  EFET_INI             NUMBER(10,2)
+);
+alter table GRZ_VALORES_REGIOES_APR_ANUAL add constraint PK_REGAPR primary key (COD_UNIDADE, ANO);
+
+create table GRZ_DADOS_CALCULO_APR_ANUAL
+(
+  COD_UNIDADE   NUMBER(5),
+  TREINAMENTO   NUMBER(2),
+  TRAINEE       NUMBER(2),
+  ANO           NUMBER(4),
+  ORCADO        NUMBER(2),
+  MARGEM        NUMBER(2),
+  LUCRO         NUMBER(2),
+  PERMANENCIA   NUMBER(2),
+  INVENTARIO    NUMBER(2),
+  PREVENTIVA    NUMBER(2),
+  TIP_UNIDADE   NUMBER(5),
+  REGIAO        NUMBER(5),
+  VALE_TRANSP   NUMBER(3),
+  PRODUTIVIDADE NUMBER(2),
+  COD_REDE      NUMBER(3),
+  DES_NOME      VARCHAR2(40),
+  FOLHA         NUMBER(2),
+  TURN_OVER     NUMBER(2)
+);
+
+alter table grz_dados_calculo_apr_anual add MARGEM_PERC NUMBER(2);
