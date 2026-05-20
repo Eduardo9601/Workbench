@@ -1,0 +1,661 @@
+WITH PARAMS AS (
+    SELECT
+        TO_DATE('01/03/2026', 'DD/MM/YYYY') AS DATA_INICIO,
+        TO_DATE('31/03/2026', 'DD/MM/YYYY') AS DATA_FIM,
+        :COD_ORGANOGRAMA AS COD_ORGANOGRAMA,
+        0.10 AS TOLERANCIA
+    FROM DUAL
+),
+
+/* =========================================================
+   1) MAPA BASE DOS TOTALIZADORES
+   ========================================================= */
+A_BASE AS (
+    SELECT
+        A.COD_CLASSE_CONT,
+        A.NOME_CLASSE_CONT,
+        A.COD_TOTAL,
+        A.NOME_TOTAL,
+        A.SINAL_OPERACAO,
+        A.COD_LANCAMENTO,
+        A.COD_CONTA_CONTABIL,
+        A.COD_VD
+    FROM V_DADOS_CONTABIL_AVT A
+    WHERE A.COD_CLASSE_CONT IN (21, 22, 23)
+),
+
+MAP_TOTAL_VD AS (
+    SELECT DISTINCT
+        COD_CLASSE_CONT,
+        NOME_CLASSE_CONT,
+        COD_TOTAL,
+        NOME_TOTAL,
+        SINAL_OPERACAO,
+        COD_VD
+    FROM A_BASE
+),
+
+MAP_TOTAL_CHAVE AS (
+    SELECT DISTINCT
+        COD_CLASSE_CONT,
+        NOME_CLASSE_CONT,
+        COD_TOTAL,
+        NOME_TOTAL,
+        COD_LANCAMENTO,
+        COD_CONTA_CONTABIL
+    FROM A_BASE
+),
+
+VD_TOTAL AS (
+    SELECT
+        X.COD_CLASSE_CONT,
+        X.COD_TOTAL,
+        X.NOME_TOTAL,
+        LISTAGG(X.COD_VD, ' | ') WITHIN GROUP (ORDER BY X.COD_VD) AS VDS_DO_TOTAL
+    FROM (
+        SELECT DISTINCT
+            COD_CLASSE_CONT,
+            COD_TOTAL,
+            NOME_TOTAL,
+            COD_VD
+        FROM MAP_TOTAL_VD
+    ) X
+    GROUP BY
+        X.COD_CLASSE_CONT,
+        X.COD_TOTAL,
+        X.NOME_TOTAL
+),
+
+CHAVE_TOTAL AS (
+    SELECT
+        X.COD_CLASSE_CONT,
+        X.COD_TOTAL,
+        X.NOME_TOTAL,
+        LISTAGG(X.CHAVE, ' | ') WITHIN GROUP (ORDER BY X.CHAVE) AS CHAVES_CONTABEIS
+    FROM (
+        SELECT DISTINCT
+            COD_CLASSE_CONT,
+            COD_TOTAL,
+            NOME_TOTAL,
+            TO_CHAR(COD_LANCAMENTO) || '/' || TO_CHAR(COD_CONTA_CONTABIL) AS CHAVE
+        FROM MAP_TOTAL_CHAVE
+    ) X
+    GROUP BY
+        X.COD_CLASSE_CONT,
+        X.COD_TOTAL,
+        X.NOME_TOTAL
+),
+
+/* =========================================================
+   2) RHFP0408 FILTRADA
+   ========================================================= */
+RHFP0408_BASE AS (
+    SELECT
+        B.COD_ORGANOGRAMA,
+        B.COD_CLASSE_CONT,
+        B.COD_CUSTO_CONTABIL,
+        B.COD_CUSTO_DESTINO,
+        B.COD_LANCAMENTO,
+        B.COD_CONTA_CONTABIL,
+        B.TIPO_LANCAMENTO,
+        NVL(B.VALOR_LANCAMENTO, 0) AS VALOR_LANCAMENTO
+    FROM RHFP0408 B
+    CROSS JOIN PARAMS P
+    WHERE B.COD_ORGANOGRAMA = P.COD_ORGANOGRAMA
+      AND B.COD_CLASSE_CONT IN (21, 22, 23)
+),
+
+CHAVE_CONTABIL_REUTILIZADA AS (
+    SELECT
+        COD_CLASSE_CONT,
+        COD_LANCAMENTO,
+        COD_CONTA_CONTABIL,
+        COUNT(DISTINCT COD_TOTAL) AS QTD_TOTAIS
+    FROM MAP_TOTAL_CHAVE
+    GROUP BY
+        COD_CLASSE_CONT,
+        COD_LANCAMENTO,
+        COD_CONTA_CONTABIL
+    HAVING COUNT(DISTINCT COD_TOTAL) > 1
+),
+
+CONTABIL_CHAVE AS (
+    SELECT
+        M.COD_CLASSE_CONT,
+        M.NOME_CLASSE_CONT,
+        M.COD_TOTAL,
+        M.NOME_TOTAL,
+        M.COD_LANCAMENTO,
+        M.COD_CONTA_CONTABIL,
+
+        ROUND(SUM(CASE WHEN B.TIPO_LANCAMENTO = 'D' THEN B.VALOR_LANCAMENTO ELSE 0 END), 2) AS VALOR_DEBITO_CHAVE,
+        ROUND(SUM(CASE WHEN B.TIPO_LANCAMENTO = 'C' THEN B.VALOR_LANCAMENTO ELSE 0 END), 2) AS VALOR_CREDITO_CHAVE,
+
+        COUNT(B.COD_LANCAMENTO) AS QTD_LINHAS_RHFP0408,
+        COUNT(DISTINCT B.COD_CUSTO_CONTABIL) AS QTD_CUSTOS_CONTABEIS,
+        COUNT(DISTINCT B.COD_CUSTO_DESTINO)  AS QTD_CUSTOS_DESTINO,
+
+        CASE
+            WHEN COUNT(B.COD_LANCAMENTO) > 0 THEN 1
+            ELSE 0
+        END AS CHAVE_ENCONTRADA,
+
+        MAX(
+            CASE
+                WHEN R.COD_LANCAMENTO IS NOT NULL THEN 1
+                ELSE 0
+            END
+        ) AS CHAVE_REUTILIZADA
+
+    FROM MAP_TOTAL_CHAVE M
+    LEFT JOIN RHFP0408_BASE B
+           ON B.COD_CLASSE_CONT    = M.COD_CLASSE_CONT
+          AND B.COD_LANCAMENTO     = M.COD_LANCAMENTO
+          AND B.COD_CONTA_CONTABIL = M.COD_CONTA_CONTABIL
+    LEFT JOIN CHAVE_CONTABIL_REUTILIZADA R
+           ON R.COD_CLASSE_CONT    = M.COD_CLASSE_CONT
+          AND R.COD_LANCAMENTO     = M.COD_LANCAMENTO
+          AND R.COD_CONTA_CONTABIL = M.COD_CONTA_CONTABIL
+    GROUP BY
+        M.COD_CLASSE_CONT,
+        M.NOME_CLASSE_CONT,
+        M.COD_TOTAL,
+        M.NOME_TOTAL,
+        M.COD_LANCAMENTO,
+        M.COD_CONTA_CONTABIL
+),
+
+CONTABIL_TOTAL AS (
+    SELECT
+        C.COD_CLASSE_CONT,
+        C.NOME_CLASSE_CONT,
+        C.COD_TOTAL,
+        C.NOME_TOTAL,
+
+        COUNT(*) AS QTD_CHAVES_MAPA,
+        SUM(C.CHAVE_ENCONTRADA) AS QTD_CHAVES_ENCONTRADAS,
+        COUNT(*) - SUM(C.CHAVE_ENCONTRADA) AS QTD_CHAVES_SEM_MOVIMENTO,
+        MAX(C.CHAVE_REUTILIZADA) AS FLAG_CHAVE_REUTILIZADA,
+
+        SUM(C.QTD_LINHAS_RHFP0408) AS QTD_LINHAS_RHFP0408,
+        SUM(C.QTD_CUSTOS_CONTABEIS) AS QTD_CUSTOS_CONTABEIS,
+        SUM(C.QTD_CUSTOS_DESTINO) AS QTD_CUSTOS_DESTINO,
+
+        ROUND(SUM(C.VALOR_DEBITO_CHAVE), 2) AS VALOR_DEBITO,
+        ROUND(SUM(C.VALOR_CREDITO_CHAVE), 2) AS VALOR_CREDITO
+
+    FROM CONTABIL_CHAVE C
+    GROUP BY
+        C.COD_CLASSE_CONT,
+        C.NOME_CLASSE_CONT,
+        C.COD_TOTAL,
+        C.NOME_TOTAL
+),
+
+/* =========================================================
+   3) FOLHA
+   ========================================================= */
+FOLHA_BASE AS (
+    SELECT DISTINCT
+        B.COD_MESTRE_EVENTO,
+        B.COD_EVENTO
+    FROM RHFP1003 B
+    CROSS JOIN PARAMS P
+    WHERE B.COD_EVENTO IN (1, 17, 19, 26)
+      AND B.DATA_REFERENCIA >= P.DATA_INICIO
+      AND B.DATA_REFERENCIA <  P.DATA_FIM + 1
+      AND B.COD_ORGANOGRAMA = P.COD_ORGANOGRAMA
+),
+
+FOLHA_VD_EVENTO AS (
+    SELECT
+        A.COD_VD,
+        B.COD_EVENTO,
+        ROUND(SUM(NVL(A.VALOR_VD, 0)), 2) AS VALOR_VD
+    FROM RHFP1006 A
+    JOIN FOLHA_BASE B
+      ON A.COD_MESTRE_EVENTO = B.COD_MESTRE_EVENTO
+    GROUP BY
+        A.COD_VD,
+        B.COD_EVENTO
+),
+
+FOLHA_DETALHE_VD AS (
+    SELECT
+        M.COD_CLASSE_CONT,
+        M.NOME_CLASSE_CONT,
+        M.COD_TOTAL,
+        M.NOME_TOTAL,
+        M.COD_VD,
+        M.SINAL_OPERACAO,
+
+        ROUND(SUM(CASE WHEN F.COD_EVENTO = 1  THEN NVL(F.VALOR_VD, 0) ELSE 0 END), 2) AS VALOR_EVENTO_1,
+        ROUND(SUM(CASE WHEN F.COD_EVENTO = 17 THEN NVL(F.VALOR_VD, 0) ELSE 0 END), 2) AS VALOR_EVENTO_17,
+        ROUND(SUM(CASE WHEN F.COD_EVENTO = 19 THEN NVL(F.VALOR_VD, 0) ELSE 0 END), 2) AS VALOR_EVENTO_19,
+        ROUND(SUM(CASE WHEN F.COD_EVENTO = 26 THEN NVL(F.VALOR_VD, 0) ELSE 0 END), 2) AS VALOR_EVENTO_26,
+
+        ROUND(SUM(
+            CASE
+                WHEN M.COD_TOTAL = 27
+                 AND M.COD_VD = 1003
+                 AND F.COD_EVENTO NOT IN (17, 19) THEN 0
+                ELSE NVL(F.VALOR_VD, 0)
+            END
+        ), 2) AS VALOR_VD_CONSIDERADO,
+
+        ROUND(SUM(
+            CASE
+                WHEN M.COD_TOTAL = 27
+                 AND M.COD_VD = 1003
+                 AND F.COD_EVENTO NOT IN (17, 19) THEN 0
+                WHEN M.SINAL_OPERACAO = '+' THEN NVL(F.VALOR_VD, 0)
+                WHEN M.SINAL_OPERACAO = '-' THEN NVL(F.VALOR_VD, 0) * -1
+                ELSE 0
+            END
+        ), 2) AS VALOR_VD_APLICADO
+
+    FROM MAP_TOTAL_VD M
+    LEFT JOIN FOLHA_VD_EVENTO F
+           ON F.COD_VD = M.COD_VD
+    GROUP BY
+        M.COD_CLASSE_CONT,
+        M.NOME_CLASSE_CONT,
+        M.COD_TOTAL,
+        M.NOME_TOTAL,
+        M.COD_VD,
+        M.SINAL_OPERACAO
+),
+
+FOLHA_TOTAL AS (
+    SELECT
+        D.COD_CLASSE_CONT,
+        D.NOME_CLASSE_CONT,
+        D.COD_TOTAL,
+        D.NOME_TOTAL,
+        ROUND(SUM(CASE WHEN D.SINAL_OPERACAO = '+' THEN D.VALOR_VD_CONSIDERADO ELSE 0 END), 2) AS VALOR_FOLHA_SOMA,
+        ROUND(SUM(CASE WHEN D.SINAL_OPERACAO = '-' THEN D.VALOR_VD_CONSIDERADO ELSE 0 END), 2) AS VALOR_FOLHA_SUBTRAI,
+        ROUND(SUM(D.VALOR_VD_APLICADO), 2) AS VALOR_FOLHA
+    FROM FOLHA_DETALHE_VD D
+    GROUP BY
+        D.COD_CLASSE_CONT,
+        D.NOME_CLASSE_CONT,
+        D.COD_TOTAL,
+        D.NOME_TOTAL
+),
+
+/* =========================================================
+   4) CONFLITO DE SINAL
+   ========================================================= */
+MAPA_SINAL_CONFLITO AS (
+    SELECT
+        COD_CLASSE_CONT,
+        COD_TOTAL,
+        NOME_TOTAL,
+        LISTAGG(COD_VD, ' | ') WITHIN GROUP (ORDER BY COD_VD) AS VDS_CONFLITANTES
+    FROM (
+        SELECT
+            COD_CLASSE_CONT,
+            COD_TOTAL,
+            NOME_TOTAL,
+            COD_VD
+        FROM A_BASE
+        GROUP BY
+            COD_CLASSE_CONT,
+            COD_TOTAL,
+            NOME_TOTAL,
+            COD_VD
+        HAVING COUNT(DISTINCT SINAL_OPERACAO) > 1
+    )
+    GROUP BY
+        COD_CLASSE_CONT,
+        COD_TOTAL,
+        NOME_TOTAL
+),
+
+/* =========================================================
+   5) RESULTADO GENÉRICO POR TOTALIZADOR
+   ========================================================= */
+RESULTADO_GENERIC AS (
+    SELECT
+        C.COD_CLASSE_CONT,
+        C.NOME_CLASSE_CONT,
+        C.COD_TOTAL,
+        C.NOME_TOTAL,
+        V.VDS_DO_TOTAL,
+        K.CHAVES_CONTABEIS,
+        MSC.VDS_CONFLITANTES,
+
+        NVL(C.VALOR_DEBITO, 0)        AS VALOR_DEBITO,
+        NVL(C.VALOR_CREDITO, 0)       AS VALOR_CREDITO,
+        NVL(F.VALOR_FOLHA, 0)         AS VALOR_FOLHA,
+
+        ROUND(NVL(C.VALOR_DEBITO, 0)  - NVL(F.VALOR_FOLHA, 0), 2) AS DIF_DEBITO_X_FOLHA,
+        ROUND(NVL(C.VALOR_CREDITO, 0) - NVL(F.VALOR_FOLHA, 0), 2) AS DIF_CREDITO_X_FOLHA,
+
+        CASE
+            WHEN ABS(NVL(C.VALOR_DEBITO, 0) - NVL(F.VALOR_FOLHA, 0))
+               <= ABS(NVL(C.VALOR_CREDITO, 0) - NVL(F.VALOR_FOLHA, 0))
+            THEN 'DEBITO'
+            ELSE 'CREDITO'
+        END AS LADO_ESCOLHIDO,
+
+        CASE
+            WHEN ABS(NVL(C.VALOR_DEBITO, 0) - NVL(F.VALOR_FOLHA, 0))
+               <= ABS(NVL(C.VALOR_CREDITO, 0) - NVL(F.VALOR_FOLHA, 0))
+            THEN NVL(C.VALOR_DEBITO, 0)
+            ELSE NVL(C.VALOR_CREDITO, 0)
+        END AS VALOR_CONTABIL_CONSIDERADO,
+
+        CASE
+            WHEN ABS(NVL(C.VALOR_DEBITO, 0) - NVL(F.VALOR_FOLHA, 0))
+               <= ABS(NVL(C.VALOR_CREDITO, 0) - NVL(F.VALOR_FOLHA, 0))
+            THEN ROUND(NVL(C.VALOR_DEBITO, 0) - NVL(F.VALOR_FOLHA, 0), 2)
+            ELSE ROUND(NVL(C.VALOR_CREDITO, 0) - NVL(F.VALOR_FOLHA, 0), 2)
+        END AS DIFERENCA_FINAL
+
+    FROM CONTABIL_TOTAL C
+    LEFT JOIN FOLHA_TOTAL F
+           ON F.COD_CLASSE_CONT = C.COD_CLASSE_CONT
+          AND F.COD_TOTAL       = C.COD_TOTAL
+          AND F.NOME_TOTAL      = C.NOME_TOTAL
+    LEFT JOIN VD_TOTAL V
+           ON V.COD_CLASSE_CONT = C.COD_CLASSE_CONT
+          AND V.COD_TOTAL       = C.COD_TOTAL
+          AND V.NOME_TOTAL      = C.NOME_TOTAL
+    LEFT JOIN CHAVE_TOTAL K
+           ON K.COD_CLASSE_CONT = C.COD_CLASSE_CONT
+          AND K.COD_TOTAL       = C.COD_TOTAL
+          AND K.NOME_TOTAL      = C.NOME_TOTAL
+    LEFT JOIN MAPA_SINAL_CONFLITO MSC
+           ON MSC.COD_CLASSE_CONT = C.COD_CLASSE_CONT
+          AND MSC.COD_TOTAL       = C.COD_TOTAL
+          AND MSC.NOME_TOTAL      = C.NOME_TOTAL
+),
+
+/* =========================================================
+   6) MAPA MANUAL NO ESTILO DA PLANILHA
+   ========================================================= */
+MAPA_LINHA_MANUAL AS (
+    SELECT  1 AS ORDEM, 22 AS COD_CLASSE_CONT, 'Ordenados'             AS DESCRICAO, NULL    AS COD_CONTA_CONTABIL, NULL AS TIPO_LANCAMENTO, 'N' AS FLAG_CONFIRMADA FROM DUAL
+    UNION ALL
+    SELECT  2, 22, 'Descontos Ordenados',                                NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT  3, 22, 'INSS A Recolher',                                    213301, 'C', 'S' FROM DUAL
+    UNION ALL
+    SELECT  4, 22, 'INSS PRO LABORE',                                    342502, 'D', 'S' FROM DUAL
+    UNION ALL
+    SELECT  5, 22, 'Inss 13º Baixas',                                    NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT  6, 22, 'INSS Retido',                                        NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT  7, 22, 'Deduções INSS',                                      NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT  8, 22, 'IR RETIDO',                                          NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT  9, 22, 'DESC.ADIANT.FERIAS',                                 NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT 10, 22, 'IMPOSTO SINDICAL',                                   NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT 11, 22, 'DEBITOS CREDIARIO',                                  NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT 12, 22, 'P.L.R',                                              NULL,    NULL, 'N' FROM DUAL
+    UNION ALL
+    SELECT 13, 22, 'FGTS a recolher',                                    213504, 'C', 'S' FROM DUAL
+),
+
+/* =========================================================
+   7) TOTAIS MAPEADOS MANUALMENTE
+   CONFIRMADOS + alguns já bem indicados pelos teus prints
+   ========================================================= */
+MAPA_LINHA_TOTAL_MANUAL AS (
+    /* Confirmados */
+    SELECT 'INSS A Recolher' AS DESCRICAO, 127 AS COD_TOTAL FROM DUAL
+    UNION ALL
+    SELECT 'INSS A Recolher', 132 FROM DUAL
+
+    UNION ALL
+    SELECT 'INSS PRO LABORE', 131 FROM DUAL
+
+    UNION ALL
+    SELECT 'FGTS a recolher', 141 FROM DUAL
+    UNION ALL
+    SELECT 'FGTS a recolher', 142 FROM DUAL
+    UNION ALL
+    SELECT 'FGTS a recolher', 145 FROM DUAL
+
+    /* Bem indicados pelos resultados já validados */
+    UNION ALL
+    SELECT 'IR RETIDO', 617 FROM DUAL
+    UNION ALL
+    SELECT 'DESC.ADIANT.FERIAS', 745 FROM DUAL
+    UNION ALL
+    SELECT 'IMPOSTO SINDICAL', 32 FROM DUAL
+    UNION ALL
+    SELECT 'DEBITOS CREDIARIO', 122 FROM DUAL
+),
+
+MANUAL_TOTAL_COUNT AS (
+    SELECT
+        DESCRICAO,
+        COUNT(*) AS QTD_TOTAIS
+    FROM MAPA_LINHA_TOTAL_MANUAL
+    GROUP BY DESCRICAO
+),
+
+MANUAL_TOTAL_LISTA AS (
+    SELECT
+        X.DESCRICAO,
+        LISTAGG(X.COD_TOTAL, ' | ') WITHIN GROUP (ORDER BY X.COD_TOTAL) AS TOTAIS_DA_LINHA
+    FROM (
+        SELECT DISTINCT
+            DESCRICAO,
+            COD_TOTAL
+        FROM MAPA_LINHA_TOTAL_MANUAL
+    ) X
+    GROUP BY X.DESCRICAO
+),
+
+MANUAL_VD_LISTA AS (
+    SELECT
+        X.DESCRICAO,
+        LISTAGG(X.COD_VD, ' | ') WITHIN GROUP (ORDER BY X.COD_VD) AS VDS_DA_LINHA
+    FROM (
+        SELECT DISTINCT
+            LT.DESCRICAO,
+            M.COD_VD
+        FROM MAPA_LINHA_TOTAL_MANUAL LT
+        JOIN MAP_TOTAL_VD M
+          ON M.COD_TOTAL = LT.COD_TOTAL
+         AND M.COD_CLASSE_CONT = 22
+    ) X
+    GROUP BY X.DESCRICAO
+),
+
+/* =========================================================
+   8) FOLHA DAS LINHAS MANUAIS
+   ========================================================= */
+MANUAL_FOLHA AS (
+    SELECT
+        L.ORDEM,
+        L.DESCRICAO,
+        ROUND(SUM(
+            CASE
+                WHEN M.COD_TOTAL = 27
+                 AND M.COD_VD = 1003
+                 AND F.COD_EVENTO NOT IN (17, 19) THEN 0
+                WHEN M.SINAL_OPERACAO = '+' THEN NVL(F.VALOR_VD, 0)
+                WHEN M.SINAL_OPERACAO = '-' THEN NVL(F.VALOR_VD, 0) * -1
+                ELSE 0
+            END
+        ), 2) AS VALOR_FOLHA
+    FROM MAPA_LINHA_MANUAL L
+    LEFT JOIN MAPA_LINHA_TOTAL_MANUAL LT
+      ON LT.DESCRICAO = L.DESCRICAO
+    LEFT JOIN MAP_TOTAL_VD M
+      ON M.COD_CLASSE_CONT = L.COD_CLASSE_CONT
+     AND M.COD_TOTAL = LT.COD_TOTAL
+    LEFT JOIN FOLHA_VD_EVENTO F
+      ON F.COD_VD = M.COD_VD
+    GROUP BY
+        L.ORDEM,
+        L.DESCRICAO
+),
+
+/* =========================================================
+   9) CONTÁBIL DAS LINHAS MANUAIS
+   Para INSS/FGTS/PRO LABORE usa conta+lancamento corretamente
+   Para linhas 1:1 sem conta definida, cai no resultado genérico
+   ========================================================= */
+MANUAL_CHAVE_CONTABIL AS (
+    SELECT DISTINCT
+        L.ORDEM,
+        L.DESCRICAO,
+        L.COD_CLASSE_CONT,
+        L.COD_CONTA_CONTABIL,
+        L.TIPO_LANCAMENTO,
+        T.COD_LANCAMENTO
+    FROM MAPA_LINHA_MANUAL L
+    JOIN MAPA_LINHA_TOTAL_MANUAL LT
+      ON LT.DESCRICAO = L.DESCRICAO
+    JOIN MAP_TOTAL_CHAVE T
+      ON T.COD_CLASSE_CONT = L.COD_CLASSE_CONT
+     AND T.COD_TOTAL = LT.COD_TOTAL
+    WHERE L.COD_CONTA_CONTABIL IS NOT NULL
+      AND L.TIPO_LANCAMENTO IS NOT NULL
+),
+
+MANUAL_CONTABIL_CONTA AS (
+    SELECT
+        K.ORDEM,
+        K.DESCRICAO,
+        ROUND(SUM(NVL(B.VALOR_LANCAMENTO, 0)), 2) AS VALOR_CONTABIL
+    FROM MANUAL_CHAVE_CONTABIL K
+    LEFT JOIN RHFP0408_BASE B
+      ON B.COD_CLASSE_CONT    = K.COD_CLASSE_CONT
+     AND B.COD_LANCAMENTO     = K.COD_LANCAMENTO
+     AND B.COD_CONTA_CONTABIL = K.COD_CONTA_CONTABIL
+     AND B.TIPO_LANCAMENTO    = K.TIPO_LANCAMENTO
+    GROUP BY
+        K.ORDEM,
+        K.DESCRICAO
+),
+
+/* fallback: linhas com 1 total apenas usam o valor genérico daquele total */
+MANUAL_CONTABIL_FALLBACK AS (
+    SELECT
+        L.ORDEM,
+        L.DESCRICAO,
+        MAX(G.LADO_ESCOLHIDO) AS LADO_FALLBACK,
+        ROUND(SUM(G.VALOR_CONTABIL_CONSIDERADO), 2) AS VALOR_CONTABIL
+    FROM MAPA_LINHA_MANUAL L
+    JOIN MANUAL_TOTAL_COUNT C
+      ON C.DESCRICAO = L.DESCRICAO
+     AND C.QTD_TOTAIS = 1
+    JOIN MAPA_LINHA_TOTAL_MANUAL LT
+      ON LT.DESCRICAO = L.DESCRICAO
+    JOIN RESULTADO_GENERIC G
+      ON G.COD_CLASSE_CONT = L.COD_CLASSE_CONT
+     AND G.COD_TOTAL = LT.COD_TOTAL
+    WHERE L.COD_CONTA_CONTABIL IS NULL
+      AND L.TIPO_LANCAMENTO IS NULL
+    GROUP BY
+        L.ORDEM,
+        L.DESCRICAO
+),
+
+MANUAL_RESULT AS (
+    SELECT
+        L.ORDEM_EXIBICAO,
+        'MANUAL' AS ORIGEM,
+        L.COD_CLASSE_CONT AS CLASSE,
+        L.DESCRICAO AS LINHA_VALIDACAO,
+        L.COD_CONTA_CONTABIL AS CONTA_CONTABIL,
+        COALESCE(L.TIPO_LANCAMENTO, FCB.LADO_FALLBACK) AS LADO,
+        NVL(TL.TOTAIS_DA_LINHA, '-') AS TOTAIS_DA_LINHA,
+        NVL(VL.VDS_DA_LINHA, '-') AS VDS_DA_LINHA,
+
+        ROUND(COALESCE(CC.VALOR_CONTABIL, FCB.VALOR_CONTABIL, 0), 2) AS VALOR_CONTABIL,
+        ROUND(NVL(F.VALOR_FOLHA, 0), 2) AS VALOR_FOLHA,
+        ROUND(COALESCE(CC.VALOR_CONTABIL, FCB.VALOR_CONTABIL, 0) - NVL(F.VALOR_FOLHA, 0), 2) AS DIFERENCA,
+
+        CASE
+            WHEN L.FLAG_CONFIRMADA = 'N' AND NVL(TC.QTD_TOTAIS, 0) = 0 THEN 'PENDENTE_MAPEAMENTO'
+            WHEN L.FLAG_CONFIRMADA = 'N' AND NVL(TC.QTD_TOTAIS, 0) > 0 THEN 'PRE_VALIDACAO'
+            WHEN ABS(ROUND(COALESCE(CC.VALOR_CONTABIL, FCB.VALOR_CONTABIL, 0) - NVL(F.VALOR_FOLHA, 0), 2)) <= (SELECT TOLERANCIA FROM PARAMS) THEN 'OK'
+            ELSE 'DIVERGENTE'
+        END AS STATUS
+    FROM (
+        SELECT
+            M.*,
+            M.ORDEM AS ORDEM_EXIBICAO
+        FROM MAPA_LINHA_MANUAL M
+    ) L
+    LEFT JOIN MANUAL_CONTABIL_CONTA CC
+      ON CC.ORDEM = L.ORDEM
+    LEFT JOIN MANUAL_CONTABIL_FALLBACK FCB
+      ON FCB.ORDEM = L.ORDEM
+    LEFT JOIN MANUAL_FOLHA F
+      ON F.ORDEM = L.ORDEM
+    LEFT JOIN MANUAL_TOTAL_LISTA TL
+      ON TL.DESCRICAO = L.DESCRICAO
+    LEFT JOIN MANUAL_VD_LISTA VL
+      ON VL.DESCRICAO = L.DESCRICAO
+    LEFT JOIN MANUAL_TOTAL_COUNT TC
+      ON TC.DESCRICAO = L.DESCRICAO
+),
+
+
+/* =========================================================
+   10) RESTANTE AUTOMÁTICO
+   Tudo que não estiver coberto no manual continua aparecendo
+   ========================================================= */
+AUTO_RESULT AS (
+    SELECT
+        1000 + (G.COD_CLASSE_CONT * 10000) + G.COD_TOTAL AS ORDEM_EXIBICAO,
+        'AUTO' AS ORIGEM,
+        G.COD_CLASSE_CONT AS CLASSE,
+        TO_CHAR(G.COD_TOTAL) || ' - ' || TRIM(G.NOME_TOTAL) AS LINHA_VALIDACAO,
+        CAST(NULL AS NUMBER) AS CONTA_CONTABIL,
+        G.LADO_ESCOLHIDO AS LADO,
+        TO_CHAR(G.COD_TOTAL) AS TOTAIS_DA_LINHA,
+        NVL(G.VDS_DO_TOTAL, '-') AS VDS_DA_LINHA,
+        G.VALOR_CONTABIL_CONSIDERADO AS VALOR_CONTABIL,
+        G.VALOR_FOLHA AS VALOR_FOLHA,
+        G.DIFERENCA_FINAL AS DIFERENCA,
+        CASE
+            WHEN G.VDS_CONFLITANTES IS NOT NULL THEN 'REVISAR_MAPEAMENTO'
+            WHEN ABS(G.DIFERENCA_FINAL) <= (SELECT TOLERANCIA FROM PARAMS) THEN 'OK'
+            ELSE 'DIVERGENTE'
+        END AS STATUS
+    FROM RESULTADO_GENERIC G
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM MAPA_LINHA_TOTAL_MANUAL M
+        JOIN MAPA_LINHA_MANUAL L
+          ON L.DESCRICAO = M.DESCRICAO
+         AND L.COD_CLASSE_CONT = G.COD_CLASSE_CONT
+        WHERE M.COD_TOTAL = G.COD_TOTAL
+    )
+),
+
+FINAL_RESULT AS (
+    SELECT * FROM MANUAL_RESULT
+    UNION ALL
+    SELECT * FROM AUTO_RESULT
+)
+
+SELECT
+    F.ORIGEM AS "Origem",
+    F.CLASSE AS "Classe",
+    F.LINHA_VALIDACAO AS "Linha Validação",
+    F.CONTA_CONTABIL AS "Conta Contábil",
+    F.LADO AS "Lado",
+    F.TOTAIS_DA_LINHA AS "Totais da Linha",
+    F.VDS_DA_LINHA AS "VDs da Linha",
+    TO_CHAR(F.VALOR_CONTABIL, 'FM999G999G999G990D00', 'NLS_NUMERIC_CHARACTERS='',.''') AS "Contábil",
+    TO_CHAR(F.VALOR_FOLHA,    'FM999G999G999G990D00', 'NLS_NUMERIC_CHARACTERS='',.''') AS "Folha",
+    TO_CHAR(F.DIFERENCA,      'FM999G999G999G990D00', 'NLS_NUMERIC_CHARACTERS='',.''') AS "Diferença",
+    F.STATUS AS "Status"
+FROM FINAL_RESULT F
+ORDER BY
+    F.ORDEM_EXIBICAO;

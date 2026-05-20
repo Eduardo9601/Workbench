@@ -60,7 +60,7 @@ GER_INT AS (
             'ATIVO, SEM RETORNO',
             'PODERÁ RETORNAR'
       )
-      AND V.COD_CONTRATO IN
+      AND V.COD_CONTRATO NOT IN 
       /*PASSARAM POR MAIS DE UMA LOJA EM 2025*/
       (383841, 391121, 390323, 302996, 394093, 383898, 391249, 
       393626, 378438, 312878, 380649, 388904, 388566, 388846,
@@ -395,13 +395,13 @@ FINAL_INT_RES AS (
     GROUP BY COD_CONTRATO
 )
 
-SELECT *
+SELECT 
         /*colunas para exportar notas*/
-        /*DISTINCT
+        DISTINCT
         COD_CONTRATO,
         '30/04/2026' AS DATA_REFERENCIA,
         1146 AS COD_VD,
-        NOTA*/
+        NOTA
        /*colunas apenas pra exportação dos valores*/
        /*DISTINCT
        COD_CONTRATO,
@@ -410,7 +410,7 @@ SELECT *
        VLR_FINAL_PLR*/
 FROM FINAL_INT_DET
 WHERE VLR_FINAL_PLR <> 0
-ORDER BY COD_UNIDADE, DES_PESSOA, DT_INI_CALC;
+--ORDER BY COD_UNIDADE, DES_PESSOA, DT_INI_CALC;
 
 
 

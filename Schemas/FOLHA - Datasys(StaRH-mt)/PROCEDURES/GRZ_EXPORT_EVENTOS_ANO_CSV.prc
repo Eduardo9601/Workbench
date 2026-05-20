@@ -41,8 +41,8 @@ SELECT q."codigo_empresa",
                         a.cod_contrato AS "cadastro_colaborador",
                         a1.cod_mestre_evento AS "codigo_calculo",
                         EV.COD_EVENTO AS "codigo_evento",                  
-                        0 AS "referencia_evento",
-                        NVL(a.valor_vd, 0) AS "valor_evento",
+                        TO_CHAR(ROUND(NVL(a.QTDE_VD, 0), 2), 'FM9999999990D00') AS "referencia_evento",
+                        TO_CHAR(ROUND(NVL(a.VALOR_VD, 0), 2), 'FM9999999990D00') AS "valor_evento",
                         null as "codigo_rubrica",
                         null as "fator_rubrica",
                         null as "origem_evento",
@@ -99,7 +99,7 @@ SELECT q."codigo_empresa",
           JOIN (SELECT C.COD_CONTRATO
                 FROM V_DADOS_CONTRATO_AVT C
                GROUP BY C.COD_CONTRATO
-              HAVING MIN(NVL(TRUNC(C.DATA_ADMISSAO), DATE '1900-01-01')) <= '19/01/2026') OK
+              HAVING MIN(NVL(TRUNC(C.DATA_ADMISSAO), DATE '1900-01-01')) < '01/05/2026') OK
             ON OK.COD_CONTRATO = A.COD_CONTRATO
 
          OUTER APPLY (
@@ -197,7 +197,7 @@ SELECT q."codigo_empresa",
                   JOIN (SELECT C.COD_CONTRATO
                         FROM V_DADOS_CONTRATO_AVT C
                        GROUP BY C.COD_CONTRATO
-                      HAVING MIN(NVL(TRUNC(C.DATA_ADMISSAO), DATE '1900-01-01')) <= '19/01/2026') OK
+                      HAVING MIN(NVL(TRUNC(C.DATA_ADMISSAO), DATE '1900-01-01')) < '01/05/2026') OK
                     ON OK.COD_CONTRATO = A.COD_CONTRATO
                  OUTER APPLY (
                      SELECT H.COD_ORGANOGRAMA

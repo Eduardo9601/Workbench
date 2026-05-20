@@ -1,0 +1,26 @@
+ CREATE TABLE GRZ_KPI_NOTAS_PLR_2025_TB (
+    COD_UNIDADE          NUMBER(10)    NOT NULL,
+    DES_UNIDADE          VARCHAR2(100) NOT NULL,
+    REDE                 NUMBER(3)     NOT NULL,
+    REGIAO               NUMBER(10)    NOT NULL,
+    APURACAO             VARCHAR2(20)  NOT NULL,
+    QTD_MESES            NUMBER(3)     NOT NULL,
+    ANO                  NUMBER(4)     NOT NULL,
+    
+    PTS_ORCADO           NUMBER(10,2),    
+    PTS_MARGEM           NUMBER(10,2),
+    PTS_INVENTARIO       NUMBER(10,2),
+    PTS_LUCRO            NUMBER(10,2),
+    PTS_FOLHA            NUMBER(10,2),
+    PTS_VT               NUMBER(10,2),
+    PTS_PREVENTIVA       NUMBER(10,2),
+    PTS_PERMANENCIA      NUMBER(10,2),
+    PTS_PRODUTIVIDADE    NUMBER(10,2),
+    PTS_TURNOVER         NUMBER(10,2),
+    PTS_TREINAMENTO      NUMBER(10,2),
+    PTS_TRAINEE          NUMBER(10,2),
+    TOTAL_PTS            NUMBER(10,2),
+
+    CONSTRAINT PK_GRZ_KPI_NOTAS_PLR_2025
+        PRIMARY KEY (COD_UNIDADE, ANO)
+);

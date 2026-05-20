@@ -16,6 +16,7 @@ SELECT CASE
          ELSE
           'ATIVO'
        END AS DES_STATUS,
+       B.COD_PESSOA,
        A.COD_CONTRATO,
        B.NOME_PESSOA AS DES_PESSOA,
        SUBSTR(

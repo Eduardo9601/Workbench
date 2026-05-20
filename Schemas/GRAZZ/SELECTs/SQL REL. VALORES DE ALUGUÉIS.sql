@@ -52,7 +52,7 @@ DESCONTOS AS (
          DTA_DESCTO_FIM,
          LAST_DAY(ADD_MONTHS(DTA_DESCTO_FIM, -1)) AS DESCONTO_ATE
     FROM BASE_CONTRATOS
-   WHERE DTA_DESCTO_FIM >= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_DATE('03/2026', 'MM/YYYY')
+   WHERE DTA_DESCTO_FIM >= TO_DATE('04/2026', 'MM/YYYY') --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_DATE('03/2026', 'MM/YYYY')
 ),
 /* LOJAS QUE POSSUEM DIFERENÇAS */
 DIFERENCAS AS (
@@ -62,7 +62,7 @@ DIFERENCAS AS (
          LAST_DAY(ADD_MONTHS(DTA_VALIDADE_DIF, -1)) AS VALIDADE_DIF
         -- DTA_VALIDADE_DIF AS VALIDADE_DIF
     FROM BASE_CONTRATOS
-   WHERE DTA_VALIDADE_DIF >= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_DATE('03/2026', 'MM/YYYY')
+   WHERE DTA_VALIDADE_DIF >= TO_DATE('04/2026', 'MM/YYYY') --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_DATE('03/2026', 'MM/YYYY')
 ),
 /* LOJAS QUE POSSUEM EMPRÉSTIMOS (por unidade+contrato) */
 LOJAS_EMPRESTIMOS AS (
@@ -80,7 +80,7 @@ LOJAS_EMPRESTIMOS AS (
            WHERE SUB.COD_UNIDADE = A.COD_UNIDADE
              AND SUB.COD_CONTRATO = A.COD_CONTRATO
              AND SUB.VLR_ADIANTAMENTO <> 0
-             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
+             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <= TO_NUMBER(TO_CHAR(TO_DATE('04/2026', 'MM/YYYY'), 'YYYYMM')) --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
                  
          )
      AND A.VLR_ADIANTAMENTO <> 0
@@ -98,7 +98,7 @@ LOJAS_RETENCAO AS (
             FROM GRAZZ.GRZ_LOC_MVTO SUB
            WHERE SUB.COD_UNIDADE = A.COD_UNIDADE
              AND SUB.VLR_ADIANTAMENTO <> 0
-             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <= --Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
+             AND (SUB.ANO_REFERENCIA * 100 + SUB.MES_REFERENCIA) <= TO_NUMBER(TO_CHAR(TO_DATE('04/2026', 'MM/YYYY'), 'YYYYMM'))--Aqui a data precisa ser MÊS e ANO, onde o USUÁRIO irá informar Data exemplo TO_NUMBER(TO_CHAR(TO_DATE('03/2026', 'MM/YYYY'), 'YYYYMM'))
          )
      AND A.VLR_ADIANTAMENTO <> 0
      AND A.COD_UNIDADE = 284
@@ -188,7 +188,7 @@ SELECT CT.UNIDADE,
        CT.DTA_INICIO,
        CT.DTA_TERMINO,
        TO_CHAR(SUM(CASE
-                     WHEN CT.DTA_ALTERACAO IS NOT NULL AND CT.DTA_ALTERACAO >= /*Aqui mesma coisa, onde o USUÁRIO irá informar Data exemplo: TO_DATE('03/2026', 'MM/YYYY') */ THEN
+                     WHEN CT.DTA_ALTERACAO IS NOT NULL AND CT.DTA_ALTERACAO >= TO_DATE('04/2026', 'MM/YYYY')/*Aqui mesma coisa, onde o USUÁRIO irá informar Data exemplo: TO_DATE('03/2026', 'MM/YYYY') */ THEN
                       NVL(CT.VLR_ANTIGO_ALUGUEL, 0)                     
                      ELSE
                       NVL(NULLIF(CT.VLR_ALUGUEL_FIXO, 0), CT.VLR_NOVO_ALUGUEL)

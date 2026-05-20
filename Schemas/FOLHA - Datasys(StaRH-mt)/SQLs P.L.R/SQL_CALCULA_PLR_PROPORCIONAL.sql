@@ -598,13 +598,13 @@ LEFT JOIN NOTAS_PLR N
 ORDER BY COALESCE(A.DES_PESSOA, U.DES_PESSOA)
 )
 
-SELECT 
+SELECT *
        /*colunas apenas para exportação das notas*/
-       DISTINCT
+       /*DISTINCT
        COD_CONTRATO,
        '30/04/2026' AS DATA_REFERENCIA,
        1146 AS COD_VD,
-       NOTA
+       NOTA*/
        /*colunas apenas para exportação dos valores*/
        /*DISTINCT
        COD_CONTRATO,
