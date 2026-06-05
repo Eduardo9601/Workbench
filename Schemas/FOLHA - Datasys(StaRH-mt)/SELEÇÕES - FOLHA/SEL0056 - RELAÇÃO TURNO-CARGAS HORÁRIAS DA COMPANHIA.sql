@@ -1,115 +1,318 @@
 WITH
+PARAMS AS (
+    SELECT
+        TRUNC(CAST(:DATA_INICIO AS DATE)) AS DATA_INICIO,
+        TRUNC(CAST(:DATA_FIM    AS DATE)) AS DATA_FIM
+    FROM DUAL
+),
+
+/* =========================================================
+   1. BASE-MÃE OFICIAL
+   Mesma lógica do Perfil / RE7001.
+========================================================= */
+BASE_PERFIL AS (
+    SELECT *
+    FROM (
+        SELECT
+            V.COD_PESSOA,
+            V.COD_CONTRATO,
+            V.DES_PESSOA,
+            V.STATUS,
+            V.DATA_ADMISSAO,
+            V.DATA_DEMISSAO,
+            V.DATA_AVANCO,
+            V.DATA_NASCIMENTO,
+            V.IDADE,
+            V.IND_DEFICIENCIA,
+            V.SEXO,
+            NVL(V.COD_AFAST, 0) AS COD_AFAST,
+            V.DES_AFAST,
+            V.STATUS_AFAST,
+            V.COD_EMP,
+            V.DES_EMPRESA,
+            V.COD_REDE_LOCAL,
+            V.DES_REDE_LOCAL,
+
+            ROW_NUMBER() OVER (
+                PARTITION BY V.COD_CONTRATO
+                ORDER BY
+                    NVL(V.DATA_DEMISSAO, DATE '2999-12-31') DESC,
+                    V.DATA_ADMISSAO DESC,
+                    V.COD_CONTRATO DESC
+            ) AS RN_CONTRATO
+
+        FROM V_DADOS_COLAB_AVT V
+        CROSS JOIN PARAMS P
+        WHERE V.COD_EMP = 8
+          AND TRUNC(V.DATA_ADMISSAO) <= P.DATA_FIM
+          AND (
+                 V.DATA_DEMISSAO IS NULL
+              OR TRUNC(V.DATA_DEMISSAO) >= P.DATA_FIM
+          )
+    )
+    WHERE RN_CONTRATO = 1
+),
+
+/* =========================================================
+   2. ORGANOGRAMA OFICIAL NA REFERÊNCIA
+   Não usa VH_EST_ORG_CONTRATO_AVT.
+   Usa RHFP0310 + V_EST_ORG_ALTER_AVT, como ajustamos no RE7001.
+========================================================= */
+ORG_REF AS (
+    SELECT *
+    FROM (
+        SELECT
+            H.COD_CONTRATO,
+
+            H.DATA_INICIO AS DATA_INI_ORG,
+            H.DATA_FIM    AS DATA_FIM_ORG,
+            H.COD_ORGANOGRAMA,
+
+            A.COD_ORG_2 AS COD_EMP,
+            A.EDICAO_ORG_2 AS EDICAO_EMP,
+            A.NOME2 AS DES_EMP,
+
+            A.EDICAO_ORG AS COD_UNIDADE,
+            A.NOME_ORGANOGRAMA_B AS DES_UNIDADE,
+
+            A.COD_ORGANOGRAMA AS COD_ORGANOGRAMA_REF,
+            A.NOME_ORGANOGRAMA,
+            A.NOME_ORGANOGRAMA_A,
+            A.COD_NIVEL_ORG,
+            A.COD_ORGANOGRAMA_SUB,
+            A.EDICAO,
+
+            A.DATA_INICIO,
+            A.DATA_FIM,
+
+            A.COD_ORG_1,
+            A.EDICAO_ORG_1,
+            A.NOME1,
+
+            A.COD_ORG_2,
+            A.EDICAO_ORG_2,
+            A.NOME2,
+
+            A.COD_ORG_3,
+            A.EDICAO_ORG_3,
+            A.NOME3,
+
+            A.COD_ORG_4,
+            A.EDICAO_ORG_4,
+            A.NOME4,
+
+            A.COD_ORG_5,
+            A.EDICAO_ORG_5,
+            A.NOME5,
+
+            A.COD_ORG_6,
+            A.EDICAO_ORG_6,
+            A.NOME6,
+
+            A.COD_ORG_7,
+            A.EDICAO_ORG_7,
+            A.NOME7,
+
+            A.COD_ORG_8,
+            A.EDICAO_ORG_8,
+            A.NOME8,
+
+            A.COD_REDE,
+            A.DES_REDE,
+
+            CASE
+                WHEN A.COD_ORG_2 = 8 THEN
+                    CASE
+                        WHEN A.COD_ORG_3 = 9  THEN 2
+                        WHEN A.COD_ORG_3 = 21 THEN 3
+                        ELSE 1
+                    END
+                ELSE 4
+            END AS COD_TIPO,
+
+            CASE
+                WHEN A.COD_ORG_2 = 8 THEN
+                    CASE
+                        WHEN A.COD_ORG_3 = 9  THEN 'SETOR'
+                        WHEN A.COD_ORG_3 = 21 THEN 'DEPÓSITO'
+                        ELSE 'LOJA'
+                    END
+                ELSE 'COLIGADA'
+            END AS DES_TIPO,
+
+            ROW_NUMBER() OVER (
+                PARTITION BY H.COD_CONTRATO
+                ORDER BY
+                    CASE
+                        WHEN P.DATA_FIM BETWEEN TRUNC(H.DATA_INICIO)
+                                           AND NVL(TRUNC(H.DATA_FIM), DATE '2999-12-31')
+                        THEN 0 ELSE 1
+                    END,
+
+                    CASE
+                        WHEN P.DATA_FIM BETWEEN TRUNC(A.DATA_INICIO)
+                                           AND NVL(TRUNC(A.DATA_FIM), DATE '2999-12-31')
+                        THEN 0 ELSE 1
+                    END,
+
+                    H.DATA_INICIO DESC,
+                    A.DATA_INICIO DESC,
+                    NVL(H.DATA_FIM, DATE '2999-12-31') DESC,
+                    NVL(A.DATA_FIM, DATE '2999-12-31') DESC
+            ) AS RN_ORG
+
+        FROM RHFP0310 H
+        INNER JOIN V_EST_ORG_ALTER_AVT A
+            ON A.COD_ORGANOGRAMA = H.COD_ORGANOGRAMA
+        CROSS JOIN PARAMS P
+        WHERE A.COD_ORG_2 = 8
+          AND TRUNC(H.DATA_INICIO) <= P.DATA_FIM
+          AND TRUNC(A.DATA_INICIO) <= P.DATA_FIM
+    )
+    WHERE RN_ORG = 1
+),
+
+/* =========================================================
+   3. CARGO NA REFERÊNCIA
+   LEFT JOIN para não derrubar colaborador.
+========================================================= */
+CARGO_REF AS (
+    SELECT *
+    FROM (
+        SELECT
+            F.COD_CONTRATO,
+            F.COD_FUNCAO,
+            F.DES_FUNCAO,
+            ROW_NUMBER() OVER (
+                PARTITION BY F.COD_CONTRATO
+                ORDER BY
+                    F.DATA_INI_CLH DESC,
+                    NVL(F.DATA_FIM_CLH, DATE '2999-12-31') DESC
+            ) AS RN_CARGO
+        FROM VH_CARGO_CONTRATO_AVT F
+        CROSS JOIN PARAMS P
+        WHERE TRUNC(F.DATA_INI_CLH) <= P.DATA_FIM
+          AND NVL(TRUNC(F.DATA_FIM_CLH), DATE '2999-12-31') >= P.DATA_FIM
+    )
+    WHERE RN_CARGO = 1
+),
+
+/* =========================================================
+   4. HORAS BASE NA REFERÊNCIA
+   LEFT JOIN para não derrubar colaborador.
+========================================================= */
+HORAS_REF AS (
+    SELECT *
+    FROM (
+        SELECT
+            H.COD_CONTRATO,
+            H.HR_BASE_MES,
+            ROW_NUMBER() OVER (
+                PARTITION BY H.COD_CONTRATO
+                ORDER BY
+                    H.DATA_INI_HR DESC,
+                    NVL(H.DATA_FIM_HR, DATE '2999-12-31') DESC
+            ) AS RN_HR
+        FROM VH_HIST_HORAS_COLAB_AVT H
+        CROSS JOIN PARAMS P
+        WHERE TRUNC(H.DATA_INI_HR) <= P.DATA_FIM
+          AND NVL(TRUNC(H.DATA_FIM_HR), DATE '2999-12-31') >= P.DATA_FIM
+    )
+    WHERE RN_HR = 1
+),
+
+/* =========================================================
+   5. CONTRATOS FINAL
+   Mantém os nomes de colunas esperados pelo restante do SQL.
+========================================================= */
 CONTRATOS AS (
-  SELECT DISTINCT CT.STATUS,
-                  CT.COD_CONTRATO,
-                  CT.DES_PESSOA,
-                  CT.DATA_ADMISSAO,
-                  CT.DATA_DEMISSAO,
-                  -- Tempo de empresa individual
-                  TRUNC(MONTHS_BETWEEN(:DATA_FIM, CT.DATA_AVANCO) / 12) ||
-                  ' ano(s)' || ' e ' ||
-                  TRUNC(MOD(MONTHS_BETWEEN(:DATA_FIM, CT.DATA_AVANCO), 12)) ||
-                  ' mês(es)' AS TEMPO_EMPRESA,
-                  CT.DATA_NASCIMENTO,
-                  CT.IDADE,
-                  FN.COD_FUNCAO,
-                  FN.DES_FUNCAO,
-                  HR.HR_BASE_MES,
-                  CT.IND_DEFICIENCIA,
-                  CT.SEXO,
-                  ORG.COD_EMP,
-                  ORG.EDICAO_EMP,
-                  ORG.DES_EMP,
-                  ORG.COD_ORGANOGRAMA,
-                  ORG.COD_UNIDADE,
-                  ORG.DES_UNIDADE,
-                  ORG.NOME_ORGANOGRAMA,
-                  CASE
-                      WHEN ORG.COD_TIPO = 2 THEN
-                       ORG.EDICAO_ORG_3
-                      WHEN ORG.COD_TIPO = 3 THEN
-                       ORG.EDICAO_ORG_3
-                      ELSE
-                       ORG.COD_UNIDADE
-                  END AS COD_FILIAL,
-                  CASE
-                      WHEN ORG.COD_TIPO = 2 THEN
-                       ORG.NOME3
-                      WHEN ORG.COD_TIPO = 3 THEN
-                       ORG.NOME3
-                      ELSE
-                       ORG.DES_UNIDADE
-                  END AS DES_FILIAL,
-                  CASE
-                      WHEN ORG.COD_TIPO = 2 THEN
-                       ORG.EDICAO_ORG_4
-                      WHEN ORG.COD_TIPO = 3 THEN
-                       ORG.EDICAO_ORG_4
-                      ELSE
-                       ORG.COD_UNIDADE
-                  END AS COD_DIVISAO,
-                  CASE
-                      WHEN ORG.COD_TIPO = 2 THEN
-                       ORG.NOME4
-                      WHEN ORG.COD_TIPO = 3 THEN
-                       ORG.NOME4
-                      ELSE
-                       ORG.DES_UNIDADE
-                  END AS DES_DIVISAO,
-                  ORG.EDICAO,
-                  ORG.COD_REDE,
-                  ORG.DES_REDE,
-                  ORG.COD_TIPO,
-                  ORG.DES_TIPO
-   FROM V_DADOS_CONTRATO_AVT CT,
-         VH_EST_ORG_CONTRATO_AVT ORG,
-         VH_HIST_HORAS_COLAB_AVT HR,
-         VH_CARGO_CONTRATO_AVT FN
-   WHERE CT.COD_CONTRATO = ORG.COD_CONTRATO
-     AND CT.COD_CONTRATO = HR.COD_CONTRATO
-     AND CT.COD_CONTRATO = FN.COD_CONTRATO
-     AND ((:DATA_FIM BETWEEN CT.DATA_ADMISSAO AND CT.DATA_DEMISSAO) OR
-          (CT.DATA_ADMISSAO <= :DATA_FIM AND CT.DATA_DEMISSAO IS NULL))
-     AND :DATA_FIM BETWEEN ORG.DATA_INI_ORG AND ORG.DATA_FIM_ORG
-     AND :DATA_FIM BETWEEN FN.DATA_INI_CLH AND FN.DATA_FIM_CLH
-     AND :DATA_FIM BETWEEN HR.DATA_INI_HR AND HR.DATA_FIM_HR
-     AND ORG.COD_EMP = 8
-    /* AND (ORG.COD_TIPO = :TIPO OR :TIPO = 0)
-     AND (ORG.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
-     AND (ORG.COD_REDE = :REDE OR :REDE = 0)*/
-     AND ORG.EDICAO_ORG_4 IS NOT NULL
-   ORDER BY ORG.COD_TIPO, ORG.COD_REDE, ORG.COD_UNIDADE, CT.COD_CONTRATO
+    SELECT DISTINCT
+           CT.STATUS,
+           CT.COD_CONTRATO,
+           CT.DES_PESSOA,
+           CT.DATA_ADMISSAO,
+           CT.DATA_DEMISSAO,
+
+           TRUNC(MONTHS_BETWEEN(P.DATA_FIM, CT.DATA_AVANCO) / 12) ||
+           ' ano(s)' || ' e ' ||
+           TRUNC(MOD(MONTHS_BETWEEN(P.DATA_FIM, CT.DATA_AVANCO), 12)) ||
+           ' mês(es)' AS TEMPO_EMPRESA,
+
+           CT.DATA_NASCIMENTO,
+           CT.IDADE,
+
+           FN.COD_FUNCAO,
+           NVL(FN.DES_FUNCAO, 'FUNÇÃO NÃO INFORMADA') AS DES_FUNCAO,
+
+           NVL(HR.HR_BASE_MES, 0) AS HR_BASE_MES,
+
+           CT.IND_DEFICIENCIA,
+           CT.SEXO,
+
+           ORG.COD_EMP,
+           ORG.EDICAO_EMP,
+           ORG.DES_EMP,
+
+           ORG.COD_ORGANOGRAMA,
+           ORG.COD_UNIDADE,
+           ORG.DES_UNIDADE,
+           ORG.NOME_ORGANOGRAMA,
+
+           CASE
+               WHEN ORG.COD_TIPO IN (2, 3) THEN ORG.EDICAO_ORG_3
+               ELSE ORG.COD_UNIDADE
+           END AS COD_FILIAL,
+
+           CASE
+               WHEN ORG.COD_TIPO IN (2, 3) THEN ORG.NOME3
+               ELSE ORG.DES_UNIDADE
+           END AS DES_FILIAL,
+
+           CASE
+               WHEN ORG.COD_TIPO IN (2, 3) THEN ORG.EDICAO_ORG_4
+               ELSE ORG.COD_UNIDADE
+           END AS COD_DIVISAO,
+
+           CASE
+               WHEN ORG.COD_TIPO IN (2, 3) THEN ORG.NOME4
+               ELSE ORG.DES_UNIDADE
+           END AS DES_DIVISAO,
+
+           ORG.EDICAO,
+           ORG.COD_REDE,
+           ORG.DES_REDE,
+           ORG.COD_TIPO,
+           ORG.DES_TIPO,
+
+           CT.COD_AFAST,
+           CT.DES_AFAST,
+           CT.STATUS_AFAST
+
+    FROM BASE_PERFIL CT
+    CROSS JOIN PARAMS P
+    LEFT JOIN ORG_REF ORG
+        ON ORG.COD_CONTRATO = CT.COD_CONTRATO
+    LEFT JOIN CARGO_REF FN
+        ON FN.COD_CONTRATO = CT.COD_CONTRATO
+    LEFT JOIN HORAS_REF HR
+        ON HR.COD_CONTRATO = CT.COD_CONTRATO
+
+    WHERE ORG.COD_EMP = 8
 ),
 
-
+/* =========================================================
+   6. STATUS DE AFASTAMENTO
+   Agora vem da mesma base, sem outro join que derruba gente.
+========================================================= */
 STATUS_AFASTADOS AS (
-SELECT DISTINCT
-       ORG.COD_EMP,
-       CT.COD_CONTRATO,
-       ORG.COD_UNIDADE,
-       NVL(AF.COD_CAUSA_AFAST,0) AS STATUS_AFAST,
-       NA.NOME_CAUSA_AFAST AS DES_AFAST
-  FROM RHFP0306 AF,
-       RHFP0300 CT,
-       VH_EST_ORG_CONTRATO_AVT ORG,
-       VH_CARGO_CONTRATO_AVT FN,
-       RHFP0100 NA
- WHERE CT.COD_CONTRATO = AF.COD_CONTRATO(+)
-   AND CT.COD_CONTRATO = ORG.COD_CONTRATO(+)
-   AND CT.COD_CONTRATO = FN.COD_CONTRATO(+)
-   AND AF.COD_CAUSA_AFAST = NA.COD_CAUSA_AFAST(+)
-   AND ((:DATA_FIM BETWEEN CT.DATA_INICIO AND CT.DATA_FIM) OR
-        (CT.DATA_INICIO <= :DATA_FIM AND CT.DATA_FIM IS NULL))
-   AND :DATA_FIM BETWEEN AF.DATA_INICIO(+) AND AF.DATA_FIM(+)
-   AND :DATA_FIM BETWEEN ORG.DATA_INI_ORG(+) AND ORG.DATA_FIM_ORG(+)
-   AND :DATA_FIM BETWEEN FN.DATA_INI_CLH AND FN.DATA_FIM_CLH(+)
-   /*AND (ORG.COD_TIPO = :TIPO OR :TIPO = 0)
-   AND (ORG.COD_UNIDADE = :UNIDADE OR :UNIDADE = 0)
-   AND (ORG.COD_REDE = :REDE OR :REDE = 0)*/
-   --AND (ORG.COD_EMP = :EMPRESA OR :EMPRESA = 0)
-   AND ORG.COD_EMP = 8
+    SELECT DISTINCT
+           A.COD_EMP,
+           A.COD_CONTRATO,
+           A.COD_UNIDADE,
+           NVL(A.COD_AFAST, 0) AS STATUS_AFAST,
+           A.DES_AFAST
+    FROM CONTRATOS A
 ),
-
 
 HORAS_REALIZADAS_UNI AS (
 SELECT ORG.COD_EMP,
