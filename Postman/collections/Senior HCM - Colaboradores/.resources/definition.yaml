@@ -1,0 +1,22 @@
+$kind: collection
+name: 'Senior HCM - Colaboradores'
+description: |-
+  Coleção para integração com os WebServices SOAP da Senior HCM 6.10.4. Utilizada para extrair dados de colaboradores e popular a tabela interna GRZ_ARH_FUNCIONARIOS.
+auth:
+  type: basic
+  credentials:
+    - key: username
+      value: '{{usuario}}'
+    - key: password
+      value: '{{senha}}'
+variables:
+  - key: base_url
+    value: 'https://{{senior_host}}/g5-senior-services'
+  - key: senior_host
+    value: ''
+  - key: usuario
+    value: ''
+  - key: senha
+    value: ''
+  - key: num_empresa
+    value: '1'

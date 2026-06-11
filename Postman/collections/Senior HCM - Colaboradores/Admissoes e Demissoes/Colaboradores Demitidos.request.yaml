@@ -1,0 +1,31 @@
+$kind: http-request
+name: 'Colaboradores Demitidos'
+description: |-
+  Retorna todos os colaboradores demitidos no período informado. Campo de saída relevante: datDem (→ dta_demissao).
+method: POST
+url: '{{base_url}}/sapiens_Synccom_senior_g5_rh_fp_colaboradoresdemitidos'
+order: 2000
+headers:
+  - key: Content-Type
+    value: 'text/xml; charset=utf-8'
+  - key: SOAPAction
+    value: '""'
+body:
+  type: xml
+  content: |-
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://services.senior.com.br">
+      <soapenv:Header>
+        <ser:ReqHead>
+          <ser:Usuario>{{usuario}}</ser:Usuario>
+          <ser:Senha>{{senha}}</ser:Senha>
+        </ser:ReqHead>
+      </soapenv:Header>
+      <soapenv:Body>
+        <ser:ColaboradoresDemitidos>
+          <ser:NumEmp>{{num_empresa}}</ser:NumEmp>
+          <ser:AbrTipCol>T</ser:AbrTipCol>
+          <ser:IniPer>01/01/2024</ser:IniPer>
+          <ser:FimPer>31/12/2024</ser:FimPer>
+        </ser:ColaboradoresDemitidos>
+      </soapenv:Body>
+    </soapenv:Envelope>

@@ -1,0 +1,30 @@
+$kind: http-request
+name: 'Registro Profissional (CTPS)'
+description: |-
+  ⚠️ ATENÇÃO: Os campos numCtps e serCtps (→ num_cart_trab e num_serie_cart_trab) não foram confirmados explicitamente na documentação oficial da Senior HCM 6.10.4. Este endpoint retorna dados de registro profissional (regCon, sitReg, codPrf). Validar com o suporte Senior se os campos de CTPS estão disponíveis nesta porta.
+method: POST
+url: '{{base_url}}/sapiens_Synccom_senior_g5_rh_fp_hcm'
+order: 1000
+headers:
+  - key: Content-Type
+    value: 'text/xml; charset=utf-8'
+  - key: SOAPAction
+    value: '""'
+body:
+  type: xml
+  content: |-
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://services.senior.com.br">
+      <soapenv:Header>
+        <ser:ReqHead>
+          <ser:Usuario>{{usuario}}</ser:Usuario>
+          <ser:Senha>{{senha}}</ser:Senha>
+        </ser:ReqHead>
+      </soapenv:Header>
+      <soapenv:Body>
+        <ser:RegistroProfissional>
+          <ser:NumEmp>{{num_empresa}}</ser:NumEmp>
+          <ser:TipCol>1</ser:TipCol>
+          <ser:NumCad>{{num_cadastro}}</ser:NumCad>
+        </ser:RegistroProfissional>
+      </soapenv:Body>
+    </soapenv:Envelope>

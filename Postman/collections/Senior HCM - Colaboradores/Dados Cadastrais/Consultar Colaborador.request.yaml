@@ -1,0 +1,30 @@
+$kind: http-request
+name: 'Consultar Colaborador'
+description: |-
+  Consulta dados completos de um colaborador por empresa, tipo e número de cadastro. Campos de saída: numCad (→ cod_funcionario), codFil (→ cod_unidade), codCcu (→ cod_centro_custo), nomFun (→ des_nome), datAdm (→ dta_admissao), datNas (→ dta_nascto), numCpf (→ num_cpf), emaCom (→ email), codCar (→ cod_funcao), numEmp (→ cod_empresa), sitAfa (→ cod_afastamento), datAfa (→ dta_afastamento_ini).
+method: POST
+url: '{{base_url}}/sapiens_Synccom_senior_g5_rh_fp_consultarcolaborador'
+order: 1000
+headers:
+  - key: Content-Type
+    value: 'text/xml; charset=utf-8'
+  - key: SOAPAction
+    value: '""'
+body:
+  type: xml
+  content: |-
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://services.senior.com.br">
+      <soapenv:Header>
+        <ser:ReqHead>
+          <ser:Usuario>{{usuario}}</ser:Usuario>
+          <ser:Senha>{{senha}}</ser:Senha>
+        </ser:ReqHead>
+      </soapenv:Header>
+      <soapenv:Body>
+        <ser:ConsultarColaborador>
+          <ser:NumEmp>{{num_empresa}}</ser:NumEmp>
+          <ser:TipCol>1</ser:TipCol>
+          <ser:NumCad>{{num_cadastro}}</ser:NumCad>
+        </ser:ConsultarColaborador>
+      </soapenv:Body>
+    </soapenv:Envelope>

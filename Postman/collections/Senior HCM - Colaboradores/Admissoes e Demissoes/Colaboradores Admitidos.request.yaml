@@ -1,0 +1,31 @@
+$kind: http-request
+name: 'Colaboradores Admitidos'
+description: |-
+  Retorna todos os colaboradores admitidos no período informado. Campos de saída relevantes: numCad (→ cod_funcionario), codFil (→ cod_unidade), codCcu (→ cod_centro_custo), nomFun (→ des_nome), datAdm (→ dta_admissao), numCpf (→ num_cpf), emaCom (→ email), datNas (→ dta_nascto), codCar (→ cod_funcao), numEmp (→ cod_empresa).
+method: POST
+url: '{{base_url}}/sapiens_Synccom_senior_g5_rh_fp_colaboradoresadmitidos'
+order: 1000
+headers:
+  - key: Content-Type
+    value: 'text/xml; charset=utf-8'
+  - key: SOAPAction
+    value: '""'
+body:
+  type: xml
+  content: |-
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://services.senior.com.br">
+      <soapenv:Header>
+        <ser:ReqHead>
+          <ser:Usuario>{{usuario}}</ser:Usuario>
+          <ser:Senha>{{senha}}</ser:Senha>
+        </ser:ReqHead>
+      </soapenv:Header>
+      <soapenv:Body>
+        <ser:ColaboradoresAdmitidos>
+          <ser:NumEmp>{{num_empresa}}</ser:NumEmp>
+          <ser:AbrTipCol>T</ser:AbrTipCol>
+          <ser:IniPer>01/01/2024</ser:IniPer>
+          <ser:FimPer>31/12/2024</ser:FimPer>
+        </ser:ColaboradoresAdmitidos>
+      </soapenv:Body>
+    </soapenv:Envelope>

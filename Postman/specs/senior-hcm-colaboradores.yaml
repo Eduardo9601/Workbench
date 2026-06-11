@@ -1,0 +1,1023 @@
+openapi: 3.0.3
+
+info:
+  title: Senior HCM - WebServices de Colaboradores
+  version: 1.0.0
+  description: |-
+    ## Contexto de Integração
+
+    Esta especificação documenta os WebServices SOAP da plataforma **Senior HCM 6.10.4**
+    utilizados para popular a tabela interna `GRZ_ARH_FUNCIONARIOS`.
+
+    ### Como funciona a integração
+    A Senior HCM expõe seus serviços via **SOAP over HTTP** (POST com corpo XML).
+    Para fins de documentação e consumo por ferramentas REST-like (ex: Postman),
+    os endpoints são modelados como chamadas HTTP POST com `Content-Type: text/xml`.
+
+    ### Tabela de destino
+    Todos os campos retornados pelos WebServices abaixo são mapeados para colunas
+    da tabela `GRZ_ARH_FUNCIONARIOS`. O campo de destino está indicado na propriedade
+    `x-tabela-destino` de cada campo de resposta.
+
+    ### Autenticação
+    Todos os endpoints utilizam **HTTP Basic Auth** com usuário e senha do sistema Senior.
+
+    ### Observações sobre SOAP
+    - O corpo da requisição deve ser um envelope SOAP válido (`<soapenv:Envelope>`).
+    - A URL real do serviço segue o padrão:
+      `https://{host}/g5-senior-services/sapiens_Synccom_senior_g5_rh_fp_{servico}`
+    - Os exemplos de `requestBody` nesta spec usam representação JSON equivalente
+      para facilitar a leitura; o corpo real deve ser XML/SOAP.
+
+  contact:
+    name: Equipe de Integração
+  license:
+    name: Uso Interno
+
+servers:
+  - url: 'https://{host}/g5-senior-services'
+    description: Servidor Senior HCM (substituir {host} pelo endereço do ambiente)
+    variables:
+      host:
+        default: seu-servidor-senior
+        description: >-
+          Hostname ou IP do servidor Senior HCM.
+          Exemplo: senior.suaempresa.com.br:8080
+
+security:
+  - basicAuth: []
+
+tags:
+  - name: Admissões e Demissões
+    description: Endpoints para busca de colaboradores admitidos e demitidos em períodos
+  - name: Dados Cadastrais
+    description: Endpoints para consulta de dados completos do colaborador
+  - name: Afastamentos
+    description: Endpoints para busca de histórico de afastamentos
+  - name: Dados Profissionais
+    description: Endpoints para CTPS, registro profissional e endereço
+
+components:
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >-
+        Autenticação HTTP Basic com usuário e senha cadastrados no sistema Senior HCM.
+        Credenciais devem ter permissão de leitura nos módulos de RH/FP.
+
+  schemas:
+
+    # ─────────────────────────────────────────────
+    # Schemas de REQUEST (parâmetros de entrada)
+    # ─────────────────────────────────────────────
+
+    ColaboradoresAdmitidosRequest:
+      type: object
+      description: Parâmetros para busca de colaboradores admitidos em um período.
+      required:
+        - numEmp
+        - datIni
+        - datFim
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa no sistema Senior.
+          example: 1
+        datIni:
+          type: string
+          format: date
+          description: Data inicial do período de admissão (formato YYYYMMDD no SOAP).
+          example: '20240101'
+        datFim:
+          type: string
+          format: date
+          description: Data final do período de admissão (formato YYYYMMDD no SOAP).
+          example: '20241231'
+        tipCol:
+          type: integer
+          description: >-
+            Tipo de colaborador. Valores comuns: 1=Empregado, 2=Terceiro, 3=Parceiro.
+            Omitir para retornar todos os tipos.
+          example: 1
+
+    ColaboradoresDemitidosRequest:
+      type: object
+      description: Parâmetros para busca de colaboradores demitidos em um período.
+      required:
+        - numEmp
+        - datIni
+        - datFim
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa no sistema Senior.
+          example: 1
+        datIni:
+          type: string
+          format: date
+          description: Data inicial do período de demissão (formato YYYYMMDD no SOAP).
+          example: '20240101'
+        datFim:
+          type: string
+          format: date
+          description: Data final do período de demissão (formato YYYYMMDD no SOAP).
+          example: '20241231'
+        tipCol:
+          type: integer
+          description: Tipo de colaborador (1=Empregado, 2=Terceiro, 3=Parceiro).
+          example: 1
+
+    ConsultarColaboradorRequest:
+      type: object
+      description: >-
+        Parâmetros para consulta completa de um colaborador.
+        Identifica o colaborador pela combinação empresa + tipo + número de cadastro.
+      required:
+        - numEmp
+        - tipCol
+        - numCad
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa no sistema Senior.
+          example: 1
+        tipCol:
+          type: integer
+          description: Tipo de colaborador (1=Empregado, 2=Terceiro, 3=Parceiro).
+          example: 1
+        numCad:
+          type: integer
+          description: Número de cadastro (matrícula) do colaborador na Senior.
+          example: 12345
+
+    ConsultarColaboradorPorCPFRequest:
+      type: object
+      description: Parâmetros para consulta de colaborador pelo número de CPF.
+      required:
+        - numCpf
+      properties:
+        numCpf:
+          type: string
+          description: CPF do colaborador (somente dígitos, sem pontuação).
+          example: '12345678901'
+        numEmp:
+          type: integer
+          description: Código da empresa (opcional; omitir para buscar em todas as empresas).
+          example: 1
+
+    AfastamentoRequest:
+      type: object
+      description: Parâmetros para busca de afastamentos de um colaborador.
+      required:
+        - numEmp
+        - tipCol
+        - numCad
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa no sistema Senior.
+          example: 1
+        tipCol:
+          type: integer
+          description: Tipo de colaborador.
+          example: 1
+        numCad:
+          type: integer
+          description: Número de cadastro do colaborador.
+          example: 12345
+        datIni:
+          type: string
+          format: date
+          description: Data inicial para filtro de afastamentos (opcional).
+          example: '20240101'
+        datFim:
+          type: string
+          format: date
+          description: Data final para filtro de afastamentos (opcional).
+          example: '20241231'
+
+    RegistroProfissionalRequest:
+      type: object
+      description: Parâmetros para busca de dados de CTPS e registro profissional.
+      required:
+        - numEmp
+        - tipCol
+        - numCad
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa no sistema Senior.
+          example: 1
+        tipCol:
+          type: integer
+          description: Tipo de colaborador.
+          example: 1
+        numCad:
+          type: integer
+          description: Número de cadastro do colaborador.
+          example: 12345
+
+    EnderecoResidencialRequest:
+      type: object
+      description: Parâmetros para busca de endereço residencial do colaborador.
+      required:
+        - numEmp
+        - tipCol
+        - numCad
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa no sistema Senior.
+          example: 1
+        tipCol:
+          type: integer
+          description: Tipo de colaborador.
+          example: 1
+        numCad:
+          type: integer
+          description: Número de cadastro do colaborador.
+          example: 12345
+
+    # ─────────────────────────────────────────────
+    # Schemas de RESPONSE (campos de saída)
+    # ─────────────────────────────────────────────
+
+    ColaboradorAdmitidoItem:
+      type: object
+      description: Dados de um colaborador admitido retornado pelo serviço.
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa.
+          x-tabela-destino: cod_empresa
+        numCad:
+          type: integer
+          description: Número de cadastro (matrícula) do colaborador.
+          x-tabela-destino: cod_funcionario
+        tipCol:
+          type: integer
+          description: Tipo de colaborador.
+        nomFun:
+          type: string
+          description: Nome completo do colaborador.
+          x-tabela-destino: des_nome
+        datAdm:
+          type: string
+          format: date
+          description: Data de admissão do colaborador.
+          x-tabela-destino: dta_admissao
+        codFil:
+          type: integer
+          description: Código da filial/unidade do colaborador.
+          x-tabela-destino: cod_unidade
+
+    ColaboradorDemitidoItem:
+      type: object
+      description: Dados de um colaborador demitido retornado pelo serviço.
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa.
+          x-tabela-destino: cod_empresa
+        numCad:
+          type: integer
+          description: Número de cadastro (matrícula) do colaborador.
+          x-tabela-destino: cod_funcionario
+        tipCol:
+          type: integer
+          description: Tipo de colaborador.
+        nomFun:
+          type: string
+          description: Nome completo do colaborador.
+          x-tabela-destino: des_nome
+        datDem:
+          type: string
+          format: date
+          description: Data de demissão do colaborador.
+          x-tabela-destino: dta_demissao
+
+    ColaboradorCompleto:
+      type: object
+      description: >-
+        Dados completos de um colaborador retornados pelo serviço ConsultarColaborador.
+        Este é o principal endpoint de enriquecimento da tabela GRZ_ARH_FUNCIONARIOS.
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa no sistema Senior.
+          x-tabela-destino: cod_empresa
+        nomEmp:
+          type: string
+          description: Nome/razão social da empresa.
+          x-tabela-destino: des_empresa
+        numCad:
+          type: integer
+          description: Número de cadastro (matrícula) do colaborador.
+          x-tabela-destino: cod_funcionario
+        nomFun:
+          type: string
+          description: Nome completo do colaborador.
+          x-tabela-destino: des_nome
+        codFil:
+          type: integer
+          description: Código da filial/unidade onde o colaborador está lotado.
+          x-tabela-destino: cod_unidade
+        codCcu:
+          type: string
+          description: >-
+            Código do centro de custo do colaborador.
+            Também utilizado como código de área/departamento.
+          x-tabela-destino: cod_centro_custo / cod_area
+        codCar:
+          type: string
+          description: Código do cargo/função do colaborador.
+          x-tabela-destino: cod_funcao
+        datNas:
+          type: string
+          format: date
+          description: Data de nascimento do colaborador.
+          x-tabela-destino: dta_nascto
+        emaCom:
+          type: string
+          format: email
+          description: E-mail corporativo do colaborador.
+          x-tabela-destino: email
+
+    ColaboradorPorCPF:
+      type: object
+      description: Dados do colaborador retornados pela consulta por CPF.
+      properties:
+        numCpf:
+          type: string
+          description: CPF do colaborador (somente dígitos).
+          x-tabela-destino: num_cpf
+        numEmp:
+          type: integer
+          description: Código da empresa.
+          x-tabela-destino: cod_empresa
+        numCad:
+          type: integer
+          description: Número de cadastro (matrícula) do colaborador.
+          x-tabela-destino: cod_funcionario
+        nomFun:
+          type: string
+          description: Nome completo do colaborador.
+          x-tabela-destino: des_nome
+
+    AfastamentoItem:
+      type: object
+      description: Registro de afastamento de um colaborador.
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa.
+        numCad:
+          type: integer
+          description: Número de cadastro do colaborador.
+          x-tabela-destino: cod_funcionario
+        sitAfa:
+          type: string
+          description: >-
+            Código da situação/motivo do afastamento.
+            Exemplos: 01=Férias, 02=Licença Médica, 03=Acidente de Trabalho.
+          x-tabela-destino: cod_afastamento
+        datAfa:
+          type: string
+          format: date
+          description: Data de início do afastamento.
+          x-tabela-destino: dta_afastamento_ini
+        datTer:
+          type: string
+          format: date
+          description: Data de término/retorno do afastamento.
+          x-tabela-destino: dta_afastamento_fim
+
+    RegistroProfissionalItem:
+      type: object
+      description: >-
+        Dados de CTPS e registro profissional do colaborador.
+        ATENÇÃO: Os campos numCtps e serCtps não estão confirmados na documentação
+        oficial da Senior HCM 6.10.4. Validar com o fornecedor antes de usar em produção.
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa.
+        numCad:
+          type: integer
+          description: Número de cadastro do colaborador.
+          x-tabela-destino: cod_funcionario
+        numCtps:
+          type: string
+          description: >-
+            Número da Carteira de Trabalho (CTPS).
+            ⚠️ Campo não confirmado na documentação oficial — verificar WSDL do serviço hcm.
+          x-tabela-destino: num_cart_trab
+        serCtps:
+          type: string
+          description: >-
+            Série da Carteira de Trabalho (CTPS).
+            ⚠️ Campo não confirmado na documentação oficial — verificar WSDL do serviço hcm.
+          x-tabela-destino: num_serie_cart_trab
+
+    EnderecoResidencialItem:
+      type: object
+      description: Dados de endereço residencial do colaborador.
+      properties:
+        numEmp:
+          type: integer
+          description: Código da empresa.
+        numCad:
+          type: integer
+          description: Número de cadastro do colaborador.
+          x-tabela-destino: cod_funcionario
+        codCid:
+          type: string
+          description: Código da cidade de residência do colaborador no cadastro Senior.
+          x-tabela-destino: cidade
+        nomCid:
+          type: string
+          description: Nome da cidade de residência.
+        sigUf:
+          type: string
+          description: Sigla do estado (UF) de residência.
+          example: SP
+
+    # ─────────────────────────────────────────────
+    # Schemas de RESPONSE genéricos
+    # ─────────────────────────────────────────────
+
+    ErroSenior:
+      type: object
+      description: Estrutura de erro retornada pelo WebService Senior em caso de falha.
+      properties:
+        faultcode:
+          type: string
+          description: Código do erro SOAP (ex: soap:Server, soap:Client).
+        faultstring:
+          type: string
+          description: Mensagem descritiva do erro.
+        detail:
+          type: string
+          description: Detalhes adicionais do erro (quando disponível).
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATHS — Endpoints modelados como POST SOAP
+# ─────────────────────────────────────────────────────────────────────────────
+# NOTA IMPORTANTE SOBRE URLs:
+# A URL real de cada serviço Senior segue o padrão:
+#   https://{host}/g5-senior-services/sapiens_Synccom_senior_g5_rh_fp_{servico}
+# Os paths abaixo são simplificados para legibilidade. Ajuste conforme o ambiente.
+# ─────────────────────────────────────────────────────────────────────────────
+
+paths:
+
+  /sapiens_Synccom_senior_g5_rh_fp_colaboradoresadmitidos:
+    post:
+      operationId: colaboradoresAdmitidos
+      summary: Buscar colaboradores admitidos em um período
+      description: |-
+        Retorna a lista de colaboradores admitidos entre duas datas.
+
+        **WebService Senior:** `com.senior.g5.rh.fp.colaboradoresAdmitidos`
+        **Operação SOAP:** `ColaboradoresAdmitidos`
+
+        **Campos populados em GRZ_ARH_FUNCIONARIOS:**
+        - `cod_funcionario` ← `numCad`
+        - `cod_empresa` ← `numEmp`
+        - `des_nome` ← `nomFun`
+        - `dta_admissao` ← `datAdm`
+        - `cod_unidade` ← `codFil`
+
+        **Uso típico:** Executar periodicamente para identificar novos colaboradores
+        a serem inseridos na tabela interna.
+      tags:
+        - Admissões e Demissões
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        description: >-
+          Envelope SOAP com os parâmetros de busca. O Content-Type deve ser `text/xml`.
+          O schema abaixo representa os campos do body SOAP em formato JSON para facilitar
+          a leitura — o corpo real deve ser XML.
+        content:
+          text/xml:
+            schema:
+              $ref: '#/components/schemas/ColaboradoresAdmitidosRequest'
+            example: |-
+              <soapenv:Envelope
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:ser="http://services.senior.com.br">
+                <soapenv:Header>
+                  <ser:ReqHdr>
+                    <ser:user>usuario_senior</ser:user>
+                    <ser:password>senha_senior</ser:password>
+                    <ser:encryption>0</ser:encryption>
+                  </ser:ReqHdr>
+                </soapenv:Header>
+                <soapenv:Body>
+                  <ser:ColaboradoresAdmitidos_request>
+                    <ser:numEmp>1</ser:numEmp>
+                    <ser:datIni>20240101</ser:datIni>
+                    <ser:datFim>20241231</ser:datFim>
+                    <ser:tipCol>1</ser:tipCol>
+                  </ser:ColaboradoresAdmitidos_request>
+                </soapenv:Body>
+              </soapenv:Envelope>
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ColaboradoresAdmitidosRequest'
+      responses:
+        '200':
+          description: Lista de colaboradores admitidos no período informado.
+          content:
+            text/xml:
+              schema:
+                type: object
+                properties:
+                  colaboradores:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ColaboradorAdmitidoItem'
+              example: |-
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+                  <soapenv:Body>
+                    <ColaboradoresAdmitidos_response>
+                      <colaborador>
+                        <numEmp>1</numEmp>
+                        <numCad>12345</numCad>
+                        <tipCol>1</tipCol>
+                        <nomFun>JOAO DA SILVA</nomFun>
+                        <datAdm>20240315</datAdm>
+                        <codFil>1</codFil>
+                      </colaborador>
+                    </ColaboradoresAdmitidos_response>
+                  </soapenv:Body>
+                </soapenv:Envelope>
+        '500':
+          description: Erro SOAP retornado pelo servidor Senior.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ErroSenior'
+
+  /sapiens_Synccom_senior_g5_rh_fp_colaboradoresdemitidos:
+    post:
+      operationId: colaboradoresDemitidos
+      summary: Buscar colaboradores demitidos em um período
+      description: |-
+        Retorna a lista de colaboradores demitidos entre duas datas.
+
+        **WebService Senior:** `com.senior.g5.rh.fp.colaboradoresDemitidos`
+        **Operação SOAP:** `ColaboradoresDemitidos`
+
+        **Campos populados em GRZ_ARH_FUNCIONARIOS:**
+        - `cod_funcionario` ← `numCad`
+        - `cod_empresa` ← `numEmp`
+        - `des_nome` ← `nomFun`
+        - `dta_demissao` ← `datDem`
+
+        **Uso típico:** Executar periodicamente para identificar colaboradores
+        desligados e atualizar o status na tabela interna.
+      tags:
+        - Admissões e Demissões
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        description: Envelope SOAP com os parâmetros de busca.
+        content:
+          text/xml:
+            schema:
+              $ref: '#/components/schemas/ColaboradoresDemitidosRequest'
+            example: |-
+              <soapenv:Envelope
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:ser="http://services.senior.com.br">
+                <soapenv:Header>
+                  <ser:ReqHdr>
+                    <ser:user>usuario_senior</ser:user>
+                    <ser:password>senha_senior</ser:password>
+                    <ser:encryption>0</ser:encryption>
+                  </ser:ReqHdr>
+                </soapenv:Header>
+                <soapenv:Body>
+                  <ser:ColaboradoresDemitidos_request>
+                    <ser:numEmp>1</ser:numEmp>
+                    <ser:datIni>20240101</ser:datIni>
+                    <ser:datFim>20241231</ser:datFim>
+                    <ser:tipCol>1</ser:tipCol>
+                  </ser:ColaboradoresDemitidos_request>
+                </soapenv:Body>
+              </soapenv:Envelope>
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ColaboradoresDemitidosRequest'
+      responses:
+        '200':
+          description: Lista de colaboradores demitidos no período informado.
+          content:
+            text/xml:
+              schema:
+                type: object
+                properties:
+                  colaboradores:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ColaboradorDemitidoItem'
+        '500':
+          description: Erro SOAP retornado pelo servidor Senior.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ErroSenior'
+
+  /sapiens_Synccom_senior_g5_rh_fp_consultarcolaborador:
+    post:
+      operationId: consultarColaborador
+      summary: Consultar dados completos de um colaborador
+      description: |-
+        Retorna os dados cadastrais completos de um colaborador identificado pela
+        combinação empresa + tipo + número de cadastro.
+
+        **WebService Senior:** `com.senior.g5.rh.fp.consultarColaborador`
+        **Operação SOAP:** `ConsultarColaborador`
+
+        **Campos populados em GRZ_ARH_FUNCIONARIOS:**
+        - `cod_funcionario` ← `numCad`
+        - `cod_empresa` ← `numEmp`
+        - `des_empresa` ← `nomEmp`
+        - `des_nome` ← `nomFun`
+        - `cod_unidade` ← `codFil`
+        - `cod_centro_custo` ← `codCcu`
+        - `cod_area` ← `codCcu` (mesmo campo, interpretado como área/depto)
+        - `cod_funcao` ← `codCar`
+        - `dta_nascto` ← `datNas`
+        - `email` ← `emaCom`
+
+        **Uso típico:** Enriquecimento de dados após identificar o colaborador
+        via ColaboradoresAdmitidos ou ConsultarColaboradorPorCPF.
+      tags:
+        - Dados Cadastrais
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        description: Envelope SOAP com identificação do colaborador.
+        content:
+          text/xml:
+            schema:
+              $ref: '#/components/schemas/ConsultarColaboradorRequest'
+            example: |-
+              <soapenv:Envelope
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:ser="http://services.senior.com.br">
+                <soapenv:Header>
+                  <ser:ReqHdr>
+                    <ser:user>usuario_senior</ser:user>
+                    <ser:password>senha_senior</ser:password>
+                    <ser:encryption>0</ser:encryption>
+                  </ser:ReqHdr>
+                </soapenv:Header>
+                <soapenv:Body>
+                  <ser:ConsultarColaborador_request>
+                    <ser:numEmp>1</ser:numEmp>
+                    <ser:tipCol>1</ser:tipCol>
+                    <ser:numCad>12345</ser:numCad>
+                  </ser:ConsultarColaborador_request>
+                </soapenv:Body>
+              </soapenv:Envelope>
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultarColaboradorRequest'
+      responses:
+        '200':
+          description: Dados completos do colaborador.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ColaboradorCompleto'
+              example: |-
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+                  <soapenv:Body>
+                    <ConsultarColaborador_response>
+                      <numEmp>1</numEmp>
+                      <nomEmp>EMPRESA EXEMPLO LTDA</nomEmp>
+                      <numCad>12345</numCad>
+                      <nomFun>JOAO DA SILVA</nomFun>
+                      <codFil>1</codFil>
+                      <codCcu>001.001</codCcu>
+                      <codCar>ANA001</codCar>
+                      <datNas>19850320</datNas>
+                      <emaCom>joao.silva@empresa.com.br</emaCom>
+                    </ConsultarColaborador_response>
+                  </soapenv:Body>
+                </soapenv:Envelope>
+        '500':
+          description: Erro SOAP retornado pelo servidor Senior.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ErroSenior'
+
+  /sapiens_Synccom_senior_g5_rh_fp_consultarcolaboradorporcpf:
+    post:
+      operationId: consultarColaboradorPorCPF
+      summary: Consultar colaborador pelo CPF
+      description: |-
+        Retorna os dados do colaborador a partir do número de CPF.
+        Útil quando o número de cadastro (matrícula) não é conhecido previamente.
+
+        **WebService Senior:** `com.senior.g5.rh.fp.consultarColaboradorPorCPF`
+        **Operação SOAP:** `ConsultarColaboradorPorCPF`
+
+        **Campos populados em GRZ_ARH_FUNCIONARIOS:**
+        - `num_cpf` ← `numCpf`
+        - `cod_funcionario` ← `numCad`
+        - `cod_empresa` ← `numEmp`
+        - `des_nome` ← `nomFun`
+
+        **Uso típico:** Ponto de entrada quando a integração recebe o CPF do colaborador
+        e precisa obter o numCad para chamadas subsequentes.
+      tags:
+        - Dados Cadastrais
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        description: Envelope SOAP com o CPF do colaborador.
+        content:
+          text/xml:
+            schema:
+              $ref: '#/components/schemas/ConsultarColaboradorPorCPFRequest'
+            example: |-
+              <soapenv:Envelope
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:ser="http://services.senior.com.br">
+                <soapenv:Header>
+                  <ser:ReqHdr>
+                    <ser:user>usuario_senior</ser:user>
+                    <ser:password>senha_senior</ser:password>
+                    <ser:encryption>0</ser:encryption>
+                  </ser:ReqHdr>
+                </soapenv:Header>
+                <soapenv:Body>
+                  <ser:ConsultarColaboradorPorCPF_request>
+                    <ser:numCpf>12345678901</ser:numCpf>
+                    <ser:numEmp>1</ser:numEmp>
+                  </ser:ConsultarColaboradorPorCPF_request>
+                </soapenv:Body>
+              </soapenv:Envelope>
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultarColaboradorPorCPFRequest'
+      responses:
+        '200':
+          description: Dados do colaborador encontrado pelo CPF.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ColaboradorPorCPF'
+        '500':
+          description: Erro SOAP retornado pelo servidor Senior.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ErroSenior'
+
+  /sapiens_Synccom_senior_g5_rh_fp_historicoscoletivos_afastamento:
+    post:
+      operationId: afastamento
+      summary: Buscar afastamentos do colaborador
+      description: |-
+        Retorna o histórico de afastamentos de um colaborador (férias, licenças,
+        afastamentos médicos, acidentes de trabalho, etc.).
+
+        **WebService Senior:** `com.senior.g5.rh.fp.historicosColetivos`
+        **Operação SOAP:** `Afastamento`
+
+        **Campos populados em GRZ_ARH_FUNCIONARIOS:**
+        - `cod_afastamento` ← `sitAfa`
+        - `dta_afastamento_ini` ← `datAfa`
+        - `dta_afastamento_fim` ← `datTer`
+
+        **Uso típico:** Sincronizar situação atual de afastamento do colaborador,
+        identificando se está ativo, em férias ou licenciado.
+      tags:
+        - Afastamentos
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        description: Envelope SOAP com identificação do colaborador e período opcional.
+        content:
+          text/xml:
+            schema:
+              $ref: '#/components/schemas/AfastamentoRequest'
+            example: |-
+              <soapenv:Envelope
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:ser="http://services.senior.com.br">
+                <soapenv:Header>
+                  <ser:ReqHdr>
+                    <ser:user>usuario_senior</ser:user>
+                    <ser:password>senha_senior</ser:password>
+                    <ser:encryption>0</ser:encryption>
+                  </ser:ReqHdr>
+                </soapenv:Header>
+                <soapenv:Body>
+                  <ser:Afastamento_request>
+                    <ser:numEmp>1</ser:numEmp>
+                    <ser:tipCol>1</ser:tipCol>
+                    <ser:numCad>12345</ser:numCad>
+                    <ser:datIni>20240101</ser:datIni>
+                    <ser:datFim>20241231</ser:datFim>
+                  </ser:Afastamento_request>
+                </soapenv:Body>
+              </soapenv:Envelope>
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AfastamentoRequest'
+      responses:
+        '200':
+          description: Lista de afastamentos do colaborador no período.
+          content:
+            text/xml:
+              schema:
+                type: object
+                properties:
+                  afastamentos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AfastamentoItem'
+        '500':
+          description: Erro SOAP retornado pelo servidor Senior.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ErroSenior'
+
+  /sapiens_Synccom_senior_g5_rh_fp_hcm_registroprofissional:
+    post:
+      operationId: registroProfissional
+      summary: Buscar dados de CTPS e registro profissional
+      description: |-
+        Retorna os dados de Carteira de Trabalho (CTPS) e registro profissional
+        do colaborador.
+
+        **WebService Senior:** `com.senior.g5.rh.fp.hcm`
+        **Operação SOAP:** `RegistroProfissional`
+
+        **Campos populados em GRZ_ARH_FUNCIONARIOS:**
+        - `num_cart_trab` ← `numCtps`
+        - `num_serie_cart_trab` ← `serCtps`
+
+        ⚠️ **ATENÇÃO:** Os campos `numCtps` e `serCtps` não estão confirmados na
+        documentação oficial da Senior HCM 6.10.4. Recomenda-se inspecionar o WSDL
+        do serviço `hcm` diretamente no ambiente para confirmar os nomes exatos dos campos.
+
+        **Uso típico:** Complementar o cadastro do colaborador com dados trabalhistas.
+      tags:
+        - Dados Profissionais
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        description: Envelope SOAP com identificação do colaborador.
+        content:
+          text/xml:
+            schema:
+              $ref: '#/components/schemas/RegistroProfissionalRequest'
+            example: |-
+              <soapenv:Envelope
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:ser="http://services.senior.com.br">
+                <soapenv:Header>
+                  <ser:ReqHdr>
+                    <ser:user>usuario_senior</ser:user>
+                    <ser:password>senha_senior</ser:password>
+                    <ser:encryption>0</ser:encryption>
+                  </ser:ReqHdr>
+                </soapenv:Header>
+                <soapenv:Body>
+                  <ser:RegistroProfissional_request>
+                    <ser:numEmp>1</ser:numEmp>
+                    <ser:tipCol>1</ser:tipCol>
+                    <ser:numCad>12345</ser:numCad>
+                  </ser:RegistroProfissional_request>
+                </soapenv:Body>
+              </soapenv:Envelope>
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroProfissionalRequest'
+      responses:
+        '200':
+          description: Dados de CTPS e registro profissional do colaborador.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/RegistroProfissionalItem'
+        '500':
+          description: Erro SOAP retornado pelo servidor Senior.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ErroSenior'
+
+  /sapiens_Synccom_senior_g5_rh_fp_hcm_enderecoResidencial:
+    post:
+      operationId: enderecoResidencial
+      summary: Buscar endereço residencial do colaborador
+      description: |-
+        Retorna os dados de endereço residencial do colaborador, incluindo
+        o código da cidade (codCid) utilizado para popular o campo `cidade`
+        na tabela interna.
+
+        **WebService Senior:** `com.senior.g5.rh.fp.hcm`
+        **Operação SOAP:** `AtualizaEnderecoResidencial`
+
+        **Campos populados em GRZ_ARH_FUNCIONARIOS:**
+        - `cidade` ← `codCid`
+
+        **Uso típico:** Complementar o cadastro com localização do colaborador.
+
+        **Nota:** Apesar do nome "Atualiza", este endpoint também é utilizado para
+        consulta de endereço. Verificar se existe operação específica de leitura
+        no WSDL do ambiente.
+      tags:
+        - Dados Profissionais
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        description: Envelope SOAP com identificação do colaborador.
+        content:
+          text/xml:
+            schema:
+              $ref: '#/components/schemas/EnderecoResidencialRequest'
+            example: |-
+              <soapenv:Envelope
+                xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:ser="http://services.senior.com.br">
+                <soapenv:Header>
+                  <ser:ReqHdr>
+                    <ser:user>usuario_senior</ser:user>
+                    <ser:password>senha_senior</ser:password>
+                    <ser:encryption>0</ser:encryption>
+                  </ser:ReqHdr>
+                </soapenv:Header>
+                <soapenv:Body>
+                  <ser:AtualizaEnderecoResidencial_request>
+                    <ser:numEmp>1</ser:numEmp>
+                    <ser:tipCol>1</ser:tipCol>
+                    <ser:numCad>12345</ser:numCad>
+                  </ser:AtualizaEnderecoResidencial_request>
+                </soapenv:Body>
+              </soapenv:Envelope>
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnderecoResidencialRequest'
+      responses:
+        '200':
+          description: Dados de endereço residencial do colaborador.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/EnderecoResidencialItem'
+              example: |-
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+                  <soapenv:Body>
+                    <AtualizaEnderecoResidencial_response>
+                      <numEmp>1</numEmp>
+                      <numCad>12345</numCad>
+                      <codCid>3550308</codCid>
+                      <nomCid>SAO PAULO</nomCid>
+                      <sigUf>SP</sigUf>
+                    </AtualizaEnderecoResidencial_response>
+                  </soapenv:Body>
+                </soapenv:Envelope>
+        '500':
+          description: Erro SOAP retornado pelo servidor Senior.
+          content:
+            text/xml:
+              schema:
+                $ref: '#/components/schemas/ErroSenior'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAMPOS NÃO DOCUMENTADOS / A INVESTIGAR
+# ─────────────────────────────────────────────────────────────────────────────
+# Os seguintes campos da tabela GRZ_ARH_FUNCIONARIOS não possuem mapeamento
+# confirmado na documentação da Senior HCM 6.10.4 e requerem investigação:
+#
+# | Campo tabela     | Observação                                              |
+# |------------------|---------------------------------------------------------|
+# | cod_turno        | Campo TurEmp via função customizada RetEscEmp           |
+# | qtd_ch_mensal    | Campo HorSemEmp (em minutos) via RetEscEmp              |
+# | ind_gestor       | Não documentado — verificar tabela de hierarquia Senior |
+# | cpf_gestor       | Não documentado — verificar tabela de hierarquia Senior |
+#
+# Para cod_turno e qtd_ch_mensal: consultar a equipe Senior sobre a função
+# customizada RetEscEmp e seu WSDL/endpoint correspondente.
+# ─────────────────────────────────────────────────────────────────────────────

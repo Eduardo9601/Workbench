@@ -1,0 +1,28 @@
+$kind: http-request
+name: 'Consultar Colaborador por CPF'
+description: |-
+  Consulta um colaborador pelo CPF. Aceita CPF com ou sem máscara (999.999.999-99). Retorna os mesmos campos de ConsultarColaborador. Campo principal: numCpf (→ num_cpf).
+method: POST
+url: '{{base_url}}/sapiens_Synccom_senior_g5_rh_fp_consultarcolaboradorporcpf'
+order: 2000
+headers:
+  - key: Content-Type
+    value: 'text/xml; charset=utf-8'
+  - key: SOAPAction
+    value: '""'
+body:
+  type: xml
+  content: |-
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://services.senior.com.br">
+      <soapenv:Header>
+        <ser:ReqHead>
+          <ser:Usuario>{{usuario}}</ser:Usuario>
+          <ser:Senha>{{senha}}</ser:Senha>
+        </ser:ReqHead>
+      </soapenv:Header>
+      <soapenv:Body>
+        <ser:ConsultarColaboradorPorCPF>
+          <ser:NumCpf>{{cpf_colaborador}}</ser:NumCpf>
+        </ser:ConsultarColaboradorPorCPF>
+      </soapenv:Body>
+    </soapenv:Envelope>
