@@ -1,0 +1,165 @@
+/* ==================================================
+   === SQL DA MONTAGMEM DOS CLCs CONTÁBEIS NO HCM ===
+   === VERSÃO 1.0 - 24/09/2026                    ===
+   ================================================== */
+
+WITH EVENTOS AS
+(
+    SELECT DISTINCT
+           E.CODTAB,
+           E.CODEVE,
+           E.DESEVE,
+           E.CODCLC,
+
+           /* Normaliza para o primeiro CLC do par */
+           CASE
+               WHEN E.CODCLC BETWEEN 501  AND 999
+                    THEN E.CODCLC - 500
+
+               WHEN E.CODCLC BETWEEN 1300 AND 1399
+                    THEN E.CODCLC - 100
+
+               WHEN E.CODCLC BETWEEN 1500 AND 1599
+                    THEN E.CODCLC - 100
+
+               WHEN E.CODCLC BETWEEN 1700 AND 1799
+                    THEN E.CODCLC - 100
+
+               ELSE E.CODCLC
+           END AS CLC_BASE
+
+    FROM R008EVC E
+    WHERE E.CODTAB = 1
+),
+
+PARES AS
+(
+    SELECT
+        E.*,
+
+        E.CLC_BASE AS CLC_1,
+
+        CASE
+            /* Ex.: 1 -> 501 */
+            WHEN E.CLC_BASE BETWEEN 1 AND 499
+                THEN E.CLC_BASE + 500
+
+            /* Ex.: 1202 -> 1302 */
+            WHEN E.CLC_BASE BETWEEN 1200 AND 1299
+                THEN E.CLC_BASE + 100
+
+            /* Ex.: 1401 -> 1501 */
+            WHEN E.CLC_BASE BETWEEN 1400 AND 1499
+                THEN E.CLC_BASE + 100
+
+            /* Ex.: 1602 -> 1702 */
+            WHEN E.CLC_BASE BETWEEN 1600 AND 1699
+                THEN E.CLC_BASE + 100
+        END AS CLC_2
+
+    FROM EVENTOS E
+)
+
+SELECT DISTINCT
+       C1.NUMEMP,
+       C1.CODCCU,
+
+       P.CODTAB,
+       P.CODEVE,
+       P.DESEVE,
+
+       /* CLC originalmente ligado ao evento */
+       P.CODCLC AS CLC_EVENTO,
+
+       /* -------------------------- */
+       /* DÉBITO                     */
+       /* -------------------------- */
+
+       CASE
+           WHEN L1.TIPLAN = 'D'
+               THEN P.CLC_1
+
+           WHEN L2.TIPLAN = 'D'
+               THEN P.CLC_2
+       END AS CLC_DEBITO,
+
+       CASE
+           WHEN L1.TIPLAN = 'D'
+               THEN C1.CODCON
+
+           WHEN L2.TIPLAN = 'D'
+               THEN C2.CODCON
+       END AS CONTA_DEBITO,
+
+       /* -------------------------- */
+       /* CRÉDITO                    */
+       /* -------------------------- */
+
+       CASE
+           WHEN L1.TIPLAN = 'C'
+               THEN P.CLC_1
+
+           WHEN L2.TIPLAN = 'C'
+               THEN P.CLC_2
+       END AS CLC_CREDITO,
+
+       CASE
+           WHEN L1.TIPLAN = 'C'
+               THEN C1.CODCON
+
+           WHEN L2.TIPLAN = 'C'
+               THEN C2.CODCON
+       END AS CONTA_CREDITO,
+
+       /* Apenas para conferência */
+       L1.TIPLAN AS TIPO_CLC_1,
+       L2.TIPLAN AS TIPO_CLC_2
+
+FROM PARES P
+
+/* ===================================================== */
+/* DEFINIÇÃO DO CLC 1                                    */
+/* ===================================================== */
+
+LEFT JOIN R048CLC L1
+       ON L1.TABEVE = P.CODTAB
+      AND L1.CODCLC = P.CLC_1
+
+/* ===================================================== */
+/* DEFINIÇÃO DO CLC PAR                                  */
+/* ===================================================== */
+
+LEFT JOIN R048CLC L2
+       ON L2.TABEVE = P.CODTAB
+      AND L2.CODCLC = P.CLC_2
+
+/* ===================================================== */
+/* CONTA CONTÁBIL DO PRIMEIRO CLC                        */
+/* ===================================================== */
+
+JOIN R174CND C1
+     ON C1.TABEVE = P.CODTAB
+    AND C1.CODCLC = P.CLC_1
+    --AND C1.NUMEMP = 1629
+
+/* ===================================================== */
+/* CONTA CONTÁBIL DO CLC PAR                             */
+/* MESMA EMPRESA E MESMO CENTRO DE CUSTO                 */
+/* ===================================================== */
+
+LEFT JOIN R174CND C2
+       ON C2.TABEVE = P.CODTAB
+      AND C2.CODCLC = P.CLC_2
+      AND C2.NUMEMP = C1.NUMEMP
+      AND C2.CODCCU = C1.CODCCU
+      AND C2.NATDES = C1.NATDES
+
+WHERE /*C1.NUMEMP = 1629
+
+  AND*/ TRIM(C1.CODCON) IS NOT NULL
+  AND TRIM(C1.CODCON) <> ' '
+
+ORDER BY
+       C1.NUMEMP,
+       C1.CODCCU,
+       P.CODEVE;

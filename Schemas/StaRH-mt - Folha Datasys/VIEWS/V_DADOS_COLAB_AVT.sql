@@ -1,6 +1,6 @@
-/*v_dados_colab_avt*/
-
-CREATE OR REPLACE VIEW V_DADOS_COLAB_AVT AS
+CREATE OR REPLACE VIEW V_DADOS_COLAB_AVT
+(status, desc_status, cod_pessoa, cod_contrato, des_pessoa, des_pessoa_abrev, primeiro_nome, segundo_nome, sobrenome, data_avanco, data_admissao, cod_tipo_admissao, des_tipo_admissao, data_demissao, cod_demissao, des_demissao, nro_conta_pgto, cod_age_pgto, conta_bancaria, cod_banco, des_banco, cod_bco_fgtd, cod_age_fgts, nro_conta_fgts, data_opcao_fgts, num_ficha_registro, cod_motivo, des_motivo, cod_funcao, funcao, des_funcao, cod_cbo_2002, data_inicio_clh, data_fim_clh, cod_vinculo_empreg, cod_categoria_trab, cod_esocial, ind_bate_ponto, cod_turno, des_turno, hr_base_mes, hr_base_sem, hr_base_dia, data_inicio_hr, data_fim_hr, data_inicio_hor, data_fim_hor, hor_1_ent, hor_1_sai, hor_2_ent, hor_2_sai, hor_3_ent, hor_3_sai, hor_4_ent, hor_4_sai, cod_sindicato, des_sindicato, ind_cont_sindical, data_ini_sind, data_fim_sind, cod_organograma, cod_unidade, des_unidade, data_ini_org, data_fim_org, ind_resp_uni, cod_rede_local, des_rede_local, cod_uf_org, cod_grupo_emp, edicao_grupo_emp, des_grupo_emp, cod_emp, edicao_emp, des_empresa, cod_org_filial, edicao_filial, des_filial, cod_org_divisao, edicao_divisao, des_divisao, cod_org_depart, edicao_depart, des_depart, cod_org_setor, edicao_setor, des_setor, cod_org_secao, edicao_secao, des_secao, cod_org_uni, edicao_uni, des_uni, cod_tipo, des_tipo, cod_lotacao, des_lotacao, uni_lotacao, dta_inicio_lot, dta_fim_lot, data_nascimento, idade, sexo, cod_est_civil, des_est_civil, cod_pessoa_pai, des_pai, cod_pessoa_mae, des_mae, ind_deficiencia, cod_deficiencia, des_deficiencia, des_email, tipo_email, des_tipo_email, des_email_alter, tipo_email_alter, des_tipo_email_alter, cod_ddd, fone_cel, cpf, nro_identidade, emissor_rg, uf_rg, emissor, data_emi_identidade, nro_pis_pasep, data_pis_pasep, nro_ctps, nro_serie_ctps, ctps, data_exp_ctps, cod_uf_ctps, cod_tipo_aposent, nro_beneficio_inss, data_aposentadoria, nro_titulo, nro_zona_titulo, nro_secao_titulo, data_emissao_titulo, cod_uf_titulo, cod_mun_titulo, nro_habilitacao, data_emissao_hab, data_validade_hab, cod_categoria_hab, cod_orgao_hab, des_orgao_hab, nro_reservista, servico_militar, cod_instrucao, des_instrucao, cod_pais, cod_nacionalidade, nacionalidade, des_nacionalidade, cod_raca_cor, des_raca_cor, data_cheg_brasil, data_naturalizacao, nro_carteira_estrang, nro_tit_declaratorio, class_trab_estrang, info_cota, ide_oc, cond_ing, cod_munic_nascimento, cod_ibge_nascto, cod_uf_nascimento, cod_pais_nascto, ind_reg_conselho, cod_cep, tipo_logra, cod_logra, des_logra, numero, complemento, cod_bairro, des_bairro, cod_cidade, des_cidade, cod_uf, cod_ibge, cod_afast, des_afast, data_ini_afast, data_fim_afast, cod_status_afast, status_afast, data_prevista_ferias, data_ferias, data_retorno, cod_funcao_ant, des_funcao_ant, data_inicio_ant, data_fim_ant, cod_unidade_ant, des_unidade_ant, data_inicio_org_ant, data_fim_org_ant)
+AS
 WITH
 /* =========================
    1) CONTRATOS (BASE)
@@ -22,7 +22,7 @@ CONTRATOS AS (
          A.COD_CONTRATO,
          INITCAP(B.NOME_PESSOA) AS DES_PESSOA,
 
-         /* NOME CURTO COM INICIAIS DOS NOMES DO MEIO, IGNORANDO DA/DE/DO/DAS/DOS/E, Mï¿½X. 40 CHARS */
+         /* NOME CURTO COM INICIAIS DOS NOMES DO MEIO, IGNORANDO DA/DE/DO/DAS/DOS/E, MÁX. 40 CHARS */
          SUBSTR(
            CASE
              WHEN TRIM(
@@ -67,7 +67,7 @@ CONTRATOS AS (
          A.DATA_AVANCO,
          A.DATA_INICIO AS DATA_ADMISSAO,
          A.DATA_FIM    AS DATA_DEMISSAO,
-         
+
          A.COD_TIPO_ADMISSAO,
          L.NOME_TIPO_ADMISSAO AS DES_TIPO_ADMISSAO,
 
@@ -444,6 +444,7 @@ FUNCAO AS (
       A.COD_CLH AS COD_FUNCAO,
       B.NOME_CLH AS FUNCAO,
       A.COD_CLH || ' - ' || B.NOME_CLH AS DES_FUNCAO,
+      B.COD_CBO_2002,
       A.DATA_INICIO AS DATA_INICIO_CLH,
       A.DATA_FIM    AS DATA_FIM_CLH,
       ROW_NUMBER() OVER(
@@ -691,12 +692,12 @@ AFASTAMENTOS AS (
                    WHEN AFAST.COD_CAUSA_AFAST IN (21, 60) THEN
                     'ATIVO, SEM RETORNO'
                    WHEN AFAST.COD_CAUSA_AFAST = 7 THEN
-                    'EM Fï¿½RIAS'
+                    'EM FÉRIAS'
                    WHEN AFAST.COD_CAUSA_AFAST IN (3, 6) THEN
                     'AFASTADO TEMP'
                    WHEN AFAST.COD_CAUSA_AFAST = 4 AND AFAST.DATA_FIM = DATE
                     '2999-12-31' THEN
-                    'PODERï¿½ RETORNAR'
+                    'PODERÁ RETORNAR'
                    ELSE
                     'EM ATIVIDADE'
                  END AS STATUS_AFAST,
@@ -795,10 +796,11 @@ SELECT
  CT.COD_MOTIVO,
  CT.DES_MOTIVO,
 
- /*DADOS FUNï¿½ï¿½ES/CARGOS*/
+ /*DADOS FUNÇÕES/CARGOS*/
  FU.COD_FUNCAO,
  FU.FUNCAO,
  FU.DES_FUNCAO,
+ FU.COD_CBO_2002,
  FU.DATA_INICIO_CLH,
  FU.DATA_FIM_CLH,
 
@@ -817,7 +819,7 @@ SELECT
  TU.DATA_INICIO_HR,
  TU.DATA_FIM_HR,
 
- /*HORï¿½RIOS DA ESCALA DE TRABALHO*/
+ /*HORÁRIOS DA ESCALA DE TRABALHO*/
  HR.DATA_INICIO_HOR,
  HR.DATA_FIM_HOR,
  HR.HOR_1_ENT,
@@ -873,7 +875,7 @@ SELECT
  ORG.COD_TIPO,
  ORG.DES_TIPO,
 
- /* LOTAï¿½ï¿½O DO CONTRATO*/
+ /* LOTAÇÃO DO CONTRATO*/
  LOT.COD_LOTACAO,
  LOT.DES_LOTACAO,
  LOT.UNI_LOTACAO,
@@ -982,9 +984,9 @@ SELECT
  FER.DATA_FERIAS,
  FER.DATA_RETORNO,
 
- /*DADOS ANTERIORES DO COLABORDOR - ï¿½LTIMO ANTES DO ATUAL NA REFERï¿½NCIA*/
+ /*DADOS ANTERIORES DO COLABORDOR - ÚLTIMO ANTES DO ATUAL NA REFERÊNCIA*/
 
- /*FUNï¿½ï¿½O ANTERIOR*/
+ /*FUNÇÃO ANTERIOR*/
  CC.COD_CLH_ANT     AS COD_FUNCAO_ANT,
  CC.DES_CLH_ANT     AS DES_FUNCAO_ANT,
  CC.DATA_INICIO_ANT,

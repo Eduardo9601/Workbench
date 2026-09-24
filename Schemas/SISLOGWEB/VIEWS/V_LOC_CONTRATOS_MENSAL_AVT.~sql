@@ -472,7 +472,6 @@ SELECT
                  AND CT.DTA_ALTERACAO >= CT.COMPETENCIA_REF
                 THEN
                     NVL(CT.VLR_ANTIGO_ALUGUEL, 0)
-
                 ELSE
                     NVL
                     (
@@ -481,14 +480,18 @@ SELECT
                     )
             END
         ),
-        'FM999G999G990D00'
+        'FM999G999G990D00',
+        'NLS_NUMERIC_CHARACTERS = '',.'''
     ) AS VLR_ALUGUEL,
+    
 
-    TO_CHAR
+   TO_CHAR
     (
         SUM(CT.VLR_DIFERENCA),
-        'FM999G999G990D00'
+        'FM999G999G990D00',
+        'NLS_NUMERIC_CHARACTERS = '',.'''
     ) AS DIFERENCA,
+    
 
     TO_CHAR
     (
@@ -500,7 +503,8 @@ SELECT
     TO_CHAR
     (
         SUM(CT.VLR_DESCONTO),
-        'FM999G999G990D00'
+        'FM999G999G990D00',
+        'NLS_NUMERIC_CHARACTERS = '',.'''
     ) AS DESCONTO,
 
     TO_CHAR
@@ -510,10 +514,11 @@ SELECT
         'NLS_DATE_LANGUAGE=Portuguese'
     ) AS DESCONTO_ATE,
 
-    TO_CHAR
+   TO_CHAR
     (
         SUM(CT.VLR_EMPRESTIMO),
-        'FM999G999G990D00'
+        'FM999G999G990D00',
+        'NLS_NUMERIC_CHARACTERS = '',.'''
     ) AS EMPRESTIMO,
 
     TO_CHAR
@@ -523,28 +528,28 @@ SELECT
         'NLS_DATE_LANGUAGE=Portuguese'
     ) AS EMPRESTIMO_ATE,
 
-    TO_CHAR
-    (
-        SUM
-        (
-              CASE
-                  WHEN CT.DTA_ALTERACAO IS NOT NULL THEN
-                      NVL(CT.VLR_ANTIGO_ALUGUEL, 0)
+   TO_CHAR
+  (
+      SUM
+      (
+            CASE
+                WHEN CT.DTA_ALTERACAO IS NOT NULL THEN
+                    NVL(CT.VLR_ANTIGO_ALUGUEL, 0)
+                ELSE
+                    NVL
+                    (
+                        NULLIF(CT.VLR_ALUGUEL_FIXO, 0),
+                        CT.VLR_NOVO_ALUGUEL
+                    )
+            END
 
-                  ELSE
-                      NVL
-                      (
-                          NULLIF(CT.VLR_ALUGUEL_FIXO, 0),
-                          CT.VLR_NOVO_ALUGUEL
-                      )
-              END
-
-            + NVL(CT.VLR_DIFERENCA, 0)
-            - NVL(CT.VLR_DESCONTO, 0)
-            - NVL(CT.VLR_EMPRESTIMO, 0)
-        ),
-        'FM999G999G990D00'
-    ) AS SALDO
+          + NVL(CT.VLR_DIFERENCA, 0)
+          - NVL(CT.VLR_DESCONTO, 0)
+          - NVL(CT.VLR_EMPRESTIMO, 0)
+      ),
+      'FM999G999G990D00',
+      'NLS_NUMERIC_CHARACTERS = '',.'''
+  ) AS SALDO
 
 FROM CONTRATOS CT
 
@@ -569,4 +574,4 @@ GROUP BY
     CT.DESCONTO_ATE,
     CT.EMPRESTIMO_ATE
 ORDER BY CT.REDE,
-         CT.UNIDADE
+         CT.UNIDADE;

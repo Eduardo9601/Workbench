@@ -828,8 +828,6 @@ BEGIN
    /*VERSÃO CORRIGINDO O VALOR DA PREVENTIVA DE GERAR 2 VALORES PARA A MESMA REFERENCIA*/
     SELECT LAST_DAY(MES) AS DTA_MOVIMENTO,
            COD_UNIDADE,
-           REGIAO,
-           REDE,
            VLR_PREVENTIVA,
            SUM(CASE
                  WHEN VLR_PREVENTIVA > 0 THEN
@@ -837,46 +835,28 @@ BEGIN
                  ELSE
                   0
                END) OVER (PARTITION BY COD_UNIDADE) AS QTD_MESES
-      FROM (SELECT MES,
-                   COD_UNIDADE,
-                   MAX(REGIAO) AS REGIAO,
-                   MAX(REDE) AS REDE,
-                   SUM(VLR_PREV_MES) AS VLR_PREVENTIVA
-              FROM (SELECT TRUNC(A.DTA_MOVIMENTO, 'MM') AS MES,
-                           A.COD_UNIDADE,
-                           CASE
-                             WHEN TO_CHAR(A.COD_GRUPO_UNI) LIKE '%8%' THEN
-                              A.COD_GRUPO_UNI
-                           END AS REGIAO,
-                           CASE
-                             WHEN TO_CHAR(A.COD_QUEBRA_UNI) NOT LIKE '%8%' THEN
-                              A.COD_QUEBRA_UNI
-                           END AS REDE,
-                           NVL(A.VLR_PREVENTIVO, 0) AS VLR_PREV_MES
-                      FROM NL.ES_0124_CR_PROJECAO@NLGRZ A
-                     CROSS JOIN DATAS_REF M
-                     WHERE A.DTA_MOVIMENTO >= M.DTA_INI
-                       AND A.DTA_MOVIMENTO <= M.DTA_FIM
-                       AND A.COD_QUEBRA_LCTO = 1
-                       AND A.COD_UNIDADE <> 0
-                    --AND A.COD_UNIDADE = 568
-                    ) X
-             WHERE REGIAO IS NOT NULL
-               AND REDE IS NOT NULL
-             GROUP BY MES, COD_UNIDADE)
+      FROM (SELECT TRUNC(A.DTA_MOVIMENTO, 'MM') AS MES,
+                   A.COD_UNIDADE,
+                   SUM(NVL(A.VLR_PREVENTIVO, 0)) AS VLR_PREVENTIVA
+              FROM NL.ES_0124_CR_PROJECAO@NLGRZ A
+             CROSS JOIN DATAS_REF M
+             WHERE A.DTA_MOVIMENTO >= M.DTA_INI
+               AND A.DTA_MOVIMENTO <= M.DTA_FIM
+               AND A.COD_QUEBRA_LCTO = 1
+               AND A.COD_UNIDADE <> 0
+             --AND A.COD_UNIDADE = 568
+             GROUP BY TRUNC(A.DTA_MOVIMENTO, 'MM'),
+                      A.COD_UNIDADE)
      ORDER BY COD_UNIDADE, MES
      
      ),
   
   CALC_PREVENTIVA AS
     (SELECT A.COD_UNIDADE,
-            A.REGIAO,
-            A.REDE,
             SUM(NVL(A.VLR_PREVENTIVA, 0)) AS VLR_PREVENTIVA,
-            A.QTD_MESES
+            MAX(A.QTD_MESES) AS QTD_MESES
        FROM DADOS_PREVENTIVA A
-       JOIN GRUPOS B ON B.COD_UNIDADE = A.COD_UNIDADE
-      GROUP BY A.COD_UNIDADE, A.QTD_MESES, A.REGIAO, A.REDE
+      GROUP BY A.COD_UNIDADE
      
      ),
   
@@ -891,8 +871,6 @@ BEGIN
                0
             END AS PREVENTIVA
        FROM CALC_PREVENTIVA
-     --WHERE REGIAO = 8708
-     --AND REDE = 10
       ORDER BY COD_UNIDADE
      
      ),
@@ -1091,7 +1069,14 @@ BEGIN
                    QTD_MESES
               FROM KPIS
             --WHERE COD_UNIDADE = 4
-            )
+            ) DADOS_FINAL
+     /*VALIDA SE A UNIDADE E O PERÍODO JÁ FORAM INSERIDOS, EVITANDO DUPLICIDADE*/
+     WHERE NOT EXISTS
+           (SELECT 1
+              FROM GRZ_KPI_AVALIACAO_PLR_TB T
+             WHERE T.COD_UNIDADE = DADOS_FINAL.COD_UNIDADE
+               AND T.DTA_INI = DADOS_FINAL.DTA_INI
+               AND T.DTA_FIM = DADOS_FINAL.DTA_FIM)
     
      ORDER BY COD_UNIDADE;
 

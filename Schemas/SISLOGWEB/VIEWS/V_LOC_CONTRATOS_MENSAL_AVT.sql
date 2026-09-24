@@ -1,4 +1,7 @@
-CREATE OR REPLACE VIEW V_LOC_CONTRATOS_MENSAL_AVT AS
+CREATE OR REPLACE VIEW V_LOC_CONTRATOS_MENSAL_AVT
+(competencia_ref, rede, unidade, cod_contrato, des_unidade, des_situacao, dta_inicio, dta_termino, dta_alteracao, vlr_aluguel, diferenca, dta_diferenca, desconto, desconto_ate, emprestimo, emprestimo_ate, saldo)
+AS
+
 WITH
 
 /* =========================================================
@@ -111,7 +114,7 @@ REAJUSTE AS
    - já tiver iniciado na competência consultada;
    - ainda não tiver terminado na competência consultada.
 ========================================================= */
-DESCONTOS AS
+/*DESCONTOS AS
 (
     SELECT
         P.COMPETENCIA_REF,
@@ -130,12 +133,108 @@ DESCONTOS AS
 
     JOIN BASE_CONTRATOS B
       ON P.COMPETENCIA_REF >= TRUNC(B.DTA_DESCTO_INI, 'MM')
-     AND P.COMPETENCIA_REF <  TRUNC(B.DTA_DESCTO_FIM, 'MM')
+     --AND P.COMPETENCIA_REF <=  TRUNC(B.DTA_DESCTO_FIM, 'MM')
+),*/
+
+/* =========================================================
+   LOJAS QUE POSSUEM DESCONTOS VIGENTES NA COMPETÊNCIA
+
+   Regra:
+   - o desconto só entra se já iniciou;
+   - o desconto só entra se ainda é válido na competência;
+   - mantém a lógica original de DESCONTO_ATE.
+========================================================= */
+DESCONTOS AS
+(
+    SELECT
+        P.COMPETENCIA_REF,
+        B.COD_UNIDADE,
+        B.COD_CONTRATO,
+        B.VAL_DESCTO,
+        B.DTA_DESCTO_INI,
+        B.DTA_DESCTO_FIM,
+
+        LAST_DAY
+        (
+            ADD_MONTHS(B.DTA_DESCTO_FIM, -1)
+        ) AS DESCONTO_ATE
+
+    FROM PERIODOS P
+
+    JOIN BASE_CONTRATOS B
+      ON (
+             B.DTA_DESCTO_INI IS NULL
+             OR TRUNC(B.DTA_DESCTO_INI, 'MM') <= P.COMPETENCIA_REF
+         )
+     AND TRUNC(B.DTA_DESCTO_FIM, 'MM') >= P.COMPETENCIA_REF
+
+    WHERE B.DTA_DESCTO_FIM IS NOT NULL
+      AND NVL(B.VAL_DESCTO, 0) <> 0
 ),
+
+/* =========================================================
+--alternativo
+   LOJAS QUE POSSUEM DESCONTOS VIGENTES NA COMPETÊNCIA
+
+   O desconto será considerado quando estiver vigente
+   dentro da competência mensal consultada.
+
+   Esta regra trata dois formatos possíveis de DTA_DESCTO_FIM:
+   - primeiro dia do mês seguinte, exemplo: 01/10/2026;
+   - data final real do desconto, exemplo: 30/09/2026.
+========================================================= */
+/*DESCONTOS AS
+(
+    SELECT
+        P.COMPETENCIA_REF,
+        B.COD_UNIDADE,
+        B.COD_CONTRATO,
+        B.VAL_DESCTO,
+        B.DTA_DESCTO_INI,
+        B.DTA_DESCTO_FIM,
+
+        CASE
+            WHEN B.DTA_DESCTO_FIM = TRUNC(B.DTA_DESCTO_FIM, 'MM') THEN
+                LAST_DAY
+                (
+                    ADD_MONTHS(B.DTA_DESCTO_FIM, -1)
+                )
+            ELSE
+                LAST_DAY(B.DTA_DESCTO_FIM)
+        END AS DESCONTO_ATE
+
+    FROM PERIODOS P
+
+    JOIN BASE_CONTRATOS B
+      ON P.COMPETENCIA_REF >= TRUNC
+         (
+             NVL(B.DTA_DESCTO_INI, DATE '1900-01-01'),
+             'MM'
+         )
+
+     AND P.COMPETENCIA_REF <= TRUNC
+         (
+             CASE
+                 WHEN B.DTA_DESCTO_FIM = TRUNC(B.DTA_DESCTO_FIM, 'MM') THEN
+                     LAST_DAY
+                     (
+                         ADD_MONTHS(B.DTA_DESCTO_FIM, -1)
+                     )
+                 ELSE
+                     LAST_DAY(B.DTA_DESCTO_FIM)
+             END,
+             'MM'
+         )
+
+    WHERE B.DTA_DESCTO_FIM IS NOT NULL
+      AND NVL(B.VAL_DESCTO, 0) <> 0
+),
+*/
 
 /* =========================================================
    LOJAS QUE POSSUEM DIFERENÇAS
 ========================================================= */
+
 DIFERENCAS AS
 (
     SELECT
@@ -483,7 +582,7 @@ SELECT
         'FM999G999G990D00',
         'NLS_NUMERIC_CHARACTERS = '',.'''
     ) AS VLR_ALUGUEL,
-    
+
 
    TO_CHAR
     (
@@ -491,7 +590,7 @@ SELECT
         'FM999G999G990D00',
         'NLS_NUMERIC_CHARACTERS = '',.'''
     ) AS DIFERENCA,
-    
+
 
     TO_CHAR
     (
