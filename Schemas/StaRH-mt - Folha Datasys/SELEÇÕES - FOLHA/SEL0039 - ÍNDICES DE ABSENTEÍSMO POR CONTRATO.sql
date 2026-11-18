@@ -364,7 +364,7 @@ DIM AS (
     LEFT JOIN AFAST_MES AF
       ON AF.COD_CONTRATO = B.COD_CONTRATO
      AND AF.DATA_MES = B.DATA_MES
-    WHERE NVL(T.COD_TURNO, 0) <> 85
+    WHERE NVL(T.COD_TURNO, 0) <> 85 --esse turno no legado são gerentes, eles não batem ponto
       AND (
             F.DES_FUNCAO IS NULL
             OR (

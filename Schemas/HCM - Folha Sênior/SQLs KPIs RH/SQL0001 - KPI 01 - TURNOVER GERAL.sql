@@ -1,0 +1,681 @@
+/* ===
+   02 | TURNOVER GERAL | V2 ORACLE | CANDIDATO A HOMOLOGACAO
+   FONTE: 01_TURNOVER_GERAL_OFICIAL.sql / 02_TURNOVER_GERENCIAL_OFICIAL.sql
+   PARAMETROS: P_DATA_INICIO, P_DATA_FIM (obrigatorios),
+   P_EMPRESA, P_REDE, P_REGIAO, P_UNIDADE, P_TIPO
+   (opcionais; 0/NULL=todos).
+   UMA JANELA DE DATAS, nao produz serie mensal. Efetivo e eventos
+   calculados nas datas pertinentes e alocados a lotacao historica.
+   Inclui efetivo medio, taxa percentual e totalizadores para auditoria.
+   V1 BI recebe apenas as medidas brutas, sem totalizadores.
+   FORMULA DE REFERENCIA (fora do SQL):
+       EFETIVO_MEDIO = (EFETIVO_INICIAL + EFETIVO_FINAL) / 2
+       TURNOVER_PCT = 100 * DEMITIDOS / NULLIF(EFETIVO_MEDIO, 0)
+   REGRAS: unidade=R018CCU.CCUTXT; tipo=USU_TIPFIL;
+   rede=filial (lojas), 001 (ADM), 013 (CD);
+   regiao=terceiro nivel se o caminho tem no minimo 4 niveis.
+   NO TECNICO 9999 excluido. Contratos por (NumEmp,TipCol,NumCad).
+   SEM DML; SQL SOMENTE LEITURA. NAO EXECUTADO NO ORACLE DO CLIENTE.
+   REVISAO 2026-10-28: filtro P_TIPO opcional; regiao segmentada por rede;
+   REGRA DE LOTACAO: DATA DO FATO, COMO V1 BI (difere do legado).
+   SEM EXECUCAO NO ORACLE: CANDIDATO A HOMOLOGACAO.
+   ============================================================================ */
+WITH
+/* 01. PARAMETROS - periodo livre para conciliacao no Oracle.
+      Filtros 0/NULL = todos. Unidade = CcuTxt, nao CodCcu. */
+PARAMS AS (
+    SELECT TRUNC(CAST(:P_DATA_INICIO AS DATE)) AS DATA_INICIAL,
+           TRUNC(CAST(:P_DATA_FIM    AS DATE)) AS DATA_FINAL,
+           TO_NUMBER(NULLIF(TRIM(TO_CHAR(:P_EMPRESA)), '0')) AS FILTRO_EMPRESA,
+           CASE
+               WHEN TRIM(TO_CHAR(:P_REDE)) IN ('1', '01', '001') THEN '001'
+               WHEN TRIM(TO_CHAR(:P_REDE)) IN ('13', '013') THEN '013'
+               ELSE LPAD(NULLIF(LTRIM(TRIM(TO_CHAR(:P_REDE)), '0'), ''), 3, '0')
+           END AS FILTRO_REDE,
+           TO_NUMBER(NULLIF(TRIM(TO_CHAR(:P_REGIAO)), '0')) AS FILTRO_REGIAO,
+           NULLIF(LTRIM(TRIM(TO_CHAR(:P_UNIDADE)), '0'), '') AS FILTRO_UNIDADE,
+           TO_NUMBER(NULLIF(TRIM(TO_CHAR(:P_TIPO)), '0')) AS FILTRO_TIPO
+      FROM DUAL
+),
+CALENDARIO AS (
+    SELECT TRUNC(P.DATA_INICIAL, 'MM') AS MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL
+      FROM PARAMS P
+     WHERE P.DATA_INICIAL IS NOT NULL
+       AND P.DATA_FINAL IS NOT NULL
+       AND P.DATA_INICIAL <= P.DATA_FINAL
+),
+
+/* 02. RESCISAO - uma linha por contrato, sem multiplicar contagens. */
+RESCISAO_REF AS (
+    SELECT NUMEMP, TIPCOL, NUMCAD, DATDEM
+      FROM (
+        SELECT R.NUMEMP, R.TIPCOL, R.NUMCAD, TRUNC(R.DATDEM) AS DATDEM,
+               ROW_NUMBER() OVER (
+                   PARTITION BY R.NUMEMP, R.TIPCOL, R.NUMCAD
+                   ORDER BY R.DATDEM DESC NULLS LAST, R.ROWID DESC
+               ) AS RN
+          FROM R042RCM R
+      )
+     WHERE RN = 1
+),
+
+/* 03. CONTRATOS - somente vinculos que cruzam o periodo.
+      TipCol sempre integra a chave funcional do contrato. */
+CONTRATOS AS (
+    SELECT P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL,
+           F.NUMEMP AS COD_EMP, F.TIPCOL, F.NUMCAD,
+           TRUNC(F.DATADM) AS DATADM, R.DATDEM,
+           F.CODFIL, F.CODCCU, F.TABORG, F.NUMLOC,
+           F.ESTCAR, F.CODCAR
+      FROM CALENDARIO P
+      JOIN R034FUN F
+        ON F.DATADM < P.DATA_FINAL + 1
+      LEFT JOIN RESCISAO_REF R
+        ON R.NUMEMP = F.NUMEMP
+       AND R.TIPCOL = F.TIPCOL
+       AND R.NUMCAD = F.NUMCAD
+     WHERE NVL(R.DATDEM, DATE '2999-12-31') >= P.DATA_INICIAL
+       AND (EXISTS (SELECT 1 FROM PARAMS X
+                     WHERE X.FILTRO_EMPRESA IS NULL
+                        OR X.FILTRO_EMPRESA = F.NUMEMP))
+
+),
+
+/* 04. FATOS - quatro datas de negocio e posicao no periodo.
+      Admissoes: lotacao da admissao; demissoes: lotacao da demissao;
+      efetivos: lotacao da fotografia inicial ou final; vinculados:
+      ultimo dia de referencia (apenas para auditoria de populacao).
+      Cada linha representa exatamente 1 contrato, 1 medida e 1 periodo. */
+FATOS AS (
+    SELECT C.*, 'EFETIVO_INICIAL' AS MEDIDA, C.DATA_INICIAL AS DATA_EVENTO
+      FROM CONTRATOS C
+     WHERE C.DATADM <= C.DATA_INICIAL
+       AND NVL(C.DATDEM, DATE '2999-12-31') >= C.DATA_INICIAL
+    UNION ALL
+    SELECT C.*, 'EFETIVO_FINAL' AS MEDIDA, C.DATA_FINAL AS DATA_EVENTO
+      FROM CONTRATOS C
+     WHERE C.DATADM <= C.DATA_FINAL
+       AND NVL(C.DATDEM, DATE '2999-12-31') >= C.DATA_FINAL
+    UNION ALL
+    SELECT C.*, 'ADMITIDOS' AS MEDIDA, C.DATADM AS DATA_EVENTO
+      FROM CONTRATOS C
+     WHERE C.DATADM BETWEEN C.DATA_INICIAL AND C.DATA_FINAL
+    UNION ALL
+    SELECT C.*, 'DEMITIDOS' AS MEDIDA, C.DATDEM AS DATA_EVENTO
+      FROM CONTRATOS C
+     WHERE C.DATDEM BETWEEN C.DATA_INICIAL AND C.DATA_FINAL
+    UNION ALL
+    SELECT C.*, 'VINCULADOS_PERIODO' AS MEDIDA,
+           LEAST(C.DATA_FINAL, NVL(C.DATDEM, C.DATA_FINAL)) AS DATA_EVENTO
+      FROM CONTRATOS C
+),
+
+/* 05. HISTORICOS NA DATA DO FATO.
+      ROW_NUMBER evita multiplicar fatos com alteracoes anteriores.
+      ROWID e criterio tecnico de desempate em DatAlt coincidente. */
+HCC_REF AS (
+    SELECT COD_EMP, TIPCOL, NUMCAD, MES_REFERENCIA, MEDIDA, CODCCU
+      FROM (
+        SELECT E.COD_EMP, E.TIPCOL, E.NUMCAD, E.MES_REFERENCIA,
+               E.MEDIDA, H.CODCCU,
+               ROW_NUMBER() OVER (
+                   PARTITION BY E.COD_EMP, E.TIPCOL, E.NUMCAD,
+                                E.MES_REFERENCIA, E.MEDIDA
+                   ORDER BY H.DATALT DESC, H.ROWID DESC
+               ) AS RN
+          FROM FATOS E
+          JOIN R038HCC H
+            ON H.NUMEMP = E.COD_EMP AND H.TIPCOL = E.TIPCOL
+           AND H.NUMCAD = E.NUMCAD AND H.DATALT < E.DATA_EVENTO + 1
+           AND H.CODCCU IS NOT NULL
+      )
+     WHERE RN = 1
+),
+HFI_REF AS (
+    SELECT COD_EMP, TIPCOL, NUMCAD, MES_REFERENCIA, MEDIDA,
+           CODFIL, CODCCU, TABORG, NUMLOC
+      FROM (
+        SELECT E.COD_EMP, E.TIPCOL, E.NUMCAD, E.MES_REFERENCIA,
+               E.MEDIDA, H.CODFIL, H.CODCCU, H.TABORG, H.NUMLOC,
+               ROW_NUMBER() OVER (
+                   PARTITION BY E.COD_EMP, E.TIPCOL, E.NUMCAD,
+                                E.MES_REFERENCIA, E.MEDIDA
+                   ORDER BY H.DATALT DESC, H.ROWID DESC
+               ) AS RN
+          FROM FATOS E
+          JOIN R038HFI H
+            ON H.NUMEMP = E.COD_EMP AND H.TIPCOL = E.TIPCOL
+           AND H.NUMCAD = E.NUMCAD AND H.DATALT < E.DATA_EVENTO + 1
+      )
+     WHERE RN = 1
+),
+HLO_REF AS (
+    SELECT COD_EMP, TIPCOL, NUMCAD, MES_REFERENCIA, MEDIDA,
+           TABORG, NUMLOC
+      FROM (
+        SELECT E.COD_EMP, E.TIPCOL, E.NUMCAD, E.MES_REFERENCIA,
+               E.MEDIDA, H.TABORG, H.NUMLOC,
+               ROW_NUMBER() OVER (
+                   PARTITION BY E.COD_EMP, E.TIPCOL, E.NUMCAD,
+                                E.MES_REFERENCIA, E.MEDIDA
+                   ORDER BY H.DATALT DESC, H.ROWID DESC
+               ) AS RN
+          FROM FATOS E
+          JOIN R038HLO H
+            ON H.NUMEMP = E.COD_EMP AND H.TIPCOL = E.TIPCOL
+           AND H.NUMCAD = E.NUMCAD AND H.DATALT < E.DATA_EVENTO + 1
+           AND H.TABORG IS NOT NULL AND H.NUMLOC IS NOT NULL
+      )
+     WHERE RN = 1
+),
+HCA_REF AS (
+    SELECT COD_EMP, TIPCOL, NUMCAD, MES_REFERENCIA, MEDIDA,
+           ESTCAR, CODCAR
+      FROM (
+        SELECT E.COD_EMP, E.TIPCOL, E.NUMCAD, E.MES_REFERENCIA,
+               E.MEDIDA, H.ESTCAR, H.CODCAR,
+               ROW_NUMBER() OVER (
+                   PARTITION BY E.COD_EMP, E.TIPCOL, E.NUMCAD,
+                                E.MES_REFERENCIA, E.MEDIDA
+                   ORDER BY H.DATALT DESC, H.ROWID DESC
+               ) AS RN
+          FROM FATOS E
+          JOIN R038HCA H
+            ON H.NUMEMP = E.COD_EMP AND H.TIPCOL = E.TIPCOL
+           AND H.NUMCAD = E.NUMCAD AND H.DATALT < E.DATA_EVENTO + 1
+      )
+     WHERE RN = 1
+),
+
+/* 06. LOTACAO / CARGO - mesma ordem de prioridade dos oficiais:
+      historico especifico > R038HFI > ficha R034FUN. */
+LOTACAO_REF AS (
+    SELECT E.COD_EMP, E.TIPCOL, E.NUMCAD, E.MES_REFERENCIA,
+           E.DATA_INICIAL, E.DATA_FINAL, E.DATA_EVENTO, E.MEDIDA,
+           NVL(HF.CODFIL, E.CODFIL) AS COD_FIL_REF,
+           COALESCE(HC.CODCCU, HF.CODCCU, E.CODCCU) AS COD_CCU_REF,
+           COALESCE(HL.TABORG, HF.TABORG, E.TABORG) AS TAB_ORG_REF,
+           COALESCE(HL.NUMLOC, HF.NUMLOC, E.NUMLOC) AS NUM_LOC_REF,
+           COALESCE(HA.ESTCAR, E.ESTCAR) AS EST_CAR_REF,
+           COALESCE(HA.CODCAR, E.CODCAR) AS COD_CAR_REF
+      FROM FATOS E
+      LEFT JOIN HCC_REF HC
+        ON HC.COD_EMP = E.COD_EMP AND HC.TIPCOL = E.TIPCOL
+       AND HC.NUMCAD = E.NUMCAD AND HC.MES_REFERENCIA = E.MES_REFERENCIA
+       AND HC.MEDIDA = E.MEDIDA
+      LEFT JOIN HFI_REF HF
+        ON HF.COD_EMP = E.COD_EMP AND HF.TIPCOL = E.TIPCOL
+       AND HF.NUMCAD = E.NUMCAD AND HF.MES_REFERENCIA = E.MES_REFERENCIA
+       AND HF.MEDIDA = E.MEDIDA
+      LEFT JOIN HLO_REF HL
+        ON HL.COD_EMP = E.COD_EMP AND HL.TIPCOL = E.TIPCOL
+       AND HL.NUMCAD = E.NUMCAD AND HL.MES_REFERENCIA = E.MES_REFERENCIA
+       AND HL.MEDIDA = E.MEDIDA
+      LEFT JOIN HCA_REF HA
+        ON HA.COD_EMP = E.COD_EMP AND HA.TIPCOL = E.TIPCOL
+       AND HA.NUMCAD = E.NUMCAD AND HA.MES_REFERENCIA = E.MES_REFERENCIA
+       AND HA.MEDIDA = E.MEDIDA
+),
+
+/* 07. ORGANOGRAMA - hierarquia vigente na data de cada fato. */
+HIERARQUIA_REF AS (
+    SELECT COD_EMP, TIPCOL, NUMCAD, MES_REFERENCIA, MEDIDA,
+           CODLOC, NOMLOC
+      FROM (
+        SELECT L.COD_EMP, L.TIPCOL, L.NUMCAD, L.MES_REFERENCIA,
+               L.MEDIDA, H.CODLOC, O.NOMLOC,
+               ROW_NUMBER() OVER (
+                   PARTITION BY L.COD_EMP, L.TIPCOL, L.NUMCAD,
+                                L.MES_REFERENCIA, L.MEDIDA
+                   ORDER BY CASE
+                       WHEN L.DATA_EVENTO BETWEEN H.DATINI
+                            AND NVL(H.DATFIM, DATE '2999-12-31') THEN 0
+                       ELSE 1 END,
+                       H.DATINI DESC NULLS LAST, H.ROWID DESC
+               ) AS RN
+          FROM LOTACAO_REF L
+          LEFT JOIN R016HIE H
+            ON H.TABORG = L.TAB_ORG_REF AND H.NUMLOC = L.NUM_LOC_REF
+           AND H.DATINI < L.DATA_EVENTO + 1
+          LEFT JOIN R016ORN O
+            ON O.TABORG = L.TAB_ORG_REF AND O.NUMLOC = L.NUM_LOC_REF
+      )
+     WHERE RN = 1
+),
+
+/* 08. REGIAO - o terceiro nivel so e regiao quando existe o quarto.
+      Empresa.Rede.Unidade (tres niveis) nao possui regiao. */
+REGIAO_REF AS (
+    SELECT COD_EMP, TIPCOL, NUMCAD, MES_REFERENCIA, MEDIDA,
+           COD_REGIAO, DES_REGIAO
+      FROM (
+        SELECT L.COD_EMP, L.TIPCOL, L.NUMCAD, L.MES_REFERENCIA,
+               L.MEDIDA,
+               CASE
+                   WHEN REGEXP_COUNT(HR.CODLOC, '[.]') >= 3
+                    AND REGEXP_LIKE(
+                        REGEXP_SUBSTR(HR.CODLOC, '[^.]+', 1, 3), '^[0-9]+$')
+                   THEN TO_NUMBER(REGEXP_SUBSTR(HR.CODLOC, '[^.]+', 1, 3))
+               END AS COD_REGIAO,
+               ORG_REG.NOMLOC AS DES_REGIAO,
+               ROW_NUMBER() OVER (
+                   PARTITION BY L.COD_EMP, L.TIPCOL, L.NUMCAD,
+                                L.MES_REFERENCIA, L.MEDIDA
+                   ORDER BY HREG.DATINI DESC NULLS LAST,
+                            HREG.ROWID DESC
+               ) AS RN
+          FROM LOTACAO_REF L
+          JOIN HIERARQUIA_REF HR
+            ON HR.COD_EMP = L.COD_EMP AND HR.TIPCOL = L.TIPCOL
+           AND HR.NUMCAD = L.NUMCAD
+           AND HR.MES_REFERENCIA = L.MES_REFERENCIA
+           AND HR.MEDIDA = L.MEDIDA
+          LEFT JOIN R016HIE HREG
+            ON HREG.TABORG = L.TAB_ORG_REF
+           AND HREG.CODLOC = REGEXP_SUBSTR(
+               HR.CODLOC, '^[^.]+[.][^.]+[.][^.]+')
+           AND L.DATA_EVENTO BETWEEN HREG.DATINI
+                       AND NVL(HREG.DATFIM, DATE '2999-12-31')
+          LEFT JOIN R016ORN ORG_REG
+            ON ORG_REG.TABORG = HREG.TABORG
+           AND ORG_REG.NUMLOC = HREG.NUMLOC
+         WHERE REGEXP_COUNT(HR.CODLOC, '[.]') >= 3
+      )
+     WHERE RN = 1
+),
+
+/* 09. BASE CLASSIFICADA - somente unidades reais com colaboradores.
+      CcuTxt e o codigo exibido; CodCcu e a chave tecnica do HCM. */
+BASE_INDICADOR AS (
+    SELECT L.MES_REFERENCIA, L.DATA_INICIAL, L.DATA_FINAL,
+           L.COD_EMP, L.TIPCOL, L.NUMCAD, L.MEDIDA,
+           L.TAB_ORG_REF AS TAB_ORG,
+           L.NUM_LOC_REF AS COD_ORGANOGRAMA,
+           HR.NOMLOC AS DES_ORGANOGRAMA,
+           L.COD_CCU_REF AS COD_CCU,
+           TRIM(CCU.CCUTXT) AS COD_UNIDADE,
+           TRIM(CCU.CCUTXT) || ' - ' || HR.NOMLOC AS DES_UNIDADE,
+           CCU.NOMCCU AS DES_CCU,
+           CCU.USU_TIPFIL AS COD_TIPO,
+           CASE CCU.USU_TIPFIL
+               WHEN 1 THEN 'LOJA'
+               WHEN 2 THEN 'ADMINISTRATIVO'
+               WHEN 3 THEN 'LOGISTICA/CD'
+           END AS DES_TIPO,
+           CASE CCU.USU_TIPFIL
+               WHEN 2 THEN '001'
+               WHEN 3 THEN '013'
+               ELSE LPAD(TRIM(TO_CHAR(FIL.USU_CODRED)), 3, '0')
+           END AS COD_REDE,
+           CASE CCU.USU_TIPFIL
+               WHEN 2 THEN 'ADMINISTRACAO'
+               WHEN 3 THEN 'LOGISTICA'
+               ELSE RED.USU_DESRED
+           END AS DES_REDE,
+           CASE WHEN CCU.USU_TIPFIL = 1 THEN RR.COD_REGIAO END AS COD_REGIAO,
+           CASE WHEN CCU.USU_TIPFIL = 1 THEN RR.DES_REGIAO END AS DES_REGIAO,
+           CASE WHEN L.MEDIDA = 'EFETIVO_FINAL'
+                AND EXISTS (
+                    SELECT 1 FROM R038AFA AF
+                     WHERE AF.NUMEMP = L.COD_EMP
+                       AND AF.TIPCOL = L.TIPCOL
+                       AND AF.NUMCAD = L.NUMCAD
+                       AND AF.DATAFA < L.DATA_EVENTO + 1
+                       AND NVL(AF.DATTER, DATE '2999-12-31') >= L.DATA_EVENTO
+                       AND NVL(AF.SITAFA, 0) <> 7
+                ) THEN 1 ELSE 0 END AS FLAG_AFASTADO_FINAL
+      FROM LOTACAO_REF L
+      JOIN R018CCU CCU
+        ON CCU.NUMEMP = L.COD_EMP AND CCU.CODCCU = L.COD_CCU_REF
+       AND TRIM(CCU.CCUTXT) IS NOT NULL
+       AND CCU.USU_TIPFIL IN (1, 2, 3)
+      LEFT JOIN R030FIL FIL
+        ON FIL.NUMEMP = L.COD_EMP AND FIL.CODFIL = L.COD_FIL_REF
+      LEFT JOIN USU_TCADRED RED
+        ON RED.USU_CODRED = FIL.USU_CODRED
+      JOIN HIERARQUIA_REF HR
+        ON HR.COD_EMP = L.COD_EMP AND HR.TIPCOL = L.TIPCOL
+       AND HR.NUMCAD = L.NUMCAD
+       AND HR.MES_REFERENCIA = L.MES_REFERENCIA
+       AND HR.MEDIDA = L.MEDIDA
+      LEFT JOIN REGIAO_REF RR
+        ON RR.COD_EMP = L.COD_EMP AND RR.TIPCOL = L.TIPCOL
+       AND RR.NUMCAD = L.NUMCAD
+       AND RR.MES_REFERENCIA = L.MES_REFERENCIA
+       AND RR.MEDIDA = L.MEDIDA
+      LEFT JOIN R024CAR CAR
+        ON CAR.ESTCAR = L.EST_CAR_REF AND CAR.CODCAR = L.COD_CAR_REF
+     WHERE HR.CODLOC IS NOT NULL
+       AND TRIM(HR.CODLOC) <> '9999'
+       AND NOT REGEXP_LIKE(
+           UPPER(NVL(CAR.TITCAR, ' ')), 'APRENDIZ|ESTAGI|TEMPOR'
+       )
+),
+
+/* 10. MEDIDAS ADITIVAS. Nada de turnover/efetivo medio calculado no SQL.
+       Nao ha linhas de rede, regiao, ADM/CD ou empresa sinteticas. */
+FATO_MENSAL AS (
+    SELECT B.MES_REFERENCIA, B.DATA_INICIAL, B.DATA_FINAL,
+           B.COD_EMP, B.COD_TIPO, B.DES_TIPO,
+           B.COD_REDE, B.DES_REDE,
+           B.COD_REGIAO, B.DES_REGIAO,
+           B.COD_UNIDADE, B.DES_UNIDADE, B.COD_CCU, B.DES_CCU,
+           B.TAB_ORG, B.COD_ORGANOGRAMA, B.DES_ORGANOGRAMA,
+           SUM(CASE WHEN B.MEDIDA = 'EFETIVO_INICIAL' THEN 1 ELSE 0 END)
+               AS EFETIVO_INICIAL,
+           SUM(CASE WHEN B.MEDIDA = 'EFETIVO_FINAL' THEN 1 ELSE 0 END)
+               AS EFETIVO_FINAL,
+           SUM(CASE WHEN B.MEDIDA = 'ADMITIDOS' THEN 1 ELSE 0 END)
+               AS ADMITIDOS,
+           SUM(CASE WHEN B.MEDIDA = 'DEMITIDOS' THEN 1 ELSE 0 END)
+               AS DEMITIDOS,
+           SUM(CASE WHEN B.MEDIDA = 'VINCULADOS_PERIODO' THEN 1 ELSE 0 END)
+               AS VINCULADOS_PERIODO,
+           SUM(B.FLAG_AFASTADO_FINAL) AS AFASTADOS_FINAL
+      FROM BASE_INDICADOR B
+     GROUP BY B.MES_REFERENCIA, B.DATA_INICIAL, B.DATA_FINAL,
+              B.COD_EMP, B.COD_TIPO, B.DES_TIPO,
+              B.COD_REDE, B.DES_REDE, B.COD_REGIAO, B.DES_REGIAO,
+              B.COD_UNIDADE, B.DES_UNIDADE, B.COD_CCU, B.DES_CCU,
+              B.TAB_ORG, B.COD_ORGANOGRAMA, B.DES_ORGANOGRAMA
+),
+
+/* 11. FILTROS - aplicados nas linhas-base ANTES dos totalizadores. */
+FATO_FILTRADO AS (
+    SELECT T.*
+      FROM FATO_MENSAL T
+      CROSS JOIN PARAMS P
+     WHERE (P.FILTRO_EMPRESA IS NULL OR T.COD_EMP = P.FILTRO_EMPRESA)
+       AND (P.FILTRO_REDE IS NULL OR T.COD_REDE = P.FILTRO_REDE)
+       AND (P.FILTRO_REGIAO IS NULL OR T.COD_REGIAO = P.FILTRO_REGIAO)
+       AND (P.FILTRO_UNIDADE IS NULL OR
+            LTRIM(T.COD_UNIDADE, '0') = P.FILTRO_UNIDADE)
+       AND (P.FILTRO_TIPO IS NULL OR T.COD_TIPO = P.FILTRO_TIPO)
+),
+
+/* 12. Totalizadores: rede/regiao apenas lojas; regiao agrupada por rede;
+       ADM/CD nos blocos proprios.
+       Indicadores calculados somente nesta V2 de conferencia. */
+CONSOLIDADO AS (
+    SELECT 'UNIDADE' AS NIVEL_AGREGACAO,
+           T.MES_REFERENCIA,
+           T.DATA_INICIAL,
+           T.DATA_FINAL,
+           T.COD_EMP,
+           T.COD_TIPO,
+           T.DES_TIPO,
+           T.COD_REDE,
+           T.DES_REDE,
+           T.COD_REGIAO,
+           T.DES_REGIAO,
+           T.COD_UNIDADE,
+           T.DES_UNIDADE,
+           T.COD_CCU,
+           T.DES_CCU,
+           T.TAB_ORG,
+           T.COD_ORGANOGRAMA,
+           T.DES_ORGANOGRAMA,
+           T.EFETIVO_INICIAL,
+           T.EFETIVO_FINAL,
+           T.ADMITIDOS,
+           T.DEMITIDOS,
+           T.VINCULADOS_PERIODO,
+           T.AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+    UNION ALL
+    SELECT 'REDE' AS NIVEL_AGREGACAO,
+           P.MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL,
+           T.COD_EMP AS COD_EMP,
+           1 AS COD_TIPO,
+           'LOJA' AS DES_TIPO,
+           T.COD_REDE AS COD_REDE,
+           T.DES_REDE AS DES_REDE,
+           NULL AS COD_REGIAO,
+           NULL AS DES_REGIAO,
+           NULL AS COD_UNIDADE,
+           NULL AS DES_UNIDADE,
+           NULL AS COD_CCU,
+           NULL AS DES_CCU,
+           NULL AS TAB_ORG,
+           NULL AS COD_ORGANOGRAMA,
+           NULL AS DES_ORGANOGRAMA,
+           SUM(T.EFETIVO_INICIAL) AS EFETIVO_INICIAL,
+           SUM(T.EFETIVO_FINAL) AS EFETIVO_FINAL,
+           SUM(T.ADMITIDOS) AS ADMITIDOS,
+           SUM(T.DEMITIDOS) AS DEMITIDOS,
+           SUM(T.VINCULADOS_PERIODO) AS VINCULADOS_PERIODO,
+           SUM(T.AFASTADOS_FINAL) AS AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+      CROSS JOIN CALENDARIO P
+     WHERE T.COD_TIPO = 1
+     GROUP BY T.COD_EMP, T.COD_REDE, T.DES_REDE, P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL
+    UNION ALL
+    SELECT 'REGIAO' AS NIVEL_AGREGACAO,
+           P.MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL,
+           T.COD_EMP AS COD_EMP,
+           1 AS COD_TIPO,
+           'LOJA' AS DES_TIPO,
+           T.COD_REDE AS COD_REDE,
+           T.DES_REDE AS DES_REDE,
+           T.COD_REGIAO AS COD_REGIAO,
+           T.DES_REGIAO AS DES_REGIAO,
+           NULL AS COD_UNIDADE,
+           NULL AS DES_UNIDADE,
+           NULL AS COD_CCU,
+           NULL AS DES_CCU,
+           NULL AS TAB_ORG,
+           NULL AS COD_ORGANOGRAMA,
+           NULL AS DES_ORGANOGRAMA,
+           SUM(T.EFETIVO_INICIAL) AS EFETIVO_INICIAL,
+           SUM(T.EFETIVO_FINAL) AS EFETIVO_FINAL,
+           SUM(T.ADMITIDOS) AS ADMITIDOS,
+           SUM(T.DEMITIDOS) AS DEMITIDOS,
+           SUM(T.VINCULADOS_PERIODO) AS VINCULADOS_PERIODO,
+           SUM(T.AFASTADOS_FINAL) AS AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+      CROSS JOIN CALENDARIO P
+     WHERE T.COD_TIPO = 1 AND T.COD_REGIAO IS NOT NULL
+     GROUP BY T.COD_EMP, T.COD_REDE, T.DES_REDE, T.COD_REGIAO, T.DES_REGIAO,
+              P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL
+    UNION ALL
+    SELECT 'TOTAL_UNIDADES' AS NIVEL_AGREGACAO,
+           P.MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL,
+           T.COD_EMP AS COD_EMP,
+           1 AS COD_TIPO,
+           'LOJA' AS DES_TIPO,
+           NULL AS COD_REDE,
+           NULL AS DES_REDE,
+           NULL AS COD_REGIAO,
+           NULL AS DES_REGIAO,
+           NULL AS COD_UNIDADE,
+           NULL AS DES_UNIDADE,
+           NULL AS COD_CCU,
+           NULL AS DES_CCU,
+           NULL AS TAB_ORG,
+           NULL AS COD_ORGANOGRAMA,
+           NULL AS DES_ORGANOGRAMA,
+           SUM(T.EFETIVO_INICIAL) AS EFETIVO_INICIAL,
+           SUM(T.EFETIVO_FINAL) AS EFETIVO_FINAL,
+           SUM(T.ADMITIDOS) AS ADMITIDOS,
+           SUM(T.DEMITIDOS) AS DEMITIDOS,
+           SUM(T.VINCULADOS_PERIODO) AS VINCULADOS_PERIODO,
+           SUM(T.AFASTADOS_FINAL) AS AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+      CROSS JOIN CALENDARIO P
+     WHERE T.COD_TIPO = 1
+     GROUP BY T.COD_EMP, P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL
+    UNION ALL
+    SELECT 'TOTAL_ADM' AS NIVEL_AGREGACAO,
+           P.MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL,
+           T.COD_EMP AS COD_EMP,
+           2 AS COD_TIPO,
+           'ADMINISTRATIVO' AS DES_TIPO,
+           NULL AS COD_REDE,
+           NULL AS DES_REDE,
+           NULL AS COD_REGIAO,
+           NULL AS DES_REGIAO,
+           NULL AS COD_UNIDADE,
+           NULL AS DES_UNIDADE,
+           NULL AS COD_CCU,
+           NULL AS DES_CCU,
+           NULL AS TAB_ORG,
+           NULL AS COD_ORGANOGRAMA,
+           NULL AS DES_ORGANOGRAMA,
+           SUM(T.EFETIVO_INICIAL) AS EFETIVO_INICIAL,
+           SUM(T.EFETIVO_FINAL) AS EFETIVO_FINAL,
+           SUM(T.ADMITIDOS) AS ADMITIDOS,
+           SUM(T.DEMITIDOS) AS DEMITIDOS,
+           SUM(T.VINCULADOS_PERIODO) AS VINCULADOS_PERIODO,
+           SUM(T.AFASTADOS_FINAL) AS AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+      CROSS JOIN CALENDARIO P
+     WHERE T.COD_TIPO = 2
+     GROUP BY T.COD_EMP, P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL
+    UNION ALL
+    SELECT 'TOTAL_CD' AS NIVEL_AGREGACAO,
+           P.MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL,
+           T.COD_EMP AS COD_EMP,
+           3 AS COD_TIPO,
+           'LOGISTICA/CD' AS DES_TIPO,
+           NULL AS COD_REDE,
+           NULL AS DES_REDE,
+           NULL AS COD_REGIAO,
+           NULL AS DES_REGIAO,
+           NULL AS COD_UNIDADE,
+           NULL AS DES_UNIDADE,
+           NULL AS COD_CCU,
+           NULL AS DES_CCU,
+           NULL AS TAB_ORG,
+           NULL AS COD_ORGANOGRAMA,
+           NULL AS DES_ORGANOGRAMA,
+           SUM(T.EFETIVO_INICIAL) AS EFETIVO_INICIAL,
+           SUM(T.EFETIVO_FINAL) AS EFETIVO_FINAL,
+           SUM(T.ADMITIDOS) AS ADMITIDOS,
+           SUM(T.DEMITIDOS) AS DEMITIDOS,
+           SUM(T.VINCULADOS_PERIODO) AS VINCULADOS_PERIODO,
+           SUM(T.AFASTADOS_FINAL) AS AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+      CROSS JOIN CALENDARIO P
+     WHERE T.COD_TIPO = 3
+     GROUP BY T.COD_EMP, P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL
+    UNION ALL
+    SELECT 'TOTAL_ADM_CD' AS NIVEL_AGREGACAO,
+           P.MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL,
+           T.COD_EMP AS COD_EMP,
+           NULL AS COD_TIPO,
+           'ADM + CD' AS DES_TIPO,
+           NULL AS COD_REDE,
+           NULL AS DES_REDE,
+           NULL AS COD_REGIAO,
+           NULL AS DES_REGIAO,
+           NULL AS COD_UNIDADE,
+           NULL AS DES_UNIDADE,
+           NULL AS COD_CCU,
+           NULL AS DES_CCU,
+           NULL AS TAB_ORG,
+           NULL AS COD_ORGANOGRAMA,
+           NULL AS DES_ORGANOGRAMA,
+           SUM(T.EFETIVO_INICIAL) AS EFETIVO_INICIAL,
+           SUM(T.EFETIVO_FINAL) AS EFETIVO_FINAL,
+           SUM(T.ADMITIDOS) AS ADMITIDOS,
+           SUM(T.DEMITIDOS) AS DEMITIDOS,
+           SUM(T.VINCULADOS_PERIODO) AS VINCULADOS_PERIODO,
+           SUM(T.AFASTADOS_FINAL) AS AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+      CROSS JOIN CALENDARIO P
+     WHERE T.COD_TIPO IN (2,3)
+     GROUP BY T.COD_EMP, P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL
+    UNION ALL
+    SELECT 'TOTAL_EMPRESA' AS NIVEL_AGREGACAO,
+           P.MES_REFERENCIA,
+           P.DATA_INICIAL,
+           P.DATA_FINAL,
+           T.COD_EMP AS COD_EMP,
+           NULL AS COD_TIPO,
+           'EMPRESA' AS DES_TIPO,
+           NULL AS COD_REDE,
+           NULL AS DES_REDE,
+           NULL AS COD_REGIAO,
+           NULL AS DES_REGIAO,
+           NULL AS COD_UNIDADE,
+           NULL AS DES_UNIDADE,
+           NULL AS COD_CCU,
+           NULL AS DES_CCU,
+           NULL AS TAB_ORG,
+           NULL AS COD_ORGANOGRAMA,
+           NULL AS DES_ORGANOGRAMA,
+           SUM(T.EFETIVO_INICIAL) AS EFETIVO_INICIAL,
+           SUM(T.EFETIVO_FINAL) AS EFETIVO_FINAL,
+           SUM(T.ADMITIDOS) AS ADMITIDOS,
+           SUM(T.DEMITIDOS) AS DEMITIDOS,
+           SUM(T.VINCULADOS_PERIODO) AS VINCULADOS_PERIODO,
+           SUM(T.AFASTADOS_FINAL) AS AFASTADOS_FINAL
+      FROM FATO_FILTRADO T
+      CROSS JOIN CALENDARIO P
+     GROUP BY T.COD_EMP, P.MES_REFERENCIA, P.DATA_INICIAL, P.DATA_FINAL
+)
+SELECT X.MES_REFERENCIA,
+       X.DATA_INICIAL,
+       X.DATA_FINAL,
+       X.COD_EMP,
+       X.COD_TIPO,
+       X.DES_TIPO,
+       X.COD_REDE,
+       X.DES_REDE,
+       X.COD_REGIAO,
+       X.DES_REGIAO,
+       X.COD_UNIDADE,
+       X.DES_UNIDADE,
+       X.EFETIVO_INICIAL,
+       X.EFETIVO_FINAL,
+       X.ADMITIDOS,
+       X.DEMITIDOS,
+       X.VINCULADOS_PERIODO,
+       X.AFASTADOS_FINAL,
+       (X.EFETIVO_INICIAL + X.EFETIVO_FINAL) / 2 AS EFETIVO_MEDIO,
+       NVL(ROUND(100 * X.DEMITIDOS /
+                 NULLIF((X.EFETIVO_INICIAL + X.EFETIVO_FINAL) / 2, 0),
+                 2),
+           0) AS TURNOVER_PCT
+  FROM CONSOLIDADO X
+ ORDER BY X.COD_EMP,
+          CASE X.NIVEL_AGREGACAO
+            WHEN 'UNIDADE' THEN
+             1
+            WHEN 'REDE' THEN
+             2
+            WHEN 'REGIAO' THEN
+             3
+            WHEN 'TOTAL_UNIDADES' THEN
+             4
+            WHEN 'TOTAL_ADM' THEN
+             5
+            WHEN 'TOTAL_CD' THEN
+             6
+            WHEN 'TOTAL_ADM_CD' THEN
+             7
+            WHEN 'TOTAL_EMPRESA' THEN
+             8
+            ELSE
+             9
+          END,
+          X.COD_TIPO,
+          X.COD_UNIDADE,
+          X.COD_REDE,
+          X.COD_REGIAO,          
+          X.TAB_ORG,
+          X.COD_ORGANOGRAMA

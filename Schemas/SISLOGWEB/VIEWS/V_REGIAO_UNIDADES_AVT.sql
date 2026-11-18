@@ -1,74 +1,85 @@
 CREATE OR REPLACE VIEW V_REGIAO_UNIDADES_AVT AS
-SELECT COD_EMP,
-       COD_GRUPO,
-       COD_QUEBRA AS COD_REGIAO,
+SELECT A.COD_EMP,
+       A.COD_GRUPO,
+       A.COD_QUEBRA AS COD_REGIAO,
        CASE
-           WHEN COD_QUEBRA = 8701 THEN
+           /*AQUI AS REGIÕES PADRÃO*/ --OBS: Sujeito a alterações
+           WHEN A.COD_QUEBRA = 8701 THEN
             'REGIÃO I'
-           WHEN COD_QUEBRA = 8702 THEN
+           WHEN A.COD_QUEBRA = 8702 THEN
             'REGIÃO II'
-           WHEN COD_QUEBRA = 8703 THEN
+           WHEN A.COD_QUEBRA = 8703 THEN
             'REGIÃO III'
-           WHEN COD_QUEBRA = 8704 THEN
+           WHEN A.COD_QUEBRA = 8704 THEN
             'REGIÃO IV'
-           WHEN COD_QUEBRA = 8705 THEN
+           WHEN A.COD_QUEBRA = 8705 THEN
             'REGIÃO V'
-           WHEN COD_QUEBRA = 8706 THEN
+           WHEN A.COD_QUEBRA = 8706 THEN
             'REGIÃO VI'
-           WHEN COD_QUEBRA = 8707 THEN
+           WHEN A.COD_QUEBRA = 8707 THEN
             'REGIÃO VII'
-           WHEN COD_QUEBRA = 8708 THEN
+           WHEN A.COD_QUEBRA = 8708 THEN
             'REGIÃO VIII'
-           WHEN COD_QUEBRA = 8709 THEN
+           WHEN A.COD_QUEBRA = 8709 THEN
             'REGIÃO IX'
-           WHEN COD_QUEBRA = 8710 THEN
+           WHEN A.COD_QUEBRA = 8710 THEN
             'REGIÃO X'
-           WHEN COD_QUEBRA = 8711 THEN
+           WHEN A.COD_QUEBRA = 8711 THEN
             'REGIÃO XI'
-           WHEN COD_QUEBRA = 8712 THEN
-            'REGIÃO XII'
-           WHEN COD_QUEBRA = 8713 THEN
-            'REGIÃO XIII'
-           WHEN COD_QUEBRA = 8714 THEN
-            'REGIÃO XIV'
-           WHEN COD_QUEBRA = 8715 THEN
-            'REGIÃO XV'
-           WHEN COD_QUEBRA = 8716 THEN
-            'REGIÃO XVI'
-           WHEN COD_QUEBRA = 8717 THEN
-            'REGIÃO XVII'
-           WHEN COD_QUEBRA = 8718 THEN
-            'REGIÃO XVIII'
-           WHEN COD_QUEBRA = 8719 THEN
-            'REGIÃO XIX'
-           WHEN COD_QUEBRA = 8720 THEN
-            'REGIÃO XX'
-           WHEN COD_QUEBRA = 8730 THEN
+            /*aqui inicia as regiões da PORMENOS*/ --OBS: Sujeito a alterações
+           WHEN A.COD_QUEBRA = 9301 THEN
+            'REGIÃO PORMENOS I'
+           WHEN A.COD_QUEBRA = 9302 THEN
+            'REGIÃO PORMENOS II'
+           WHEN A.COD_QUEBRA = 9303 THEN
+            'REGIÃO PORMENOS III'
+           WHEN A.COD_QUEBRA = 9304 THEN
+            'REGIÃO PORMENOS IV'
+           WHEN A.COD_QUEBRA = 9305 THEN
+            'REGIÃO PORMENOS V'
+           WHEN A.COD_QUEBRA = 9306 THEN
+            'REGIÃO PORMENOS VI'
+           WHEN A.COD_QUEBRA = 9307 THEN
+            'REGIÃO PORMENOS VII'
+           WHEN A.COD_QUEBRA = 9308 THEN
+            'REGIÃO PORMENOS VIII'
+           WHEN A.COD_QUEBRA = 9309 THEN
+            'REGIÃO PORMENOS IX'
+           WHEN A.COD_QUEBRA = 9310 THEN
+            'REGIÃO PORMENOS X'
+           WHEN A.COD_QUEBRA = 9311 THEN
+            'REGIÃO PORMENOS XI'
+           /*AQUI FICA A REGIÃO DA FRANCO*/ --OBS: Sujeito a alterações
+           WHEN A.COD_QUEBRA = 941 THEN
+            'REGIÃO FRANCO GIORGI'
+           WHEN A.COD_QUEBRA = 8730 THEN
             'E-COMERCE'
            ELSE
             NULL
        END AS DES_REGIAO,
-       COD_UNIDADE,
+       B.DES_GRUPO,
+       A.COD_UNIDADE,
        UPPER(GRZ_UTIL.BUSCA_DES_UNIDADE(COD_UNIDADE)) DES_UNIDADE,
        CASE
-           WHEN COD_NIVEL2 = 810 THEN
+           WHEN A.COD_NIVEL2 = 810 THEN
             10
-           WHEN COD_NIVEL2 = 830 THEN
+           WHEN A.COD_NIVEL2 = 830 THEN
             30
-           WHEN COD_NIVEL2 = 840 THEN
+           WHEN A.COD_NIVEL2 = 840 THEN
             40
-           WHEN COD_NIVEL2 = 850 THEN
+           WHEN A.COD_NIVEL2 = 850 THEN
             50
-           WHEN COD_NIVEL2 = 870 THEN
+           WHEN A.COD_NIVEL2 = 870 THEN
             70
            ELSE
             NULL
        END AS COD_REDE,
-       COD_NIVEL3
-FROM NL.GE_GRUPOS_UNIDADES
-WHERE COD_GRUPO IN (910, 930, 940, 950, 970)
-AND COD_NIVEL2 IN (810, 830, 840, 850, 870)
-AND COD_QUEBRA NOT IN (9999)
+       A.COD_NIVEL3
+FROM NL.GE_GRUPOS_UNIDADES A
+LEFT JOIN NL.GE_GRUPOS B ON A.COD_QUEBRA = B.COD_GRUPO
+WHERE A.COD_GRUPO IN (910, 930, 940, 950, 970)
+AND A.COD_NIVEL2 IN (810, 830, 840, 850, 870)
+AND A.COD_QUEBRA NOT IN (9999)
 --AND COD_UNIDADE = 140
-ORDER BY COD_UNIDADE
-
+ORDER BY A.COD_UNIDADE
+;
